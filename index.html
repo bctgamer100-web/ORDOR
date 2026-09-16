@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ORDER V1</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 20px;
+  font-family: "Tahoma", "Segoe UI", "Noto Sans Thai", sans-serif;
+
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)),
+    url("bank.jpg");
+
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+
+  color: #083b4a;
+}
+.shell{max-width:1100px;margin:auto}
+.top{background:#ffffff22;border:1px solid #ffffff40;border-radius:22px 22px 0 0;padding:24px 30px;color:#fff;box-shadow:0 18px 50px #0004}
+.top h1{margin:0;font-size:30px} .top p{margin:7px 0 0;opacity:.92}
+.tabs{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.tab{border:0;border-radius:10px;padding:11px 16px;font-weight:bold;cursor:pointer;background:#ffffff33;color:#fff}
+.tab.active{background:#fff;color:#087f8c}
+.panel-wrap{background:#ffffff18;border:1px solid #ffffff40;border-top:0;border-radius:0 0 22px 22px;padding:16px}
+.tool{display:none} .tool.active{display:block}
+/* Shared report styles */
+
+.app{max-width:1100px;margin:auto;background:#ffffff22;border:1px solid #ffffff40;border-radius:22px;box-shadow:0 18px 50px #0004;overflow:hidden}
+header{padding:25px 30px;color:#fff}h1{margin:0;font-size:30px}header p{margin:7px 0 0;opacity:.9}
+main{padding:0 22px 25px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.card,.panel,.preview{background:#f8ffffee;border-radius:16px;padding:18px;box-shadow:0 7px 20px #0002}
+h2{margin:0 0 13px;font-size:17px}.drop{border:2px dashed #7bc7cf;border-radius:12px;padding:22px;text-align:center;background:#f5fcfd;cursor:pointer}.drop:hover{background:#eaf9fa}.drop input{display:none}.icon{font-size:28px}.name{font-weight:bold;margin-top:6px;word-break:break-all}.info{font-size:12px;color:#71848a;margin-top:5px}
+.panel{margin-top:15px}.cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;max-height:180px;overflow:auto;padding:4px;background:#f5fbfc;border:1px solid #c9e2e5;border-radius:10px}
+.col{display:flex;gap:8px;align-items:center;padding:9px;border:1px solid #c7dfe2;background:white;border-radius:8px;cursor:pointer}.col.on{background:#dff5f7;border-color:#0a8994}.col input{accent-color:#07808d}
+.mini{margin-top:8px;display:flex;gap:7px}.mini button{padding:6px 10px;font-size:12px}
+.settings{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:13px}label{font-weight:bold;font-size:13px}select{width:100%;margin-top:6px;padding:11px;border:1px solid #acd5da;border-radius:9px;background:white;font-size:14px}
+.rules{margin-top:12px;padding:10px 13px;border-radius:10px;background:#eefafb;border:1px solid #c8e5e8;font-size:13px;line-height:1.7}.rules b{color:#087f8c}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:9px;padding:12px 18px;font-weight:bold;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}
+.primary{background:#087f8c;color:white}.green{background:#168c62;color:white}.red{background:#df5b5b;color:white}
+.status{color:rgb(248, 245, 245);font-weight:bold;margin:13px 3px;min-height:20px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}.stat{padding:15px;border-radius:13px;background:#dff5f7}.stat:nth-child(2){background:#e9f2fb}.stat:nth-child(3){background:#e2f4e8}.sv{font-size:27px;font-weight:bold;margin-top:3px}
+.preview{margin-top:14px;overflow:hidden}.table{overflow:auto;max-height:320px;border:1px solid #d8e7e9;border-radius:9px}table{width:100%;border-collapse:collapse;font-size:12px;background:white}th,td{padding:8px 10px;border-bottom:1px solid #e7eeee;white-space:nowrap;text-align:left}th{background:#087f8c;color:white;position:sticky;top:0}.empty{text-align:center;padding:30px;color:#71848a}
+.download-box{display:none;margin-top:12px;padding:14px;background:white;border-radius:13px;align-items:center;justify-content:space-between;gap:10px}.download-note{font-size:12px;color:#71848a;margin-top:3px}
+.progress{display:none;height:6px;background:#ffffff55;border-radius:99px;overflow:hidden;margin-top:10px}.bar{height:100%;width:0;background:white;transition:.2s}
+@media(max-width:700px){.grid,.settings{grid-template-columns:1fr}.stats{grid-template-columns:1fr}body{padding:8px}main{padding:0 10px 18px}}
+
+/* Beta additions */
+.beta-card{background:#ffffffee;border-radius:16px;padding:22px;box-shadow:0 7px 20px #0002}
+.beta-drop{border:2px dashed #7bc7cf;border-radius:12px;padding:30px;text-align:center;background:#f5fcfd;cursor:pointer}
+.beta-drop:hover{background:#eaf9fa} .beta-drop input{display:none}
+.beta-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.beta-primary{background:#087f8c;color:white} .beta-secondary{background:#f1f5f6;color:#174d59} .beta-danger{background:#df5b5b;color:white}
+.beta-status{font-weight:bold;margin:13px 3px;min-height:20px;color:#080808}
+.beta-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:12px 0}
+.beta-stat{padding:15px;border-radius:13px;background:#dff5f7} .beta-stat .sv{font-size:27px;font-weight:bold;margin-top:3px}
+.beta-options{padding:16px;background:#ffffffdd;border-radius:13px;margin-top:15px}
+.beta-cols{display:flex;gap:8px;flex-wrap:wrap;max-height:180px;overflow:auto}
+.beta-cols label{background:#fff;border:1px solid #c7dfe2;padding:8px 11px;border-radius:8px}
+.beta-preview{background:#fff;border-radius:16px;padding:18px;margin-top:14px;overflow:hidden}
+.beta-table{overflow:auto;max-height:320px;border:1px solid #d8e7e9;border-radius:9px}
+.beta-table table{width:100%;border-collapse:collapse;font-size:12px;background:white}
+.beta-table th,.beta-table td{padding:8px 10px;border-bottom:1px solid #e7eeee;white-space:nowrap;text-align:left}
+.beta-table th{background:#087f8c;color:white;position:sticky;top:0}
+.beta-progress{height:7px;background:#ffffff55;border-radius:99px;overflow:hidden;margin-top:10px}
+.beta-bar{height:100%;width:0;background:white;transition:.2s}
+@media(max-width:700px){body{padding:8px}.beta-stats{grid-template-columns:1fr}}
+
+/* ===== ORDER FILTER UI ===== */
+.order-filter-wrap{margin-top:12px;padding:10px;background:#ffffffdd;border-radius:11px}
+.order-filter-title{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap;margin-bottom:7px}
+.order-filter-title strong{color:#0b5261}
+.order-filter-actions{display:flex;gap:7px;flex-wrap:wrap}
+.order-filter-actions button{padding:7px 10px;font-size:12px;background:#f1f5f6;color:#174d59}
+.order-filter-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.order-filter-card{position:relative;background:#fff;border:1px solid #c7dfe2;border-radius:8px;padding:7px}
+.order-filter-card label{display:block;font-size:11px;color:#174d59;margin-bottom:4px}
+.order-filter-card select{margin-top:0}
+.order-filter-card .filter-select{width:100%;height:38px}
+.order-filter-card .filter-count{font-size:11px;color:#71848a;margin-top:5px}
+.order-filter-card .filter-search{width:100%;padding:6px 7px;border:1px solid #acd5da;border-radius:7px;margin-bottom:4px;font-size:12px}
+.order-filter-card .value-list{max-height:145px;overflow:auto;border:1px solid #d8e7e9;border-radius:7px;padding:3px;background:#f8fcfc}
+.order-filter-card .value-item{display:flex;align-items:center;gap:5px;padding:4px;border-radius:5px;font-size:11px;font-weight:normal;cursor:pointer}
+.order-filter-card .value-item:hover{background:#eefafb}
+.order-filter-card .value-item input{accent-color:#087f8c}
+.order-filter-card .value-item span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.order-filter-card .value-actions{display:flex;gap:4px;margin:4px 0}
+.order-filter-card .value-actions button{padding:4px 6px;font-size:10px;background:#f1f5f6;color:#174d59}
+.order-summary{margin-top:10px;padding:10px 12px;background:#eefafb;border:1px solid #c8e5e8;border-radius:9px;font-size:13px}
+.order-preview-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:15px}
+.order-preview-note{font-size:12px;color:#71848a}
+@media(max-width:900px){.order-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.order-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){.order-filter-grid{grid-template-columns:1fr}}
+
+
+/* ===== ORDER FILTER COLLAPSIBLE ===== */
+.order-filter-head{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;user-select:none}
+.order-filter-toggle{border:0;background:#eef6f7;color:#0b5261;border-radius:9px;padding:7px 11px;font-weight:bold;cursor:pointer}
+.order-filter-body{margin-top:10px}
+.order-filter-wrap.collapsed .order-filter-body{display:none}
+.order-filter-wrap.collapsed{padding-bottom:10px}
+
+.order-filter-title{cursor:pointer;user-select:none}
+.order-filter-toggle{padding:7px 10px !important}
+
+/* ===== ORDER PIVOT / WORD EXPORT ===== */
+.order-pivot-wrap{margin-top:14px;padding:12px;background:#ffffffdd;border:1px solid #c8e5e8;border-radius:11px}
+.order-pivot-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.order-pivot-head strong{color:#0b5261}
+.order-pivot-note{font-size:11px;color:#71848a}
+.order-pivot-table{margin-top:8px;max-height:260px;overflow:auto;border:1px solid #d8e7e9;border-radius:8px;background:#fff}
+.order-pivot-table table{font-size:12px}
+.order-pivot-table th{background:#087f8c;color:#fff;position:sticky;top:0}
+.order-pivot-table td,.order-pivot-table th{padding:6px 9px}
+.word-export-btn{background:#2b579a;color:#fff} .excel-pivot-export-btn{background:#217346;color:#fff}
+@media(max-width:700px){.order-pivot-table{max-height:220px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="top">
+    <h1>📊 Excel </h1>
+    <p>รวมไฟล์ Excel จาก ZIP และเปรียบเทียบยอดตาม SKU ได้ในหน้าเดียว</p>
+    <div class="tabs">
+      <button class="tab active" data-tool="mergeTool">📦 รวมไฟล์ ZIP</button>
+      <button class="tab" data-tool="compareTool">🔎 เปรียบเทียบ 2 ไฟล์</button>
+      <button class="tab" data-tool="orderTool">📥 รับORDER</button>
+    </div>
+  </div>
+
+  <div class="panel-wrap">
+    <section id="mergeTool" class="tool active">
+      <div class="beta-card">
+        <h2 style="margin-top:0;color:#0b5261">📦 รวมไฟล์ Excel จาก ZIP</h2>
+        <p style="color:#21607e">อัปโหลด ZIP ที่มีไฟล์ Excel หลายไฟล์ แล้วรวมข้อมูลต่อกันลงในชีตเดียว</p>
+        <div class="beta-drop" id="drop">
+          <strong>📁 คลิกเพื่อเลือกไฟล์ ZIP</strong><br>
+          หรือลากไฟล์ ZIP มาวางที่นี่
+          <input id="file" type="file" accept=".zip">
+        </div>
+        <div class="beta-stats">
+          <div class="beta-stat">ไฟล์ Excel<div class="sv" id="fileCount">0</div></div>
+          <div class="beta-stat">จำนวนแถว<div class="sv" id="rowCount">0</div></div>
+        </div>
+        <div class="beta-options">
+          <strong>เลือกคอลัมน์ที่ต้องการลบก่อนรวมไฟล์</strong>
+          <div class="beta-cols" id="cols"></div>
+          <p style="font-size:13px;color:#71848a">ค่าเริ่มต้นเลือก C, D, F, H, I, J, K, L ตามงานเดิม</p>
+        </div>
+        <div class="beta-progress"><div class="beta-bar" id="bar"></div></div>
+        <div class="beta-status" id="status">ยังไม่ได้เลือกไฟล์</div>
+        <div class="beta-actions">
+          <button class="beta-primary" id="process" disabled>🔄 รวมไฟล์</button>
+          <button class="beta-secondary" id="download" disabled>⬇️ ดาวน์โหลด Excel</button>
+          <button class="beta-danger" id="clear">ล้างข้อมูล</button>
+        </div>
+        <h3 style="color:#0b5261">ตัวอย่างข้อมูล</h3>
+        <div class="beta-table" id="preview">ยังไม่มีข้อมูล</div>
+      </div>
+    </section>
+
+    <section id="compareTool" class="tool">
+      <div class="app" style="max-width:none;background:transparent;border:0;box-shadow:none">
+        <header style="display:none"></header>
+        <main>
+<div class="grid">
+<div class="card"><h2>📄 ไฟล์ที่ 1 — ไฟล์ตั้งต้น</h2><label class="drop"><input id="file1" type="file" accept=".xlsx,.xls,.csv"><div class="icon">📁</div><div class="name" id="name1">คลิกเพื่อเลือกไฟล์</div><div class="info" id="info1">รองรับ Excel / CSV</div></label></div>
+<div class="card"><h2>🔎 ไฟล์ที่ 2 — ไฟล์สำหรับเทียบ</h2><label class="drop"><input id="file2" type="file" accept=".xlsx,.xls,.csv"><div class="icon">📁</div><div class="name" id="name2">คลิกเพื่อเลือกไฟล์</div><div class="info" id="info2">รองรับ Excel / CSV</div></label></div>
+</div>
+
+<div class="panel">
+<h2>🔑 เลือกหัวข้อจากคอลัมน์บนสุดของไฟล์</h2>
+<div class="cols" id="columnList"><div class="empty">กรุณาเลือกไฟล์ทั้ง 2 ก่อน</div></div>
+<div class="mini"><button id="allCols" disabled>☑ เลือกทั้งหมด</button><button id="noCols" disabled>☐ ยกเลิกทั้งหมด</button></div><div style="font-size:12px;color:#71848a;margin-top:7px">หัวข้อทั้งหมดด้านบนดึงมาจากชื่อคอลัมน์แถวแรกของไฟล์ที่ 1 และต้องมีชื่อเดียวกันในไฟล์ที่ 2</div>
+<div class="settings">
+<div><label>🏷️ เลือกคอลัมน์สำหรับจับคู่</label><select id="sku" disabled><option>เลือกไฟล์ก่อน</option></select></div>
+<div><label>🔢 เลือกคอลัมน์จำนวน</label><select id="qty" disabled><option>เลือกไฟล์ก่อน</option></select></div>
+</div>
+<div class="rules"><b>📌 กติกา:</b><br>• ไฟล์ 1 น้อยกว่าไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 เท่ากับไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 มากกว่าไฟล์ 2 → หักจำนวน แล้วเก็บยอดคงเหลือ</div>
+<div class="actions"><button class="primary" id="compare2" disabled>▶ เปรียบเทียบข้อมูล</button><button class="red" id="clear2">🗑 ล้างข้อมูล</button></div>
+</div>
+
+<div class="progress" id="progress"><div class="bar" id="bar"></div></div>
+<div class="status" id="status">● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์</div>
+
+<div class="download-box" id="downloadBox"><div><b>✅ เปรียบเทียบเสร็จแล้ว</b><div class="download-note">ไฟล์ผลลัพธ์มี 2 Sheet: ยอดคงเหลือ และรายการที่ถูกลบ/ถูกหัก</div></div><button class="green" id="download2">⬇ ดาวน์โหลดไฟล์ผลลัพธ์ Excel</button></div>
+
+<div class="stats">
+<div class="stat"><div>📄 ข้อมูลในไฟล์ที่ 1</div><div class="sv" id="total">0</div></div>
+<div class="stat"><div>🗑️ SKU ที่ถูกลบ/หัก</div><div class="sv" id="affected">0</div></div>
+<div class="stat"><div>✅ ข้อมูลที่เหลือ</div><div class="sv" id="remaining">0</div></div>
+</div>
+
+<div class="preview" id="resultBox" style="display:none"><h2>📋 ตัวอย่างข้อมูลที่เหลือ</h2><div class="table" id="resultPreview"><div class="empty">ยังไม่มีผลลัพธ์</div></div></div>
+<div class="preview" id="deletedBox" style="display:none"><h2>🗑️ ตัวอย่างแถวที่ถูกลบออกไป</h2><div class="table" id="deletedPreview"></div></div>
+</main>
+      </div>
+    </section>
+
+    <!-- ===== ORDER TAB ===== -->
+    <section id="orderTool" class="tool">
+      <div class="beta-card">
+        <h2 style="margin-top:0;color:#0b5261">📥 รับORDER</h2>
+        <p style="color:#21607e">อัปโหลด Excel แล้วเลือกกรองข้อมูลแต่ละหัวข้อได้เอง เหมือนตัวกรองใน Excel</p>
+
+        <div class="beta-drop" id="orderDrop">
+          <strong>📁 คลิกเพื่อเลือกไฟล์ ORDER</strong><br>
+          หรือลากไฟล์ Excel / CSV มาวางที่นี่
+          <input id="orderFile" type="file" accept=".xlsx,.xls,.csv">
+          <div class="name" id="orderFileName"></div>
+        </div>
+
+        <div class="beta-stats">
+          <div class="beta-stat">ไฟล์ ORDER<div class="sv" id="orderFileCount">0</div></div>
+          <div class="beta-stat">รายการทั้งหมด<div class="sv" id="orderRowCount">0</div></div>
+        </div>
+
+        <div class="order-filter-wrap" id="orderFilterPanel">
+          <div class="order-filter-title" onclick="toggleOrderFilters()">
+            <strong>🔎 กรองข้อมูลตามหัวข้อ</strong>
+            <div class="order-filter-actions">
+              <button type="button" id="orderSelectAll" onclick="event.stopPropagation()">☑ เลือกทั้งหมด</button>
+              <button type="button" id="orderClearFilters" onclick="event.stopPropagation()">↺ ล้างตัวกรอง</button>
+              <button type="button" class="order-filter-toggle" id="orderFilterToggle" onclick="event.stopPropagation();toggleOrderFilters()">พับเก็บ ▲</button>
+            </div>
+          </div>
+          <div class="order-filter-body order-filter-grid" id="orderFilters">
+            <div class="empty">กรุณาเลือกไฟล์ ORDER ก่อน</div>
+          </div>
+          <div class="order-summary" id="orderFilterSummary">ยังไม่มีข้อมูล</div>
+        </div>
+
+        <div class="beta-progress"><div class="beta-bar" id="orderBar"></div></div>
+        <div class="beta-status" id="orderStatus">ยังไม่ได้เลือกไฟล์ ORDER</div>
+
+        <div class="beta-actions">
+          <button class="beta-primary" id="orderProcess" disabled>▶ เตรียมข้อมูล ORDER</button>
+          <button class="word-export-btn" id="orderDownload" disabled>📝 ดาวน์โหลด Word (Pivot)</button>
+          <button class="excel-pivot-export-btn" id="orderPivotExcelDownload" disabled>📊 ดาวน์โหลด Excel (Pivot)</button>
+          <button class="beta-danger" id="orderClear">ล้างข้อมูล</button>
+        </div>
+
+        <div class="order-pivot-wrap" id="orderPivotWrap" style="display:none">
+          <div class="order-pivot-head">
+            <strong>📊 PivotTable ก่อนดาวน์โหลด Word</strong>
+            <span class="order-pivot-note" id="orderPivotNote">รวม SKU ที่ซ้ำกันและรวมจำนวน</span>
+          </div>
+          <div class="order-pivot-table" id="orderPivotPreview"></div>
+        </div>
+
+        <div class="order-preview-head">
+          <h3 style="color:#0b5261;margin:0">ตัวอย่างข้อมูล</h3>
+          <div class="order-preview-note">แสดงสูงสุด 1,000 รายการที่ผ่านตัวกรอง</div>
+        </div>
+        <div class="beta-preview">
+          <div class="beta-table" id="orderPreview">ยังไม่มีข้อมูล</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".tool").forEach(x => x.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tool).classList.add("active");
+  });
+});
+</script>
+
+<script>
+// ===== ZIP MERGE TOOL (จาก Beta.html) =====
+
+let zipFile=null, resultRows=[], headers=[], outputWorkbook=null;
+
+const colBox=document.getElementById('cols');
+for(let i=0;i<26;i++){
+  const letter=String.fromCharCode(65+i);
+  const label=document.createElement('label');
+  label.innerHTML=`<input type="checkbox" value="${i}" ${'CDFHIJKL'.includes(letter)?'checked':''}> ${letter}`;
+  colBox.appendChild(label);
+}
+const drop=document.getElementById('drop'), input=document.getElementById('file');
+
+drop.onclick=()=>input.click();
+input.onchange=e=>setFile(e.target.files[0]);
+drop.ondragover=e=>{e.preventDefault();drop.style.background='#eef5ff'};
+drop.ondragleave=()=>drop.style.background='';
+drop.ondrop=e=>{e.preventDefault();drop.style.background='';setFile(e.dataTransfer.files[0])};
+
+function setFile(f){
+  if(!f || !f.name.toLowerCase().endsWith('.zip')){
+    alert('กรุณาเลือกไฟล์ ZIP'); return;
+  }
+  zipFile=f;
+  document.getElementById('status').textContent='เลือกไฟล์: '+f.name;
+  document.getElementById('process').disabled=false;
+  document.getElementById('download').disabled=true;
+}
+
+document.getElementById('process').onclick=processZip;
+
+async function processZip(){
+  if(!zipFile)return;
+  resultRows=[]; headers=[]; outputWorkbook=null;
+  const bar=document.getElementById('bar');
+  const status=document.getElementById('status');
+  document.getElementById('download').disabled=true;
+  bar.style.width='5%'; status.textContent='กำลังแตกไฟล์ ZIP...';
+
+  try{
+    const zip=await JSZip.loadAsync(zipFile);
+    const names=Object.keys(zip.files).filter(n=>/\.(xlsx|xls|csv)$/i.test(n)&&!zip.files[n].dir);
+    if(!names.length) throw new Error('ไม่พบไฟล์ Excel หรือ CSV ใน ZIP');
+
+    let first=true;
+    let processed=0;
+    for(const name of names){
+      status.textContent=`กำลังอ่าน ${processed+1}/${names.length}: ${name}`;
+      const data=await zip.files[name].async('arraybuffer');
+      let wb;
+      if(/\.csv$/i.test(name)){
+        const text=new TextDecoder('utf-8').decode(data);
+        wb=XLSX.read(text,{type:'string'});
+      }else{
+        wb=XLSX.read(data,{type:'array'});
+      }
+      for(const sheetName of wb.SheetNames){
+        const ws=wb.Sheets[sheetName];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        if(!rows.length)continue;
+        const h=rows[0].map(x=>String(x));
+        if(first){
+          headers=h;
+          resultRows.push(h);
+          first=false;
+        }
+        const body=rows.slice(1);
+        resultRows.push(...body);
+      }
+      processed++;
+      bar.style.width=(10+processed/names.length*75)+'%';
+    }
+
+    // ลบคอลัมน์ที่เลือก โดยอิงตำแหน่งคอลัมน์ A-Z
+    // ขั้นตอนนี้ทำก่อนการลบแถว FRONT / DELETE
+    const remove=new Set([...document.querySelectorAll('#cols input:checked')].map(x=>Number(x.value)));
+    resultRows=resultRows.map(row=>row.filter((_,i)=>!remove.has(i)));
+
+    // เปลี่ยนชื่อหัวคอลัมน์ผลลัพธ์ให้ตรงตามรูปแบบที่กำหนด
+    // หลังจากลบคอลัมน์แล้ว คอลัมน์ที่เหลือจะเป็น:
+    // A = SKU Merchant, B = ชื่อ SKU, C = ตำแหน่ง, D = จำนวน
+    if(resultRows.length && resultRows[0].length >= 4){
+      const standardHeaders=['SKU Merchant','ชื่อ SKU','ตำแหน่ง','จำนวน'];
+      resultRows[0]=resultRows[0].map((_,i)=>standardHeaders[i] ?? resultRows[0][i]);
+    }
+
+    // ลบแถวที่มีคำว่า FRONT หรือ DELETE เฉพาะในคอลัมน์ "ตำแหน่ง" เท่านั้น
+    // ตรวจหาคอลัมน์ "ตำแหน่ง" หลังจากลบคอลัมน์แล้ว
+    const positionIndex = findPositionColumnIndex(resultRows[0] || []);
+    let removedPositionRows = 0;
+
+    if(positionIndex >= 0){
+      const beforeFilter = resultRows.length;
+
+      resultRows = resultRows.filter((row, index) => {
+        if(index === 0) return true; // เก็บหัวตาราง
+        const positionValue = String(row[positionIndex] ?? '').trim();
+        return !/(?:front|delete)/i.test(positionValue);
+      });
+
+      removedPositionRows = beforeFilter - resultRows.length;
+    }
+
+    const keptHeader=resultRows[0]||[];
+    outputWorkbook=XLSX.utils.book_new();
+    const ws=XLSX.utils.aoa_to_sheet(resultRows);
+    XLSX.utils.book_append_sheet(outputWorkbook,ws,'รวมข้อมูล');
+
+    document.getElementById('fileCount').textContent=names.length.toLocaleString();
+    document.getElementById('rowCount').textContent=Math.max(0,resultRows.length-1).toLocaleString();
+    renderPreview(resultRows.slice(0,11));
+    bar.style.width='100%';
+    status.textContent=`✅ รวมสำเร็จ ${names.length} ไฟล์ / ${Math.max(0,resultRows.length-1).toLocaleString()} แถว`+
+      (positionIndex>=0 ? ` | ลบ FRONT/DELETE ในคอลัมน์ตำแหน่ง ${removedPositionRows.toLocaleString()} แถว` : ' | ไม่พบคอลัมน์ตำแหน่ง จึงไม่ได้ลบ FRONT/DELETE');
+    document.getElementById('download').disabled=false;
+  }catch(err){
+    console.error(err);
+    status.textContent='❌ เกิดข้อผิดพลาด: '+err.message;
+    bar.style.width='0%';
+    alert(err.message);
+  }
+}
+
+function findPositionColumnIndex(header){
+  if(!Array.isArray(header)) return -1;
+
+  // รองรับชื่อคอลัมน์: ตำแหน่ง, Position, Location หรือ Loc
+  const exact = header.findIndex(h => /^\\s*ตำแหน่ง\\s*$/i.test(String(h)));
+  if(exact >= 0) return exact;
+
+  return header.findIndex(h => /ตำแหน่ง|position|location|loc/i.test(String(h)));
+}
+
+function renderPreview(rows){
+  if(!rows.length){document.getElementById('preview').textContent='ไม่มีข้อมูล';return}
+  let html='<table><thead><tr>';
+  rows[0].forEach(x=>html+='<th>'+escapeHtml(x)+'</th>');
+  html+='</tr></thead><tbody>';
+  rows.slice(1).forEach(r=>{
+    html+='<tr>';
+    rows[0].forEach((_,i)=>html+='<td>'+escapeHtml(r[i]??'')+'</td>');
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  document.getElementById('preview').innerHTML=html;
+}
+function escapeHtml(x){
+  return String(x).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+document.getElementById('download').onclick=()=>{
+  if(!outputWorkbook)return;
+  XLSX.writeFile(outputWorkbook,'สต็อกตำแหน่ง_รวม.xlsx');
+};
+
+document.getElementById('clear').onclick=()=>{
+  zipFile=null; resultRows=[]; outputWorkbook=null; input.value='';
+  document.getElementById('fileCount').textContent='0';
+  document.getElementById('rowCount').textContent='0';
+  document.getElementById('status').textContent='ยังไม่ได้เลือกไฟล์';
+  document.getElementById('preview').textContent='ยังไม่มีข้อมูล';
+  document.getElementById('bar').style.width='0%';
+  document.getElementById('process').disabled=true;
+  document.getElementById('download').disabled=true;
+};
+
+</script>
+
+<script>
+// ===== COMPARE TOOL (จาก report.html) =====
+
+const $=id=>document.getElementById(id);
+let data1=null,data2=null,resultData=null,deletedData=null,previewData=null;
+
+$("file1").onchange=e=>loadFile(e.target.files[0],1);
+$("file2").onchange=e=>loadFile(e.target.files[0],2);
+$("compare2").onclick=compareFiles;
+$("download2").onclick=downloadResult;
+$("clear2").onclick=clearAll;
+$("allCols").onclick=()=>setCols(true);
+$("noCols").onclick=()=>setCols(false);
+$("sku").onchange=updateButton;
+$("qty").onchange=updateButton;
+
+async function loadFile(file,n){
+ if(!file)return;
+ try{
+  setProgress(20);
+  const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
+  setProgress(60);
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+  if(!rows.length)throw new Error("ไม่พบข้อมูลหรือหัวตาราง");
+  if(n===1){data1=rows;$("name1").textContent=file.name;$("info1").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
+  else{data2=rows;$("name2").textContent=file.name;$("info2").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
+  updateColumns();updateStatus();setProgress(100);setTimeout(()=>setProgress(0),300);
+ }catch(e){setProgress(0);alert("ไม่สามารถอ่านไฟล์ได้\n\n"+e.message)}
+}
+
+function updateColumns(){
+ const list=$("columnList"),sku=$("sku"),qty=$("qty");
+ list.innerHTML="";sku.innerHTML="";qty.innerHTML="";
+
+ if(!data1||!data2){
+  list.innerHTML='<div class="empty">กรุณาเลือกไฟล์ทั้ง 2 ก่อน</div>';
+  sku.innerHTML=qty.innerHTML='<option value="">เลือกไฟล์ก่อน</option>';
+  sku.disabled=qty.disabled=true;
+  $("compare2").disabled=true;
+  $("allCols").disabled=$("noCols").disabled=true;
+  return;
+ }
+
+ // ใช้ชื่อคอลัมน์จากแถวบนสุด (Header row) ของไฟล์ที่อัปโหลดจริง
+ const headers1=Object.keys(data1[0]);
+ const headers2=Object.keys(data2[0]);
+
+ // ต้องเป็นคอลัมน์ที่มีชื่อเดียวกันในทั้ง 2 ไฟล์ จึงจะใช้เทียบได้
+ const common=headers1.filter(c=>headers2.includes(c));
+
+ if(!common.length){
+  list.innerHTML='<div class="empty">ไม่พบชื่อคอลัมน์ที่ตรงกันระหว่างไฟล์ 1 และไฟล์ 2</div>';
+  sku.innerHTML=qty.innerHTML='<option value="">ไม่พบคอลัมน์ที่ใช้ร่วมกัน</option>';
+  sku.disabled=qty.disabled=true;
+  $("compare2").disabled=true;
+  $("allCols").disabled=$("noCols").disabled=true;
+  return;
+ }
+
+ // แสดง checkbox ตามหัวคอลัมน์จริงทั้งหมด
+ common.forEach((c,i)=>{
+  const l=document.createElement("label");
+  l.className="col"+(i===0?" on":"");
+
+  const x=document.createElement("input");
+  x.type="checkbox";
+  x.value=c;
+  x.checked=i===0;
+  x.onchange=()=>l.classList.toggle("on",x.checked);
+
+  const sp=document.createElement("span");
+  sp.textContent=c;
+  sp.title=c;
+
+  l.append(x,sp);
+  list.append(l);
+
+  // Dropdown ก็สร้างจากชื่อคอลัมน์จริงของไฟล์
+  sku.add(new Option(c,c));
+  qty.add(new Option(c,c));
+ });
+
+ // ถ้ามีชื่อที่สื่อถึง SKU/รหัส/สินค้า ให้เลือกเป็นค่าเริ่มต้น
+ // แต่ผู้ใช้สามารถเปลี่ยนเป็นหัวข้อใดก็ได้
+ const sg=common.find(c=>/sku|รหัส|code|product|item/i.test(c));
+ const qg=common.find(c=>/จำนวน|qty|quantity|amount|count|ยอด/i.test(c));
+
+ sku.value=sg||common[0];
+ qty.value=qg||(common[1]||common[0]);
+
+ sku.disabled=false;
+ qty.disabled=false;
+ $("allCols").disabled=false;
+ $("noCols").disabled=false;
+ updateButton();
+
+ $("status").textContent=
+   `● โหลดหัวคอลัมน์แล้ว ${common.length} หัวข้อ — สามารถเลือกหัวข้อใดก็ได้`;
+}
+
+function updateButton(){$("compare2").disabled=!data1||!data2||!$("sku").value||!$("qty").value||$("sku").value===$("qty").value}
+function setCols(v){document.querySelectorAll("#columnList input").forEach(x=>{x.checked=v;x.parentElement.classList.toggle("on",v)})}
+function updateStatus(){$("status").textContent=data1&&data2?"● พร้อมเลือกหัวคอลัมน์จากไฟล์ที่อัปโหลด":"● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์"}
+function num(v){const n=Number(String(v??"").replace(/,/g,"").trim());return Number.isFinite(n)?n:0}
+function norm(v){return String(v??"").trim()}
+
+function compareFiles(){
+ const sc=$("sku").value,qc=$("qty").value;
+ if(!sc||!qc||sc===qc){alert("กรุณาเลือกคอลัมน์ SKU และคอลัมน์จำนวนให้ถูกต้อง");return}
+ try{
+  setProgress(15);
+
+  // ไฟล์ 2: รวมจำนวนของ SKU เดียวกันทั้งหมดก่อนนำไปหักไฟล์ 1
+  const map=new Map();
+  data2.forEach(r=>{
+   const s=norm(r[sc]);
+   if(s) map.set(s,(map.get(s)||0)+num(r[qc]));
+  });
+  setProgress(35);
+
+  // หา column "ตำแหน่ง" จากไฟล์ 2
+  const posCol=Object.keys(data2[0]||{}).find(c=>/ตำแหน่ง|position|location|loc/i.test(String(c)))||null;
+
+  // เก็บตำแหน่งของแต่ละ SKU จากไฟล์ 2
+  // เช่น D-01, D-02, H-01 -> แสดงเป็น D,H เท่านั้น และไม่ซ้ำกัน
+  const posMap=new Map();
+  if(posCol){
+   data2.forEach(r=>{
+    const s=norm(r[sc]), rawPos=norm(r[posCol]);
+    if(!s||!rawPos)return;
+    const firstPos=rawPos.charAt(0).toUpperCase();
+    if(!firstPos)return;
+    if(!posMap.has(s))posMap.set(s,[]);
+    const arr=posMap.get(s);
+    if(!arr.includes(firstPos))arr.push(firstPos);
+   });
+  }
+
+  resultData=[];deletedData=[];previewData=[];
+
+  data1.forEach(r=>{
+   const s=norm(r[sc]), a=num(r[qc]), b=map.get(s)||0;
+   const nr={...r};
+   let deleted=false;
+   let position="";
+
+   if(s&&b>0){
+    if(a>b){
+     // เหลือยอด: ยังแสดงแถวเดิม แต่ไม่ใส่ตำแหน่ง
+     nr[qc]=a-b;
+     resultData.push(nr);
+    }else{
+     // ถูกลบทั้งแถว: จำนวนในตัวอย่างต้องเป็น 0 และแสดงตำแหน่งทั้งหมดจากไฟล์ 2
+     deleted=true;
+     position=(posMap.get(s)||[]).join(",");
+     nr[qc]=0;
+     deletedData.push({
+      [sc]:s,
+      "จำนวนไฟล์ที่ 1":a,
+      "จำนวนไฟล์ที่ 2":b,
+      "จำนวนที่ถูกลบ":a,
+      "ยอดคงเหลือ":0,
+      "ตำแหน่ง":position
+     });
+    }
+   }else{
+    // ไม่มี SKU ในไฟล์ 2: แถวไฟล์ 1 ยังคงอยู่
+    resultData.push(nr);
+   }
+   const previewPositions=(posMap.get(s)||[]).join(",")||"-";
+   previewData.push({...nr,"ตำแหน่ง":previewPositions});
+  });
+
+  setProgress(85);
+  $("total").textContent=data1.length.toLocaleString();
+  $("affected").textContent=deletedData.length.toLocaleString();
+  $("remaining").textContent=resultData.length.toLocaleString();
+  $("status").textContent=`● เปรียบเทียบเสร็จแล้ว — SKU: ${sc} | จำนวน: ${qc}${posCol?" | ตำแหน่ง: "+posCol:""}`;
+  $("downloadBox").style.display="flex";
+  $("resultBox").style.display="block";
+  $("deletedBox").style.display="none";
+  renderTable(previewData,"resultPreview");
+  setProgress(100);setTimeout(()=>setProgress(0),400);
+ }catch(e){setProgress(0);alert("เกิดข้อผิดพลาด\n\n"+e.message)}
+}
+
+function renderTable(rows,id){
+ const box=$(id);
+ if(!rows.length){box.innerHTML='<div class="empty">ไม่มีข้อมูล</div>';return}
+ const cs=Object.keys(rows[0]);
+ const limit=1000;
+ let h="<table><thead><tr>"+cs.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr></thead><tbody>";
+ rows.slice(0,limit).forEach(r=>h+="<tr>"+cs.map(c=>`<td>${esc(r[c])}</td>`).join("")+"</tr>");
+ h+="</tbody></table>";
+ if(rows.length>limit)h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดง ${limit.toLocaleString()} แถวแรก จาก ${rows.length.toLocaleString()} แถว</div>`;
+ else h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดงข้อมูลทั้งหมด ${rows.length.toLocaleString()} แถว</div>`;
+ box.innerHTML=h;
+}
+function downloadResult(){
+ if(!resultData)return;
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resultData),"ยอดคงเหลือ");
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(deletedData||[]),"รายการที่ถูกลบ-ถูกหัก");
+ XLSX.writeFile(wb,"ผลลัพธ์_เปรียบเทียบและยอดคงเหลือ.xlsx");
+}
+function clearAll(){
+ data1=null;data2=null;resultData=null;deletedData=null;previewData=null;
+ $("file1").value="";$("file2").value="";
+ $("name1").textContent=$("name2").textContent="คลิกเพื่อเลือกไฟล์";
+ $("info1").textContent=$("info2").textContent="รองรับ Excel / CSV";
+ $("columnList").innerHTML='<div class="empty">กรุณาเลือกไฟล์ทั้ง 2 ก่อน</div>';
+ $("sku").innerHTML=$("qty").innerHTML='<option value="">เลือกไฟล์ก่อน</option>';
+ $("sku").disabled=$("qty").disabled=true;$("compare2").disabled=true;
+ $("allCols").disabled=$("noCols").disabled=true;$("downloadBox").style.display="none";$("deletedBox").style.display="none";$("resultBox").style.display="none";
+ $("resultPreview").innerHTML='<div class="empty">ยังไม่มีผลลัพธ์</div>';
+ $("deletedPreview").innerHTML="";
+ $("total").textContent=$("affected").textContent=$("remaining").textContent="0";
+ $("status").textContent="● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์";setProgress(0);
+}
+function setProgress(v){$("progress").style.display=v?"block":"none";$("bar").style.width=v+"%"}
+function esc(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+
+</script>
+
+<script>
+/* ===== ORDER TOOL : Excel upload + per-column filters ===== */
+let orderWorkbook = null;
+let orderRows = [];
+let orderHeaders = [];
+let orderFilteredRows = [];
+let orderFiltersState = [];
+let orderPivotRows = [];
+
+const orderDrop = document.getElementById("orderDrop");
+const orderInput = document.getElementById("orderFile");
+const orderProcessBtn = document.getElementById("orderProcess");
+const orderDownloadBtn = document.getElementById("orderDownload");
+const orderClearBtn = document.getElementById("orderClear");
+// Pivot ใช้คอลัมน์ 4 = SKU Merchant และคอลัมน์ 5 = จำนวน ตามรูปแบบไฟล์ ORDER
+const ORDER_PIVOT_SKU_INDEX = 3;
+const ORDER_PIVOT_QTY_INDEX = 4;
+const orderFiltersBox = document.getElementById("orderFilters");
+const orderFilterSummary = document.getElementById("orderFilterSummary");
+
+orderDrop.onclick = () => orderInput.click();
+orderInput.onclick = e => e.stopPropagation();
+
+orderInput.onchange = e => {
+  const file = e.target.files[0];
+  if (file) loadOrderFile(file);
+};
+
+orderDrop.ondragover = e => {
+  e.preventDefault();
+  orderDrop.style.background = "#eaf9fa";
+};
+
+orderDrop.ondragleave = () => {
+  orderDrop.style.background = "";
+};
+
+orderDrop.ondrop = e => {
+  e.preventDefault();
+  orderDrop.style.background = "";
+  const file = e.dataTransfer.files[0];
+  if (file) loadOrderFile(file);
+};
+
+async function loadOrderFile(file) {
+  try {
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      throw new Error("รองรับเฉพาะไฟล์ Excel (.xlsx/.xls) หรือ CSV");
+    }
+
+    document.getElementById("orderStatus").textContent = "กำลังอ่านไฟล์ ORDER...";
+    document.getElementById("orderBar").style.width = "25%";
+
+    let wb;
+    if (/\.csv$/i.test(file.name)) {
+      const text = await file.text();
+      wb = XLSX.read(text, {type:"string", cellDates:true});
+    } else {
+      wb = XLSX.read(await file.arrayBuffer(), {type:"array", cellDates:true});
+    }
+
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {
+      header:1,
+      defval:"",
+      raw:false
+    });
+
+    if (!rows.length || !rows[0].length) {
+      throw new Error("ไม่พบข้อมูลหรือหัวตารางในไฟล์");
+    }
+
+    orderWorkbook = wb;
+    orderRows = rows;
+    orderHeaders = rows[0].map((x, i) => {
+      const h = String(x ?? "").trim();
+      return h || `คอลัมน์ ${i + 1}`;
+    });
+
+    document.getElementById("orderFileName").textContent = file.name;
+    document.getElementById("orderFileCount").textContent = "1";
+    document.getElementById("orderRowCount").textContent =
+      Math.max(0, rows.length - 1).toLocaleString();
+
+    buildOrderFilters();
+    applyOrderFilters();
+
+    orderProcessBtn.disabled = false;
+    orderDownloadBtn.disabled = false;
+  orderPivotExcelDownloadBtn.disabled = false;
+
+    document.getElementById("orderBar").style.width = "100%";
+    document.getElementById("orderStatus").textContent =
+      `✅ โหลดไฟล์สำเร็จ ${Math.max(0, rows.length - 1).toLocaleString()} รายการ | ${orderHeaders.length} คอลัมน์`;
+
+    setTimeout(() => {
+      document.getElementById("orderBar").style.width = "0%";
+    }, 400);
+
+  } catch (err) {
+    document.getElementById("orderBar").style.width = "0%";
+    document.getElementById("orderStatus").textContent = "❌ อ่านไฟล์ไม่สำเร็จ";
+    alert("ไม่สามารถอ่านไฟล์ ORDER ได้\n\n" + err.message);
+  }
+}
+
+function setupOrderColumns() {
+  // ไม่ต้องตั้งค่าคอลัมน์จากหน้าเว็บอีกต่อไป
+  // Pivot ใช้คอลัมน์ 4 (SKU Merchant) และคอลัมน์ 5 (จำนวน) อัตโนมัติ
+}
+
+function getOrderUniqueValues(colIndex) {
+  const set = new Set();
+  for (let i = 1; i < orderRows.length; i++) {
+    set.add(String(orderRows[i]?.[colIndex] ?? ""));
+  }
+  return [...set].sort((a,b) =>
+    a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"})
+  );
+}
+
+function buildOrderFilters() {
+  // แสดงตัวกรองเฉพาะคอลัมน์ที่ 2, 4, 5, 6, 7 ของไฟล์ Excel
+  // แต่ตารางตัวอย่างยังคงแสดงข้อมูลทุกคอลัมน์เหมือนเดิม
+  const filterColumnIndexes = [1, 3, 4, 5, 6].filter(i => i < orderHeaders.length);
+
+  orderFiltersState = filterColumnIndexes.map(colIndex => {
+    const values = getOrderUniqueValues(colIndex);
+    return {
+      colIndex,
+      values,
+      selected: new Set(values)
+    };
+  });
+
+  orderFiltersBox.innerHTML = "";
+
+  orderFiltersState.forEach((state, index) => {
+    const card = document.createElement("div");
+    card.className = "order-filter-card";
+
+    const title = document.createElement("label");
+    title.textContent = `คอลัมน์ ${state.colIndex + 1}: ${orderHeaders[state.colIndex]}`;
+
+    const search = document.createElement("input");
+    search.className = "filter-search";
+    search.type = "text";
+    search.placeholder = "🔍 ค้นหาค่า...";
+
+    const actions = document.createElement("div");
+    actions.className = "value-actions";
+
+    const allBtn = document.createElement("button");
+    allBtn.type = "button";
+    allBtn.textContent = "ทั้งหมด";
+
+    const noneBtn = document.createElement("button");
+    noneBtn.type = "button";
+    noneBtn.textContent = "ยกเลิกทั้งหมด";
+
+    actions.append(allBtn, noneBtn);
+
+    const list = document.createElement("div");
+    list.className = "value-list";
+
+    const count = document.createElement("div");
+    count.className = "filter-count";
+
+    const renderValues = () => {
+      const q = search.value.trim().toLowerCase();
+      list.innerHTML = "";
+
+      const visibleValues = state.values.filter(v =>
+        String(v).toLowerCase().includes(q)
+      );
+
+      if (!visibleValues.length) {
+        list.innerHTML = '<div style="padding:10px;text-align:center;color:#71848a;font-size:12px">ไม่พบค่า</div>';
+      } else {
+        visibleValues.forEach(value => {
+          const item = document.createElement("label");
+          item.className = "value-item";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = state.selected.has(value);
+
+          cb.onchange = () => {
+            if (cb.checked) state.selected.add(value);
+            else state.selected.delete(value);
+            applyOrderFilters();
+            updateFilterCount();
+          };
+
+          const span = document.createElement("span");
+          span.textContent = value === "" ? "(ว่าง)" : value;
+          span.title = value;
+
+          item.append(cb, span);
+          list.append(item);
+        });
+      }
+      updateFilterCount();
+    };
+
+    const updateFilterCount = () => {
+      count.textContent =
+        `เลือก ${state.selected.size.toLocaleString()} / ${state.values.length.toLocaleString()} ค่า`;
+    };
+
+    allBtn.onclick = () => {
+      // เลือกเฉพาะค่าที่กำลังแสดงหลังจากค้นหาเท่านั้น
+      const q = search.value.trim().toLowerCase();
+      const visibleValues = state.values.filter(v =>
+        String(v).toLowerCase().includes(q)
+      );
+      visibleValues.forEach(v => state.selected.add(v));
+      renderValues();
+      applyOrderFilters();
+    };
+
+    noneBtn.onclick = () => {
+      state.selected.clear();
+      renderValues();
+      applyOrderFilters();
+    };
+
+    search.oninput = renderValues;
+
+    card.append(title, search, actions, list, count);
+    orderFiltersBox.append(card);
+    renderValues();
+  });
+}
+
+function applyOrderFilters() {
+  if (!orderRows.length) return;
+
+  orderFilteredRows = orderRows.slice(1).filter(row => {
+    return orderFiltersState.every(state => {
+      const value = String(row?.[state.colIndex] ?? "");
+      return state.selected.has(value);
+    });
+  });
+
+  renderOrderPreview([orderHeaders, ...orderFilteredRows.slice(0, 1000)]);
+
+  orderFilterSummary.textContent =
+    `แสดง ${orderFilteredRows.length.toLocaleString()} / ${Math.max(0, orderRows.length - 1).toLocaleString()} รายการ` +
+    (orderFilteredRows.length > 1000 ? " | ตารางตัวอย่างแสดง 1,000 รายการแรก" : "");
+
+  buildOrderPivot();
+
+  if (orderRows.length) {
+    document.getElementById("orderStatus").textContent =
+      `● กรองข้อมูลแล้ว ${orderFilteredRows.length.toLocaleString()} รายการ จากทั้งหมด ${Math.max(0, orderRows.length - 1).toLocaleString()} รายการ`;
+  }
+
+  orderDownloadBtn.disabled = false;
+  orderPivotExcelDownloadBtn.disabled = false;
+}
+
+document.getElementById("orderSelectAll").onclick = () => {
+  // เลือกทั้งหมดเฉพาะค่าที่ตรงกับคำค้นของแต่ละคอลัมน์
+  orderFiltersState.forEach((state, index) => {
+    const card = orderFiltersBox.children[index];
+    const search = card?.querySelector(".filter-search");
+    const q = search ? search.value.trim().toLowerCase() : "";
+    const visibleValues = state.values.filter(v =>
+      String(v).toLowerCase().includes(q)
+    );
+    visibleValues.forEach(v => state.selected.add(v));
+  });
+  buildOrderFilters();
+  applyOrderFilters();
+};
+
+document.getElementById("orderClearFilters").onclick = () => {
+  orderFiltersState.forEach(state => state.values.forEach(v => state.selected.add(v)));
+  buildOrderFilters();
+  applyOrderFilters();
+};
+
+function downloadOrderPivotExcel() {
+  if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูล Pivot สำหรับดาวน์โหลด');
+  if (!window.XLSX) return alert('ไม่พบไลบรารี Excel (XLSX)');
+
+  const sortedRows = [...orderPivotRows].sort((a, b) =>
+    String(a.sku ?? '').localeCompare(String(b.sku ?? ''), undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    })
+  );
+
+  const data = [
+    ['SKU Merchant', 'จำนวน'],
+    ...sortedRows.map(r => [r.sku, r.qty])
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 30 }, { wch: 12 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'PivotTable');
+  XLSX.writeFile(wb, 'ORDER_Pivot.xlsx');
+}
+
+orderPivotExcelDownloadBtn.onclick = downloadOrderPivotExcel;
+
+orderProcessBtn.onclick = () => {
+  if (!orderRows.length) return;
+  const skuIndex = ORDER_PIVOT_SKU_INDEX;
+  const qtyIndex = ORDER_PIVOT_QTY_INDEX;
+  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length) {
+    alert("ไฟล์นี้มีคอลัมน์ไม่ครบสำหรับสร้าง Pivot (ต้องมีอย่างน้อย 5 คอลัมน์)");
+    return;
+  }
+  document.getElementById("orderStatus").textContent =
+    `✅ เตรียมข้อมูล ORDER แล้ว | ${orderHeaders[skuIndex]} + ${orderHeaders[qtyIndex]} | เหลือ ${orderFilteredRows.length.toLocaleString()} รายการ`;
+  orderDownloadBtn.disabled = false;
+  orderPivotExcelDownloadBtn.disabled = false;
+};
+
+orderDownloadBtn.onclick = downloadOrderWord;
+
+function buildOrderPivot() {
+  if (!orderRows.length) {
+    orderPivotRows = [];
+    document.getElementById("orderPivotWrap").style.display = "none";
+    return;
+  }
+
+  const skuIndex = ORDER_PIVOT_SKU_INDEX;
+  const qtyIndex = ORDER_PIVOT_QTY_INDEX;
+  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length || skuIndex === qtyIndex) {
+    orderPivotRows = [];
+    document.getElementById("orderPivotWrap").style.display = "none";
+    return;
+  }
+
+  // Pivot ตามภาพตัวอย่าง: SKU Merchant เป็นแถว และ จำนวน เป็นผลรวม
+  const map = new Map();
+  orderFilteredRows.forEach(row => {
+    const sku = String(row?.[skuIndex] ?? "").trim() || "(ว่าง)";
+    const qtyRaw = String(row?.[qtyIndex] ?? "").replace(/,/g, "").trim();
+    const qty = Number(qtyRaw);
+    const amount = Number.isFinite(qty) ? qty : 0;
+    map.set(sku, (map.get(sku) || 0) + amount);
+  });
+
+  orderPivotRows = [...map.entries()]
+    .map(([sku, qty]) => ({ sku, qty }))
+    .sort((a,b) => String(a.sku ?? "").localeCompare(String(b.sku ?? ""), undefined, {numeric:true, sensitivity:"base"}));
+
+  const skuHeader = orderHeaders[skuIndex] || "SKU Merchant";
+  const qtyHeader = orderHeaders[qtyIndex] || "จำนวน";
+  const wrap = document.getElementById("orderPivotWrap");
+  const box = document.getElementById("orderPivotPreview");
+  const note = document.getElementById("orderPivotNote");
+
+  wrap.style.display = "block";
+  note.textContent = `รวม ${orderPivotRows.length.toLocaleString()} รายการ จาก ${orderFilteredRows.length.toLocaleString()} แถว | ${skuHeader} + รวม ${qtyHeader}`;
+
+  if (!orderPivotRows.length) {
+    box.innerHTML = '<div class="empty">ไม่มีข้อมูลหลังกรอง</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr><th>${escapeHtml(skuHeader)}</th><th>${escapeHtml(qtyHeader)}</th></tr></thead><tbody>`;
+  orderPivotRows.slice(0,1000).forEach(r => {
+    html += `<tr><td>${escapeHtml(r.sku)}</td><td>${escapeHtml(formatPivotNumber(r.qty))}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  if (orderPivotRows.length > 1000) {
+    html += `<div style="padding:8px;text-align:center;color:#687d83;font-size:11px">แสดง 1,000 รายการแรก จาก ${orderPivotRows.length.toLocaleString()} รายการ</div>`;
+  }
+  box.innerHTML = html;
+}
+
+function formatPivotNumber(n) {
+  return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, {maximumFractionDigits: 2});
+}
+
+function xmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function wordRun(text, {bold=false, size=22, align=null} = {}) {
+  const alignXml = align ? `<w:jc w:val="${align}"/>` : '';
+  return `<w:r><w:rPr><w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${bold ? '<w:b/><w:bCs/>' : ''}</w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+}
+
+function wordParagraph(text, opts={}) {
+  const align = opts.align || 'left';
+  const size = opts.size || 22;
+  const bold = !!opts.bold;
+  return `<w:p><w:pPr><w:jc w:val="${align}"/><w:spacing w:before="0" w:after="${opts.after ?? 0}" w:line="${opts.line || 240}"/></w:pPr>${wordRun(text,{bold,size})}</w:p>`;
+}
+
+function wordCell(text, opts={}) {
+  const size = opts.size || 20;
+  const bold = !!opts.bold;
+  const align = opts.align || 'left';
+  const shade = opts.shade ? `<w:shd w:fill="${opts.shade}"/>` : '';
+  return `<w:tc><w:tcPr>${shade}<w:tcMar><w:top w:w="45" w:type="dxa"/><w:left w:w="70" w:type="dxa"/><w:bottom w:w="45" w:type="dxa"/><w:right w:w="70" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:pPr><w:jc w:val="${align}"/><w:spacing w:before="0" w:after="0" w:line="280"/></w:pPr>${wordRun(text,{bold,size})}</w:p></w:tc>`;
+}
+
+function wordTableRow(cells, header=false) {
+  return `<w:tr>${header ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${cells.join('')}</w:tr>`;
+}
+
+async function downloadOrderWord() {
+  if (!orderRows.length) return alert('ยังไม่มีรายการ ORDER');
+  if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูลสำหรับสร้างไฟล์ Word');
+  if (!window.JSZip) return alert('ไม่พบ JSZip');
+
+  const zip = new JSZip();
+
+  // A1012 reference:
+  // - A4 portrait
+  // - narrow, balanced margins
+  // - two newspaper-style columns
+  // - compact Tahoma text
+  // - tight paragraph spacing
+  // - no visible table borders
+  const PAGE_W = 11906;   // A4 width 210 mm
+  const PAGE_H = 16838;   // A4 height 297 mm
+
+  // Fine-tuned from the A1012-style compact order list.
+  // 0.55" top/bottom, 0.65" left/right.
+  const MARGIN_LR = 936;   // 0.65"
+  const MARGIN_TB = 792;   // 0.55"
+
+  const CONTENT_W = PAGE_W - (MARGIN_LR * 2);
+  const COLUMN_GAP = 360;  // 0.25"
+  const COLUMN_W = Math.floor((CONTENT_W - COLUMN_GAP) / 2);
+
+  // Right-aligned quantity: ขยับเข้ามาจากขอบขวาประมาณครึ่งหนึ่งของระยะเดิม.
+  const QTY_TAB = 3540; // ขยับจำนวนออกจากตำแหน่งเดิมอีก 20 pt
+
+  function escXml(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  function wordRun(text) {
+    return `<w:r>
+      <w:rPr>
+        <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
+        <w:sz w:val="20"/><w:szCs w:val="20"/>
+      </w:rPr>
+      <w:t xml:space="preserve">${escXml(text)}</w:t>
+    </w:r>`;
+  }
+
+  function itemParagraph(sku, qty) {
+    // 10 pt Tahoma, เพิ่มระยะห่างแนวตั้งเล็กน้อยให้แต่ละแถวไม่อึดอัด, zero before/after.
+    // A right tab keeps quantity aligned without forcing a fixed 30-item split.
+    return `<w:p>
+      <w:pPr>
+        <w:tabs><w:tab w:val="right" w:pos="${QTY_TAB}"/></w:tabs>
+        <w:spacing w:before="0" w:after="100" w:line="200" w:lineRule="exact"/>
+        <w:keepNext w:val="0"/>
+        <w:widowControl/>
+      </w:pPr>
+      ${wordRun(sku)}
+      <w:r><w:tab/></w:r>
+      ${wordRun(formatPivotNumber(qty))}
+    </w:p>`;
+  }
+
+  // เรียง SKU Merchant ตามพยัญชนะ/ตัวอักษรก่อนสร้างไฟล์ Word
+  const sortedPivotRows = [...orderPivotRows].sort((a, b) =>
+    String(a.sku ?? '').localeCompare(String(b.sku ?? ''), undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    })
+  );
+
+  const allItemsXml = sortedPivotRows
+    .map(r => itemParagraph(r.sku, r.qty))
+    .join('');
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
+  <w:body>
+    ${allItemsXml}
+    <w:sectPr>
+      <w:pgSz w:w="${PAGE_W}" w:h="${PAGE_H}"/>
+      <w:pgMar w:top="${MARGIN_TB}"
+               w:right="${MARGIN_LR}"
+               w:bottom="${MARGIN_TB}"
+               w:left="${MARGIN_LR}"
+               w:header="0"
+               w:footer="0"
+               w:gutter="0"/>
+      <w:cols w:num="2" w:space="${COLUMN_GAP}"/>
+      <w:docGrid w:linePitch="200"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault>
+      <w:rPr>
+        <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
+        <w:sz w:val="20"/><w:szCs w:val="20"/>
+      </w:rPr>
+    </w:rPrDefault>
+    <w:pPrDefault>
+      <w:pPr>
+        <w:spacing w:before="0" w:after="100" w:line="200" w:lineRule="exact"/>
+        <w:widowControl/>
+      </w:pPr>
+    </w:pPrDefault>
+  </w:docDefaults>
+
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:qFormat/>
+    <w:rPr>
+      <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
+      <w:sz w:val="20"/><w:szCs w:val="20"/>
+    </w:rPr>
+    <w:pPr>
+      <w:spacing w:before="0" w:after="100" w:line="200" w:lineRule="exact"/>
+    </w:pPr>
+  </w:style>
+</w:styles>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml"
+    ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml"
+    ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+    Target="word/document.xml"/>
+</Relationships>`;
+
+  const documentRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"
+    Target="styles.xml"/>
+</Relationships>`;
+
+  zip.file('[Content_Types].xml', contentTypesXml);
+  zip.folder('_rels').file('.rels', relsXml);
+  zip.folder('word').file('document.xml', documentXml);
+  zip.folder('word').file('styles.xml', stylesXml);
+  zip.folder('word').folder('_rels').file('document.xml.rels', documentRelsXml);
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `รับORDER_${new Date().toISOString().slice(0, 10)}.docx`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+orderClearBtn.onclick = () => {
+  orderWorkbook = null;
+  orderRows = [];
+  orderHeaders = [];
+  orderFilteredRows = [];
+  orderFiltersState = [];
+  orderPivotRows = [];
+  orderInput.value = "";
+
+  document.getElementById("orderFileName").textContent = "";
+  document.getElementById("orderFileCount").textContent = "0";
+  document.getElementById("orderRowCount").textContent = "0";
+  document.getElementById("orderStatus").textContent = "ยังไม่ได้เลือกไฟล์ ORDER";
+  document.getElementById("orderPreview").textContent = "ยังไม่มีข้อมูล";
+  document.getElementById("orderBar").style.width = "0%";
+  orderFilterSummary.textContent = "ยังไม่มีข้อมูล";
+  document.getElementById("orderPivotWrap").style.display = "none";
+  document.getElementById("orderPivotPreview").innerHTML = "";
+  orderFiltersBox.innerHTML = '<div class="empty">กรุณาเลือกไฟล์ ORDER ก่อน</div>';
+
+  orderProcessBtn.disabled = true;
+  orderDownloadBtn.disabled = true;
+  orderPivotExcelDownloadBtn.disabled = true;
+};
+
+function renderOrderPreview(rows) {
+  const box = document.getElementById("orderPreview");
+
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty">ไม่มีข้อมูล</div>';
+    return;
+  }
+
+  let h = "<table><thead><tr>";
+  rows[0].forEach(x => h += "<th>" + escapeHtml(x) + "</th>");
+  h += "</tr></thead><tbody>";
+
+  rows.slice(1).forEach(r => {
+    h += "<tr>";
+    rows[0].forEach((_, i) => {
+      h += "<td>" + escapeHtml(r[i] ?? "") + "</td>";
+    });
+    h += "</tr>";
+  });
+
+  h += "</tbody></table>";
+  box.innerHTML = h;
+}
+</script>
+
+<script>
+function toggleOrderFilters(){
+  const panel=document.getElementById('orderFilterPanel');
+  if(!panel)return;
+  panel.classList.toggle('collapsed');
+  const b=document.getElementById('orderFilterToggle');
+  if(b)b.textContent=panel.classList.contains('collapsed')?'เปิดตัวกรอง ▼':'พับเก็บ ▲';
+}
+</script>
+</body>
+</html>
