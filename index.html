@@ -507,7 +507,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
         <div class="beta-actions">
           <button class="beta-primary" id="orderProcess" disabled>▶ เตรียมข้อมูล ORDER</button>
           <button class="word-export-btn" id="orderDownload" disabled>📝 ดาวน์โหลด Word (Pivot)</button>
-          <button class="excel-pivot-export-btn" id="orderPivotExcelDownload" disabled>📊 ดาวน์โหลด Excel (Pivot)</button>
+          <button class="excel-pivot-export-btn" id="orderPivotExcelDownload" disabled>📊 ดาวน์โหลด Excel (ตามตัวอย่าง)</button>
           <button class="beta-danger" id="orderClear">ล้างข้อมูล</button>
         </div>
 
@@ -1318,26 +1318,37 @@ function buildOrderSummary() {
 }
 
 function downloadOrderPivotExcel() {
-  if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูล Pivot สำหรับดาวน์โหลด');
+  // ดาวน์โหลด Excel ให้ตรงกับ "ตัวอย่างข้อมูล" ด้านล่างของหน้ารับORDER
+  // ใช้หัวคอลัมน์และลำดับแถวเดียวกับตาราง Preview หลังกรอง
+  if (!orderRows.length || !orderHeaders.length) {
+    return alert('ยังไม่มีข้อมูล ORDER สำหรับดาวน์โหลด');
+  }
   if (!window.XLSX) return alert('ไม่พบไลบรารี Excel (XLSX)');
 
-  const sortedRows = [...orderPivotRows].sort((a, b) =>
-    String(a.sku ?? '').localeCompare(String(b.sku ?? ''), undefined, {
-      numeric: true,
-      sensitivity: 'base'
-    })
-  );
+  const dataRows = orderFilteredRows.length
+    ? orderFilteredRows
+    : orderRows.slice(1);
 
   const data = [
-    ['SKU Merchant', 'จำนวน'],
-    ...sortedRows.map(r => [r.sku, r.qty])
+    [...orderHeaders],
+    ...dataRows.map(row => orderHeaders.map((_, i) => row?.[i] ?? ''))
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{ wch: 30 }, { wch: 12 }];
+
+  // ปรับความกว้างคอลัมน์ให้อ่านง่าย โดยยึดข้อมูลจริงในตัวอย่าง
+  ws['!cols'] = orderHeaders.map((header, colIndex) => {
+    let maxLen = String(header ?? '').length;
+    dataRows.slice(0, 1000).forEach(row => {
+      const len = String(row?.[colIndex] ?? '').length;
+      if (len > maxLen) maxLen = len;
+    });
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'PivotTable');
-  XLSX.writeFile(wb, 'ORDER_Pivot.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'ORDER');
+  XLSX.writeFile(wb, 'ORDER_ตามตัวอย่าง.xlsx');
 }
 
 orderPivotExcelDownloadBtn.onclick = downloadOrderPivotExcel;
