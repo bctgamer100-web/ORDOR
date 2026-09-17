@@ -1268,7 +1268,21 @@ const orderProcessBtn = document.getElementById("orderProcess");
 const orderDownloadBtn = document.getElementById("orderDownload");
 const orderPivotExcelDownloadBtn = document.getElementById("orderPivotExcelDownload");
 const orderClearBtn = document.getElementById("orderClear");
-// Pivot ใช้คอลัมน์ 4 = SKU Merchant และคอลัมน์ 5 = จำนวน ตามรูปแบบไฟล์ ORDER
+// หา index จากชื่อหัวคอลัมน์จริง เพื่อไม่ผูกกับตำแหน่งคอลัมน์
+function getOrderColumnIndex(headerName) {
+  const target = String(headerName ?? '').trim().toLowerCase();
+  return orderHeaders.findIndex(h => String(h ?? '').trim().toLowerCase() === target);
+}
+
+function getOrderSkuIndex() {
+  return getOrderColumnIndex('SKU Merchant');
+}
+
+function getOrderQtyIndex() {
+  return getOrderColumnIndex('จำนวน');
+}
+
+// ค่าคงที่เดิมเก็บไว้เป็น fallback สำหรับไฟล์รูปแบบเก่า
 const ORDER_PIVOT_SKU_INDEX = 3;
 const ORDER_PIVOT_QTY_INDEX = 4;
 const orderFiltersBox = document.getElementById("orderFilters");
@@ -1567,18 +1581,14 @@ function buildOrderSummary() {
 }
 
 // ใช้สำหรับจัดกลุ่ม SKU Merchant ตอนส่งออกไฟล์
-// คำว่า FRONT ที่ต่อท้ายไม่นับเป็น SKU Merchant คนละกลุ่ม
+// ยึด "ค่าในคอลัมน์ SKU Merchant" เป็นกลุ่มโดยตรง
+// เช่น CADENZA และ CADENZA FRONT = คนละกลุ่ม เพราะเป็นคนละค่าในคอลัมน์
 function normalizeOrderSkuForSpacing(sku) {
-  // ใช้ส่วนก่อนเครื่องหมาย - เป็น "กลุ่ม SKU Merchant"
-  // เช่น 1623065-BK-L / 1623065-PK-S / 1623065-WH-L = กลุ่ม 1623065 เดียวกัน
-  // และ FRONT ที่ต่อท้ายยังไม่นับเป็นกลุ่มใหม่
-  const value = String(sku ?? "")
+  // FRONT ที่ต่อท้ายไม่ถือเป็นกลุ่มใหม่ แต่ค่าที่แสดงผลยังใช้ SKU Merchant เดิม
+  return String(sku ?? '')
     .trim()
-    .replace(/\s*FRONT\s*$/i, "")
+    .replace(/\s*FRONT\s*$/i, '')
     .trim();
-
-  const dashIndex = value.indexOf("-");
-  return dashIndex >= 0 ? value.slice(0, dashIndex).trim() : value;
 }
 
 function compareOrderSku(a, b) {
@@ -1595,10 +1605,10 @@ function compareOrderSku(a, b) {
 
 function addOrderSkuSpacingRows(rows, skuIndex) {
   // กติกาการเว้นระยะ:
-  // 1) SKU Merchant กลุ่มแรกต้องติดกันทั้งหมด ไม่มีแถวว่างคั่น
-  // 2) เมื่อขึ้น SKU Merchant "กลุ่มใหม่" เท่านั้น จึงคั่นด้วยแถวว่าง 4 บรรทัด
-  // 3) คำว่า FRONT ที่ต่อท้าย SKU ไม่นับเป็นกลุ่มใหม่
-  // 4) ต้องเรียงกลุ่มตามพยัญชนะ/ตัวอักษรก่อนเสมอ
+  // 1) กลุ่มยึดตามค่าในคอลัมน์ "SKU Merchant" โดยตรง
+  // 2) ค่าเดียวกันอยู่ติดกันทั้งหมด ไม่มีแถวว่างคั่น
+  // 3) เมื่อเปลี่ยนเป็นค่า SKU Merchant ใหม่ ให้เว้น 4 บรรทัด
+  // 4) เรียงค่า SKU Merchant ตามพยัญชนะ/ตัวอักษรก่อนเสมอ
   if (!rows.length) return [];
 
   const sorted = [...rows].sort((a, b) =>
@@ -1636,10 +1646,12 @@ function downloadOrderPivotExcel() {
   const dataRows = orderFilteredRows.length
     ? orderFilteredRows
     : orderRows.slice(1);
+  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
 
-  // ดาวน์โหลดทุกแบบให้ใช้กติกาเดียวกัน: เรียง SKU Merchant และเว้นระยะ
-  // ระหว่างกลุ่ม โดย FRONT ที่ต่อท้ายไม่นับเป็นกลุ่มใหม่
-  const spacedDataRows = addOrderSkuSpacingRows(dataRows, ORDER_PIVOT_SKU_INDEX);
+  // ดาวน์โหลดทุกแบบให้ใช้กติกาเดียวกัน: ยึดค่าในหัวคอลัมน์ SKU Merchant เป็นกลุ่ม
+  // และเว้น 4 บรรทัดเมื่อเปลี่ยนไปเป็น SKU Merchant ค่าใหม่
+  const spacedDataRows = addOrderSkuSpacingRows(dataRows, skuIndex);
 
   const data = [
     [...orderHeaders],
@@ -1664,8 +1676,8 @@ function downloadOrderPivotExcel() {
 
   // Sheet Pivot: ใช้ข้อมูล Pivot เดียวกับที่แสดงในหน้ารับORDER
   const pivotHeader = [
-    orderHeaders[ORDER_PIVOT_SKU_INDEX] || 'SKU Merchant',
-    orderHeaders[ORDER_PIVOT_QTY_INDEX] || 'จำนวน'
+    orderHeaders[skuIndex] || 'SKU Merchant',
+    orderHeaders[qtyIndex] || 'จำนวน'
   ];
   const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
   const pivotRowsForExcel = [];
@@ -1701,9 +1713,9 @@ orderPivotExcelDownloadBtn.onclick = downloadOrderPivotExcel;
 
 orderProcessBtn.onclick = () => {
   if (!orderRows.length) return;
-  const skuIndex = ORDER_PIVOT_SKU_INDEX;
-  const qtyIndex = ORDER_PIVOT_QTY_INDEX;
-  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length) {
+  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
+  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length || skuIndex < 0 || qtyIndex < 0) {
     alert("ไฟล์นี้มีคอลัมน์ไม่ครบสำหรับสร้าง Pivot (ต้องมีอย่างน้อย 5 คอลัมน์)");
     return;
   }
@@ -1722,9 +1734,9 @@ function buildOrderPivot() {
     return;
   }
 
-  const skuIndex = ORDER_PIVOT_SKU_INDEX;
-  const qtyIndex = ORDER_PIVOT_QTY_INDEX;
-  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length || skuIndex === qtyIndex) {
+  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
+  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length || skuIndex === qtyIndex || skuIndex < 0 || qtyIndex < 0) {
     orderPivotRows = [];
     document.getElementById("orderPivotWrap").style.display = "none";
     return;
@@ -1870,9 +1882,9 @@ async function downloadOrderWord() {
     </w:p>`;
   }
 
-  // เรียง SKU Merchant ตามพยัญชนะ/ตัวอักษรก่อนสร้างไฟล์ Word
-  // เรียงตาม SKU Merchant โดย FRONT ท้าย SKU ไม่นับเป็นกลุ่มใหม่
-  // และเว้นระยะเมื่อเปลี่ยนไปเป็น SKU Merchant กลุ่มถัดไป
+  // เรียงตามค่า SKU Merchant ในคอลัมน์โดยตรงก่อนสร้างไฟล์ Word
+  // ค่า SKU Merchant ที่เหมือนกันอยู่กลุ่มเดียวกัน
+  // และเว้น 4 บรรทัดเมื่อเปลี่ยนไปเป็นค่าใหม่
   const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
   let previousBase = null;
   let groupNo = 0;
