@@ -1947,7 +1947,7 @@ async function downloadOrderWord() {
       const group = normalizeOrderGroupName(r.groupName);
       let spacer = '';
       if (previousGroup !== null && group !== previousGroup) {
-        spacer = Array.from({length: 3}, () => wordParagraph('', {after: 100, line: 200})).join('');
+        spacer = Array.from({length: 2}, () => wordParagraph('', {after: 100, line: 200})).join('');
       }
       previousGroup = group;
       return spacer + itemParagraph(r.sku, r.qty);
