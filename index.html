@@ -1588,15 +1588,32 @@ function compareOrderSku(a, b) {
 }
 
 function addOrderSkuSpacingRows(rows, skuIndex) {
+  // กติกาการเว้นระยะ:
+  // 1) SKU Merchant กลุ่มแรกต้องติดกันทั้งหมด ไม่มีแถวว่างคั่น
+  // 2) เมื่อขึ้น SKU Merchant "กลุ่มใหม่" เท่านั้น จึงคั่นด้วยแถวว่าง 1 แถว
+  // 3) คำว่า FRONT ที่ต่อท้าย SKU ไม่นับเป็นกลุ่มใหม่
+  // 4) ต้องเรียงกลุ่มตามพยัญชนะ/ตัวอักษรก่อนเสมอ
   if (!rows.length) return [];
+
+  const sorted = [...rows].sort((a, b) =>
+    compareOrderSku(a?.[skuIndex], b?.[skuIndex])
+  );
+
   const out = [];
   let previousBase = null;
-  rows.forEach((row, idx) => {
+  let groupNo = 0;
+
+  sorted.forEach((row) => {
     const base = normalizeOrderSkuForSpacing(row?.[skuIndex]);
-    if (idx > 0 && base !== previousBase) out.push([]);
+    if (previousBase !== null && base !== previousBase) {
+      groupNo += 1;
+      // เว้นระยะเฉพาะก่อนกลุ่มที่ 2 เป็นต้นไป
+      if (groupNo >= 1) out.push([]);
+    }
     out.push(row);
     previousBase = base;
   });
+
   return out;
 }
 
@@ -1612,9 +1629,13 @@ function downloadOrderPivotExcel() {
     ? orderFilteredRows
     : orderRows.slice(1);
 
+  // ดาวน์โหลดทุกแบบให้ใช้กติกาเดียวกัน: เรียง SKU Merchant และเว้นระยะ
+  // ระหว่างกลุ่ม โดย FRONT ที่ต่อท้ายไม่นับเป็นกลุ่มใหม่
+  const spacedDataRows = addOrderSkuSpacingRows(dataRows, ORDER_PIVOT_SKU_INDEX);
+
   const data = [
     [...orderHeaders],
-    ...dataRows.map(row => orderHeaders.map((_, i) => row?.[i] ?? ''))
+    ...spacedDataRows.map(row => orderHeaders.map((_, i) => row?.[i] ?? ''))
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -1641,9 +1662,14 @@ function downloadOrderPivotExcel() {
   const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
   const pivotRowsForExcel = [];
   let previousBase = null;
-  sortedPivotRows.forEach((item, idx) => {
+  let groupNo = 0;
+  sortedPivotRows.forEach((item) => {
     const base = normalizeOrderSkuForSpacing(item.sku);
-    if (idx > 0 && base !== previousBase) pivotRowsForExcel.push([]);
+    if (previousBase !== null && base !== previousBase) {
+      groupNo += 1;
+      // กลุ่มแรกไม่มีระยะห่าง; เริ่มเว้นเมื่อเข้ากลุ่มที่ 2
+      if (groupNo >= 1) pivotRowsForExcel.push([]);
+    }
     pivotRowsForExcel.push([item.sku, item.qty]);
     previousBase = base;
   });
@@ -1839,12 +1865,16 @@ async function downloadOrderWord() {
   // และเว้นระยะเมื่อเปลี่ยนไปเป็น SKU Merchant กลุ่มถัดไป
   const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
   let previousBase = null;
+  let groupNo = 0;
   const allItemsXml = sortedPivotRows
-    .map((r, idx) => {
+    .map((r) => {
       const base = normalizeOrderSkuForSpacing(r.sku);
-      const spacer = idx > 0 && base !== previousBase
-        ? wordParagraph('', {after: 100, line: 200})
-        : '';
+      let spacer = '';
+      if (previousBase !== null && base !== previousBase) {
+        groupNo += 1;
+        // กลุ่มแรกอยู่ติดกันทั้งหมด; เว้นระยะเฉพาะก่อนกลุ่มที่ 2 เป็นต้นไป
+        if (groupNo >= 1) spacer = wordParagraph('', {after: 100, line: 200});
+      }
       previousBase = base;
       return spacer + itemParagraph(r.sku, r.qty);
     })
