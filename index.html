@@ -1566,6 +1566,40 @@ function buildOrderSummary() {
   summaryExtra.style.display = "block";
 }
 
+// ใช้สำหรับจัดกลุ่ม SKU Merchant ตอนส่งออกไฟล์
+// คำว่า FRONT ที่ต่อท้ายไม่นับเป็น SKU Merchant คนละกลุ่ม
+function normalizeOrderSkuForSpacing(sku) {
+  return String(sku ?? "")
+    .trim()
+    .replace(/\s*FRONT\s*$/i, "")
+    .trim();
+}
+
+function compareOrderSku(a, b) {
+  const ba = normalizeOrderSkuForSpacing(a);
+  const bb = normalizeOrderSkuForSpacing(b);
+  const baseCmp = ba.localeCompare(bb, undefined, {numeric:true, sensitivity:"base"});
+  if (baseCmp !== 0) return baseCmp;
+  // ถ้าเป็น SKU เดียวกัน ให้ตัวปกติมาก่อน แล้ว FRONT ตามหลัง
+  const af = /\s*FRONT\s*$/i.test(String(a ?? ""));
+  const bf = /\s*FRONT\s*$/i.test(String(b ?? ""));
+  if (af !== bf) return af ? 1 : -1;
+  return String(a ?? "").localeCompare(String(b ?? ""), undefined, {numeric:true, sensitivity:"base"});
+}
+
+function addOrderSkuSpacingRows(rows, skuIndex) {
+  if (!rows.length) return [];
+  const out = [];
+  let previousBase = null;
+  rows.forEach((row, idx) => {
+    const base = normalizeOrderSkuForSpacing(row?.[skuIndex]);
+    if (idx > 0 && base !== previousBase) out.push([]);
+    out.push(row);
+    previousBase = base;
+  });
+  return out;
+}
+
 function downloadOrderPivotExcel() {
   // ดาวน์โหลด Excel ให้ตรงกับ "ตัวอย่างข้อมูล" ด้านล่างของหน้ารับORDER
   // ใช้หัวคอลัมน์และลำดับแถวเดียวกับตาราง Preview หลังกรอง
@@ -1604,9 +1638,18 @@ function downloadOrderPivotExcel() {
     orderHeaders[ORDER_PIVOT_SKU_INDEX] || 'SKU Merchant',
     orderHeaders[ORDER_PIVOT_QTY_INDEX] || 'จำนวน'
   ];
+  const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
+  const pivotRowsForExcel = [];
+  let previousBase = null;
+  sortedPivotRows.forEach((item, idx) => {
+    const base = normalizeOrderSkuForSpacing(item.sku);
+    if (idx > 0 && base !== previousBase) pivotRowsForExcel.push([]);
+    pivotRowsForExcel.push([item.sku, item.qty]);
+    previousBase = base;
+  });
   const pivotData = [
     pivotHeader,
-    ...orderPivotRows.map(item => [item.sku, item.qty])
+    ...pivotRowsForExcel
   ];
   const pivotWs = XLSX.utils.aoa_to_sheet(pivotData);
   pivotWs['!cols'] = [
@@ -1792,15 +1835,19 @@ async function downloadOrderWord() {
   }
 
   // เรียง SKU Merchant ตามพยัญชนะ/ตัวอักษรก่อนสร้างไฟล์ Word
-  const sortedPivotRows = [...orderPivotRows].sort((a, b) =>
-    String(a.sku ?? '').localeCompare(String(b.sku ?? ''), undefined, {
-      numeric: true,
-      sensitivity: 'base'
-    })
-  );
-
+  // เรียงตาม SKU Merchant โดย FRONT ท้าย SKU ไม่นับเป็นกลุ่มใหม่
+  // และเว้นระยะเมื่อเปลี่ยนไปเป็น SKU Merchant กลุ่มถัดไป
+  const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
+  let previousBase = null;
   const allItemsXml = sortedPivotRows
-    .map(r => itemParagraph(r.sku, r.qty))
+    .map((r, idx) => {
+      const base = normalizeOrderSkuForSpacing(r.sku);
+      const spacer = idx > 0 && base !== previousBase
+        ? wordParagraph('', {after: 100, line: 200})
+        : '';
+      previousBase = base;
+      return spacer + itemParagraph(r.sku, r.qty);
+    })
     .join('');
 
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
