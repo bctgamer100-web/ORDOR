@@ -891,9 +891,41 @@ async function processZip(){
     }
 
     const keptHeader=resultRows[0]||[];
+
+    // สร้าง Pivot จากข้อมูลที่ผ่านการลบทุกขั้นตอนแล้วเท่านั้น
+    // ใช้ SKU Merchant + รวมจำนวน และเรียง SKU Merchant
+    const skuIndex = keptHeader.findIndex(h => /SKU\s*Merchant/i.test(String(h)));
+    const qtyIndex = keptHeader.findIndex(h => /^\s*จำนวน\s*$/i.test(String(h)) || /จำนวน/i.test(String(h)));
+    const pivotMap = new Map();
+
+    if(skuIndex >= 0 && qtyIndex >= 0){
+      resultRows.slice(1).forEach(row => {
+        const sku = String(row?.[skuIndex] ?? '').trim() || '(ว่าง)';
+        const qtyRaw = String(row?.[qtyIndex] ?? '').replace(/,/g,'').trim();
+        const qty = Number(qtyRaw);
+        const amount = Number.isFinite(qty) ? qty : 0;
+        pivotMap.set(sku, (pivotMap.get(sku) || 0) + amount);
+      });
+    }
+
+    const pivotRows = [
+      ['SKU Merchant', 'รวมจำนวน'],
+      ...[...pivotMap.entries()]
+        .map(([sku, qty]) => [sku, qty])
+        .sort((a,b) => String(a[0]).localeCompare(String(b[0]), undefined, {numeric:true, sensitivity:'base'}))
+    ];
+
     outputWorkbook=XLSX.utils.book_new();
     const ws=XLSX.utils.aoa_to_sheet(resultRows);
     XLSX.utils.book_append_sheet(outputWorkbook,ws,'รวมข้อมูล');
+
+    // Sheet Pivot ถูกสร้างหลังจากลบคอลัมน์/ลบ FRONT/DELETE เสร็จแล้ว
+    const pivotWs=XLSX.utils.aoa_to_sheet(pivotRows);
+    pivotWs['!cols']=[
+      {wch: Math.min(Math.max(Math.max(13, ...pivotRows.map(r => String(r[0] ?? '').length + 2)), 13), 40)},
+      {wch: 14}
+    ];
+    XLSX.utils.book_append_sheet(outputWorkbook,pivotWs,'Pivot');
 
     document.getElementById('fileCount').textContent=names.length.toLocaleString();
     document.getElementById('rowCount').textContent=Math.max(0,resultRows.length-1).toLocaleString();
