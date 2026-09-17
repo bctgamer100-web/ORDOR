@@ -1569,10 +1569,16 @@ function buildOrderSummary() {
 // ใช้สำหรับจัดกลุ่ม SKU Merchant ตอนส่งออกไฟล์
 // คำว่า FRONT ที่ต่อท้ายไม่นับเป็น SKU Merchant คนละกลุ่ม
 function normalizeOrderSkuForSpacing(sku) {
-  return String(sku ?? "")
+  // ใช้ส่วนก่อนเครื่องหมาย - เป็น "กลุ่ม SKU Merchant"
+  // เช่น 1623065-BK-L / 1623065-PK-S / 1623065-WH-L = กลุ่ม 1623065 เดียวกัน
+  // และ FRONT ที่ต่อท้ายยังไม่นับเป็นกลุ่มใหม่
+  const value = String(sku ?? "")
     .trim()
     .replace(/\s*FRONT\s*$/i, "")
     .trim();
+
+  const dashIndex = value.indexOf("-");
+  return dashIndex >= 0 ? value.slice(0, dashIndex).trim() : value;
 }
 
 function compareOrderSku(a, b) {
