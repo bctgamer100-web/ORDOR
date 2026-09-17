@@ -381,6 +381,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
       <button class="tab active" data-tool="mergeTool">📦 รวมไฟล์ ZIP</button>
       <button class="tab" data-tool="compareTool">🔎 เปรียบเทียบ 2 ไฟล์</button>
       <button class="tab" data-tool="orderTool">📥 รับORDER</button>
+      <button class="tab" data-tool="summaryTool">📋 สรุปงาน</button>
     </div>
   </div>
 
@@ -541,8 +542,224 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
         </div>
       </div>
     </section>
+  <section id="summaryTool" class="tool">
+  <div class="beta-card summary-card">
+    <div class="summary-head">
+      <div>
+        <h2 style="margin-top:0;color:#0b5261">📋 สรุปงาน</h2>
+        <p style="color:#21607e;margin-bottom:0">ประวัติการทำงานของทุกแท็บจะบันทึกไว้ในเครื่อง และยังคงอยู่แม้ปิดเว็บหรือรีเฟรชหน้า</p>
+      </div>
+      <div class="summary-actions">
+        <button class="beta-secondary" id="summaryTodayBtn">📅 วันนี้</button>
+        <button class="beta-secondary" id="summaryAllBtn">🗂 ทั้งหมด</button>
+        <label class="summary-date-picker">📆 เลือกวันที่ <input id="summaryDate" type="date" aria-label="เลือกวันที่ดูประวัติ"></label>
+      </div>
+    </div>
+    <div class="summary-stats">
+      <div class="beta-stat">กิจกรรมทั้งหมด<div class="sv" id="summaryCount">0</div></div>
+      <div class="beta-stat">วันนี้<div class="sv" id="summaryTodayCount">0</div></div>
+      <div class="beta-stat">ไฟล์ที่ทำงาน<div class="sv" id="summaryFileCount">0</div></div>
+      <div class="beta-stat">แท็บที่ใช้งาน<div class="sv" id="summaryTabCount">0</div></div>
+    </div>
+    <div id="summaryList" class="summary-list"><div class="empty">ยังไม่มีประวัติการทำงาน</div></div>
+  </div>
+</section>
   </div>
 </div>
+
+<script>
+// ===== WORK ACTIVITY HISTORY =====
+(function(){
+  const STORAGE_KEY = 'excel_order_work_history_v1';
+  const MAX_HISTORY = 2000;
+  let summaryMode = 'today';
+  let summaryDate = todayKey(new Date());
+  const tabNames = {
+    mergeTool: '📦 รวมไฟล์ ZIP',
+    compareTool: '🔎 เปรียบเทียบ 2 ไฟล์',
+    orderTool: '📥 รับORDER',
+    summaryTool: '📋 สรุปงาน'
+  };
+  const actionNames = {
+    open: 'เปิดแท็บ',
+    file: 'เลือกไฟล์',
+    process: 'ประมวลผลข้อมูล',
+    download: 'ดาวน์โหลดไฟล์',
+    filter: 'กรองข้อมูล',
+    clear: 'ล้างข้อมูล',
+    refresh: 'เปิด/รีเฟรชเว็บ'
+  };
+
+  function getHistory(){
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch(e){ return []; }
+  }
+  function saveHistory(items){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(-MAX_HISTORY)));
+  }
+  function todayKey(d){
+    const x = d || new Date();
+    return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+  }
+  function fmtDate(iso){
+    const d = new Date(iso);
+    return d.toLocaleDateString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit'});
+  }
+  function fmtTime(iso){
+    return new Date(iso).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  function log(action, tabId, detail, fileName){
+    const item = {
+      id: Date.now() + Math.random(),
+      time: new Date().toISOString(),
+      tab: tabId || 'unknown',
+      action: action || 'open',
+      detail: detail || '',
+      file: fileName || ''
+    };
+    const h = getHistory(); h.push(item); saveHistory(h); renderSummary();
+  }
+  window.workHistoryLog = log;
+
+  function currentTab(){
+    const active = document.querySelector('.tab.active');
+    return active ? active.dataset.tool : 'unknown';
+  }
+
+  function renderSummary(){
+    const all = getHistory();
+    const today = todayKey();
+    const todayItems = all.filter(x => todayKey(new Date(x.time)) === today);
+    const items = summaryMode === 'today' ? todayItems : (summaryMode === 'date' ? all.filter(x => todayKey(new Date(x.time)) === summaryDate) : all);
+    const el = document.getElementById('summaryList');
+    if(!el) return;
+    document.getElementById('summaryCount').textContent = all.length.toLocaleString();
+    document.getElementById('summaryTodayCount').textContent = todayItems.length.toLocaleString();
+    document.getElementById('summaryFileCount').textContent = new Set(all.filter(x=>x.file).map(x=>x.file)).size.toLocaleString();
+    document.getElementById('summaryTabCount').textContent = new Set(todayItems.map(x=>x.tab).filter(x=>x!=='unknown')).size.toLocaleString();
+    if(!items.length){ el.innerHTML='<div class="empty">ยังไม่มีประวัติการทำงาน</div>'; return; }
+    const groups = {};
+    items.slice().reverse().forEach(x => {
+      const key = todayKey(new Date(x.time));
+      (groups[key] ||= []).push(x);
+    });
+    let html='';
+    Object.keys(groups).forEach(day=>{
+      html += `<div class="summary-day"><div class="summary-day-title">📅 ${fmtDate(groups[day][0].time)}</div>`;
+      groups[day].forEach(x=>{
+        html += `<div class="summary-row"><div class="summary-time">${fmtTime(x.time)}</div><div class="summary-tab">${tabNames[x.tab] || x.tab}</div><div class="summary-action"><b>${actionNames[x.action] || x.action}</b>${x.detail ? `<span>${escapeHtml(x.detail)}</span>`:''}${x.file ? `<small>📄 ${escapeHtml(x.file)}</small>`:''}</div></div>`;
+      });
+      html += '</div>';
+    });
+    el.innerHTML=html;
+  }
+  function escapeHtml(v){
+    return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  }
+
+  document.getElementById('summaryTodayBtn').onclick=()=>{summaryMode='today';renderSummary();};
+  document.getElementById('summaryAllBtn').onclick=()=>{summaryMode='all';renderSummary();};
+  const summaryDateInput=document.getElementById('summaryDate');
+  if(summaryDateInput){
+    summaryDateInput.value=summaryDate;
+    summaryDateInput.onchange=()=>{
+      summaryDate=summaryDateInput.value || todayKey(new Date());
+      summaryMode='date';
+      renderSummary();
+    };
+  }
+
+  // บันทึกการเปลี่ยนแท็บ
+  document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
+    log('open', btn.dataset.tool, 'ผู้ใช้เปิดแท็บ');
+    if(btn.dataset.tool==='summaryTool') setTimeout(renderSummary,0);
+  }));
+
+  // บันทึกการเลือกไฟล์ทุกแท็บ
+  document.querySelectorAll('input[type="file"]').forEach(input=>input.addEventListener('change',e=>{
+    const f=e.target.files && e.target.files[0];
+    if(f) log('file', currentTab(), `เลือกไฟล์ ${f.name}`, f.name);
+  }));
+
+  // ดักปุ่มสำคัญของแต่ละแท็บ
+  const buttonMap = {
+    process:['mergeTool','รวมไฟล์ ZIP'],
+    download:['mergeTool','ดาวน์โหลด Excel'],
+    compare2:['compareTool','เปรียบเทียบไฟล์ 2 ไฟล์'],
+    download2:['compareTool','ดาวน์โหลดไฟล์ผลลัพธ์ Excel'],
+    orderProcess:['orderTool','เตรียมข้อมูล ORDER'],
+    orderDownload:['orderTool','ดาวน์โหลด Word (Pivot)'],
+    orderPivotExcelDownload:['orderTool','ดาวน์โหลด Excel ตามตัวอย่าง'],
+    orderSelectAll:['orderTool','เลือกค่าทั้งหมดในตัวกรอง'],
+    orderClearFilters:['orderTool','ล้างตัวกรอง ORDER'],
+    clear:['mergeTool','ล้างข้อมูล'],
+    clear2:['compareTool','ล้างข้อมูล'],
+    orderClear:['orderTool','ล้างข้อมูล ORDER']
+  };
+  Object.entries(buttonMap).forEach(([id,info])=>{
+    const b=document.getElementById(id);
+    if(b) b.addEventListener('click',()=>{
+      const action=/download/i.test(id)?'download':(/clear|Clear/.test(id)?'clear':(/process|compare|selectAll/i.test(id)?'process':'filter'));
+      log(action, info[0], info[1]);
+    });
+  });
+
+  // ตัวกรอง ORDER เปลี่ยนค่า
+  document.addEventListener('change',e=>{
+    if(e.target.closest('#orderFilters')) log('filter','orderTool','เปลี่ยนค่าตัวกรอง ORDER');
+  });
+
+  // บันทึกว่าเปิด/รีเฟรชเว็บ โดยไม่ลบประวัติเดิม
+  log('refresh', currentTab(), performance.getEntriesByType('navigation')[0]?.type === 'reload' ? 'รีเฟรชหน้าเว็บ' : 'เปิดเว็บ');
+  renderSummary();
+})();
+</script>
+
+<style>
+.summary-date-picker{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 10px;border:1px solid rgba(117,196,255,.18);border-radius:12px;background:rgba(255,255,255,.055);color:#dcecf5!important;cursor:pointer;white-space:nowrap}
+.summary-date-picker input{min-height:34px!important;width:150px;padding:5px 8px!important;border:1px solid rgba(96,204,255,.20)!important;border-radius:8px!important;background:rgba(2,10,18,.72)!important;color:#e9f7ff!important;color-scheme:dark}
+.summary-date-picker input:focus{outline:none;border-color:rgba(56,217,255,.55)!important;box-shadow:0 0 0 3px rgba(56,217,255,.08)}
+@media(max-width:700px){.summary-date-picker{width:100%;justify-content:space-between}.summary-date-picker input{width:160px}}
+.summary-card{background:#f8ffffee!important}
+.summary-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.summary-actions{display:flex;gap:8px;flex-wrap:wrap}
+.summary-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.summary-list{border:1px solid #d8e7e9;border-radius:12px;overflow:auto;max-height:650px;background:#fff}
+.summary-day-title{position:sticky;top:0;background:#eefafb;padding:10px 14px;font-weight:bold;color:#0b5261;border-bottom:1px solid #d8e7e9;z-index:1}
+.summary-row{display:grid;grid-template-columns:90px 180px 1fr;gap:10px;padding:11px 14px;border-bottom:1px solid #edf2f3;align-items:start}
+.summary-row:hover{background:#f6fcfd}
+.summary-time{font-weight:bold;color:#087f8c}
+.summary-tab{font-size:12px;color:#365b64}
+.summary-action{display:flex;flex-direction:column;gap:2px;color:#183f49}
+.summary-action span{font-size:12px;color:#55717a}.summary-action small{font-size:11px;color:#71848a}
+/* ===== SUMMARY / WORK HISTORY — MATCH CYBER THEME ===== */
+#summaryTool{border-top:2px solid var(--cyan)!important}
+#summaryTool .summary-card{padding:30px!important;background:transparent!important;color:var(--text)!important;border-radius:0!important;box-shadow:none!important}
+#summaryTool .summary-head h2{color:#fff!important;text-shadow:0 0 18px rgba(56,217,255,.14)}
+#summaryTool .summary-head h2:after{content:"  /  WORK LOG";font-size:11px;color:var(--cyan);letter-spacing:1.8px;vertical-align:middle;margin-left:5px}
+#summaryTool .summary-head p{color:var(--muted)!important}
+#summaryTool .summary-actions{gap:9px}
+#summaryTool .summary-actions button{min-height:42px;border-radius:12px!important}
+#summaryTool .summary-actions .beta-danger{background:rgba(255,84,120,.14)!important;color:#ff9ab0!important;border:1px solid rgba(255,107,138,.28)!important}
+#summaryTool .summary-stats{gap:14px;margin:18px 0}
+#summaryTool .summary-stats .beta-stat{min-height:78px;display:flex;flex-direction:column;justify-content:center;padding:16px 18px!important;border-left:3px solid var(--cyan)!important}
+#summaryTool .summary-stats .beta-stat:nth-child(2){border-left-color:var(--violet)!important}
+#summaryTool .summary-stats .beta-stat:nth-child(3){border-left-color:var(--green)!important}
+#summaryTool .summary-stats .beta-stat:nth-child(4){border-left-color:#60cfff!important}
+#summaryTool .summary-stats .sv{color:#fff!important}
+#summaryTool .summary-list{border:1px solid rgba(117,196,255,.18);border-radius:16px;overflow:auto;max-height:650px;background:rgba(2,10,18,.34);box-shadow:inset 0 1px rgba(255,255,255,.03)}
+#summaryTool .summary-day-title{background:linear-gradient(90deg,rgba(56,217,255,.10),rgba(155,123,255,.07));padding:11px 15px;font-weight:800;color:#dff8ff;border-bottom:1px solid rgba(96,204,255,.16);backdrop-filter:blur(10px)}
+#summaryTool .summary-row{padding:12px 15px;border-bottom:1px solid rgba(255,255,255,.065);background:rgba(255,255,255,.018);transition:.2s}
+#summaryTool .summary-row:hover{background:rgba(56,217,255,.055);box-shadow:inset 2px 0 var(--cyan)}
+#summaryTool .summary-time{font-weight:800;color:var(--cyan);font-variant-numeric:tabular-nums}
+#summaryTool .summary-tab{font-size:12px;color:#c7dce7}
+#summaryTool .summary-action{color:#eef9ff}
+#summaryTool .summary-action b{color:#fff}
+#summaryTool .summary-action span{font-size:12px;color:var(--muted)}
+#summaryTool .summary-action small{font-size:11px;color:#7893a3}
+#summaryTool .empty{color:#8299a6!important;background:transparent}
+@media(max-width:800px){.summary-head{flex-direction:column}.summary-stats{grid-template-columns:repeat(2,1fr)}.summary-row{grid-template-columns:75px 1fr}.summary-action{grid-column:2}.summary-tab{grid-column:2}.summary-time{grid-row:1 / span 2}}
+</style>
 
 <script>
 // Tab switching
