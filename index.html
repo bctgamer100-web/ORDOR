@@ -1590,7 +1590,7 @@ function compareOrderSku(a, b) {
 function addOrderSkuSpacingRows(rows, skuIndex) {
   // กติกาการเว้นระยะ:
   // 1) SKU Merchant กลุ่มแรกต้องติดกันทั้งหมด ไม่มีแถวว่างคั่น
-  // 2) เมื่อขึ้น SKU Merchant "กลุ่มใหม่" เท่านั้น จึงคั่นด้วยแถวว่าง 1 แถว
+  // 2) เมื่อขึ้น SKU Merchant "กลุ่มใหม่" เท่านั้น จึงคั่นด้วยแถวว่าง 4 บรรทัด
   // 3) คำว่า FRONT ที่ต่อท้าย SKU ไม่นับเป็นกลุ่มใหม่
   // 4) ต้องเรียงกลุ่มตามพยัญชนะ/ตัวอักษรก่อนเสมอ
   if (!rows.length) return [];
@@ -1607,8 +1607,10 @@ function addOrderSkuSpacingRows(rows, skuIndex) {
     const base = normalizeOrderSkuForSpacing(row?.[skuIndex]);
     if (previousBase !== null && base !== previousBase) {
       groupNo += 1;
-      // เว้นระยะเฉพาะก่อนกลุ่มที่ 2 เป็นต้นไป
-      if (groupNo >= 1) out.push([]);
+      // กลุ่มแรกติดกันปกติ; ก่อนกลุ่มที่ 2 เป็นต้นไป เว้น 4 บรรทัด
+      if (groupNo >= 1) {
+        for (let i = 0; i < 4; i++) out.push([]);
+      }
     }
     out.push(row);
     previousBase = base;
@@ -1667,8 +1669,10 @@ function downloadOrderPivotExcel() {
     const base = normalizeOrderSkuForSpacing(item.sku);
     if (previousBase !== null && base !== previousBase) {
       groupNo += 1;
-      // กลุ่มแรกไม่มีระยะห่าง; เริ่มเว้นเมื่อเข้ากลุ่มที่ 2
-      if (groupNo >= 1) pivotRowsForExcel.push([]);
+      // กลุ่มแรกติดกันปกติ; ก่อนกลุ่มที่ 2 เป็นต้นไป เว้น 4 บรรทัด
+      if (groupNo >= 1) {
+        for (let i = 0; i < 4; i++) pivotRowsForExcel.push([]);
+      }
     }
     pivotRowsForExcel.push([item.sku, item.qty]);
     previousBase = base;
@@ -1872,8 +1876,10 @@ async function downloadOrderWord() {
       let spacer = '';
       if (previousBase !== null && base !== previousBase) {
         groupNo += 1;
-        // กลุ่มแรกอยู่ติดกันทั้งหมด; เว้นระยะเฉพาะก่อนกลุ่มที่ 2 เป็นต้นไป
-        if (groupNo >= 1) spacer = wordParagraph('', {after: 100, line: 200});
+        // กลุ่มแรกติดกันปกติ; ก่อนกลุ่มที่ 2 เป็นต้นไป เว้น 4 บรรทัด
+        if (groupNo >= 1) {
+          spacer = Array.from({length: 4}, () => wordParagraph('', {after: 100, line: 200})).join('');
+        }
       }
       previousBase = base;
       return spacer + itemParagraph(r.sku, r.qty);
