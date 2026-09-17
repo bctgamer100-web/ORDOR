@@ -808,13 +808,21 @@ document.getElementById('process').onclick=processZip;
 document.getElementById('sendCompare2').onclick=async()=>{
   if(!mergedFile)return alert('กรุณารวมไฟล์ ZIP ก่อน');
   try{
-    await loadFile(mergedFile,2);
+    // คัดลอกไฟล์ผลรวมเป็นไฟล์ที่ 2 แยกต่างหาก เพื่อให้การล้าง/ทำงานต่อในหน้ารวมไฟล์
+    // ไม่กระทบไฟล์ที่ 2 จนกว่าจะกด 'ล้างข้อมูล' ในหน้าเปรียบเทียบ
+    const lockedBytes=await mergedFile.arrayBuffer();
+    compareFile2Locked=new File(
+      [lockedBytes],
+      mergedFile.name,
+      {type:mergedFile.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+    );
+    await loadFile(compareFile2Locked,2);
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));
     const tab=document.querySelector('.tab[data-tool="compareTool"]');
     if(tab)tab.classList.add('active');
     document.getElementById('compareTool').classList.add('active');
-    document.getElementById('status').textContent='● ไฟล์ที่ 2 ถูกนำเข้าจากผลรวม ZIP แล้ว — กรุณาเลือกไฟล์ที่ 1';
+    document.getElementById('status').textContent='● ไฟล์ที่ 2 ถูกนำเข้าจากผลรวม ZIP แล้ว — ไฟล์ที่ 2 จะคงอยู่จนกว่าจะกด “ล้างข้อมูล” ในหน้าเปรียบเทียบ';
   }catch(e){alert('ไม่สามารถส่งไฟล์ไปเปรียบเทียบได้\n\n'+e.message)}
 };
 
@@ -1014,6 +1022,8 @@ document.getElementById('clear').onclick=()=>{
 
 const $=id=>document.getElementById(id);
 let data1=null,data2=null,resultData=null,deletedData=null,previewData=null,compareSkuCol=null,compareQtyCol=null;
+// ไฟล์ที่ 2 ที่ส่งมาจากหน้า 'รวมไฟล์ ZIP' จะถูกเก็บแยกไว้จนกว่าจะกด 'ล้างข้อมูล' ในหน้าเปรียบเทียบ
+let compareFile2Locked=null;
 
 $("file1").onchange=e=>loadFile(e.target.files[0],1);
 $("file2").onchange=e=>loadFile(e.target.files[0],2);
@@ -1251,6 +1261,8 @@ function downloadResult(){
  XLSX.writeFile(wb,"ผลลัพธ์_เปรียบเทียบและยอดคงเหลือ.xlsx");
 }
 function clearAll(){
+ // ล้างไฟล์ที่ 2 ที่ล็อกไว้จากหน้า 'รวมไฟล์ ZIP' เฉพาะเมื่อผู้ใช้กดล้างข้อมูลในหน้านี้
+ compareFile2Locked=null;
  zipFile=null; mergedFile=null; document.getElementById('sendCompare2').disabled=true;
  data1=null;data2=null;resultData=null;deletedData=null;previewData=null;
  $("file1").value="";$("file2").value="";
