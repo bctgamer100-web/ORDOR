@@ -1564,7 +1564,25 @@ function downloadOrderPivotExcel() {
   });
 
   const wb = XLSX.utils.book_new();
+  // Sheet หลัก: ข้อมูล ORDER ตามตัวอย่างข้อมูลด้านล่าง (หลังกรอง)
   XLSX.utils.book_append_sheet(wb, ws, 'ORDER');
+
+  // Sheet Pivot: ใช้ข้อมูล Pivot เดียวกับที่แสดงในหน้ารับORDER
+  const pivotHeader = [
+    orderHeaders[ORDER_PIVOT_SKU_INDEX] || 'SKU Merchant',
+    orderHeaders[ORDER_PIVOT_QTY_INDEX] || 'จำนวน'
+  ];
+  const pivotData = [
+    pivotHeader,
+    ...orderPivotRows.map(item => [item.sku, item.qty])
+  ];
+  const pivotWs = XLSX.utils.aoa_to_sheet(pivotData);
+  pivotWs['!cols'] = [
+    { wch: Math.min(Math.max(String(pivotHeader[0]).length + 2, 14), 40) },
+    { wch: Math.min(Math.max(String(pivotHeader[1]).length + 2, 12), 20) }
+  ];
+  XLSX.utils.book_append_sheet(wb, pivotWs, 'Pivot');
+
   XLSX.writeFile(wb, 'ORDER_ตามตัวอย่าง.xlsx');
 }
 
