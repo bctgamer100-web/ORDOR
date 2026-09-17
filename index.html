@@ -1017,6 +1017,7 @@ const orderDrop = document.getElementById("orderDrop");
 const orderInput = document.getElementById("orderFile");
 const orderProcessBtn = document.getElementById("orderProcess");
 const orderDownloadBtn = document.getElementById("orderDownload");
+const orderPivotExcelDownloadBtn = document.getElementById("orderPivotExcelDownload");
 const orderClearBtn = document.getElementById("orderClear");
 // Pivot ใช้คอลัมน์ 4 = SKU Merchant และคอลัมน์ 5 = จำนวน ตามรูปแบบไฟล์ ORDER
 const ORDER_PIVOT_SKU_INDEX = 3;
@@ -1287,6 +1288,34 @@ document.getElementById("orderClearFilters").onclick = () => {
   buildOrderFilters();
   applyOrderFilters();
 };
+
+function buildOrderSummary() {
+  const summaryExtra = document.getElementById("orderSummaryExtra");
+  const rowsEl = document.getElementById("orderSummaryRows");
+  const skuEl = document.getElementById("orderSummarySku");
+  const qtyEl = document.getElementById("orderSummaryQty");
+  const missingEl = document.getElementById("orderSummaryMissing");
+
+  if (!summaryExtra || !rowsEl || !skuEl || !qtyEl || !missingEl) return;
+
+  const filtered = Array.isArray(orderFilteredRows) ? orderFilteredRows : [];
+  const pivot = Array.isArray(orderPivotRows) ? orderPivotRows : [];
+
+  const totalQty = pivot.reduce((sum, item) => {
+    const n = Number(item?.qty);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  rowsEl.textContent = filtered.length.toLocaleString();
+  skuEl.textContent = pivot.length.toLocaleString();
+  qtyEl.textContent = formatPivotNumber(totalQty);
+
+  // หน้านี้ยังไม่มีไฟล์/ข้อมูล Stock ให้ใช้เปรียบเทียบ
+  // จึงแสดง 0 ไว้ก่อน และไม่เดาค่า Stock จากข้อมูล ORDER
+  missingEl.textContent = "0";
+
+  summaryExtra.style.display = "block";
+}
 
 function downloadOrderPivotExcel() {
   if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูล Pivot สำหรับดาวน์โหลด');
@@ -1602,6 +1631,13 @@ orderClearBtn.onclick = () => {
   orderFilterSummary.textContent = "ยังไม่มีข้อมูล";
   document.getElementById("orderPivotWrap").style.display = "none";
   document.getElementById("orderPivotPreview").innerHTML = "";
+  document.getElementById("orderSummaryExtra").style.display = "none";
+  document.getElementById("orderSummaryRows").textContent = "0";
+  document.getElementById("orderSummarySku").textContent = "0";
+  document.getElementById("orderSummaryQty").textContent = "0";
+  document.getElementById("orderSummaryMissing").textContent = "0";
+  document.getElementById("orderStockCheck").style.display = "none";
+  document.getElementById("orderStockCheck").innerHTML = "";
   orderFiltersBox.innerHTML = '<div class="empty">กรุณาเลือกไฟล์ ORDER ก่อน</div>';
 
   orderProcessBtn.disabled = true;
