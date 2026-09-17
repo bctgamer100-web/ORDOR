@@ -1590,12 +1590,11 @@ function buildOrderSummary() {
 // และใช้ "SKU Merchant" เป็นข้อมูลที่นำมาแสดงผล
 // ถ้าชื่อกลุ่มลงท้ายด้วย FRONT จะยังถือเป็นกลุ่มเดิม
 function normalizeOrderGroupName(value) {
-  // ชื่อกลุ่มไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และ FRONT ท้ายชื่อไม่ทำให้เกิดกลุ่มใหม่
-  return String(value ?? '')
-    .trim()
-    .replace(/\s*FRONT\s*$/i, '')
-    .trim()
-    .toLowerCase();
+  // กติกาการแบ่งกลุ่ม: ยึดเฉพาะ "คำแรก" ของคอลัมน์ ชื่อ SKU Merchant
+  // ไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และข้อความคำอื่นที่ตามหลังคำแรก (รวมถึง FRONT)
+  // เช่น IMANE / Imane / IMANE FRONT / Imane Front = กลุ่มเดียวกัน
+  const firstWord = String(value ?? '').trim().split(/\s+/)[0] || '';
+  return firstWord.toLowerCase();
 }
 
 function compareOrderGroup(a, b) {
