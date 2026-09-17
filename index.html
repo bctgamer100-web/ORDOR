@@ -292,7 +292,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 .tool select,.tool input[type=text],.tool input[type=search]{min-height:42px}
 .tool input:focus,.tool select:focus{outline:none;border-color:rgba(56,217,255,.55)!important;box-shadow:0 0 0 3px rgba(56,217,255,.08),0 0 20px rgba(56,217,255,.05)}
 .tool table{background:transparent!important}
-.tool th{background:linear-gradient(180deg,rgba(39,148,184,.22),rgba(22,77,104,.18))!important}
+.tool th{background:#102331!important;color:#e9f7ff!important;position:sticky!important;top:0!important;z-index:5!important;box-shadow:0 2px 8px rgba(0,0,0,.28)!important}
 .tool td{background:transparent!important}
 .tool tr:hover td{background:rgba(255,255,255,.035)!important}
 
@@ -343,7 +343,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
   top:0!important;
   z-index:2!important;
   padding:10px 12px!important;
-  background:linear-gradient(180deg,rgba(28,125,112,.45),rgba(13,63,72,.48))!important;
+  background:#12352f!important;
   color:#dffff0!important;
   border-bottom:1px solid rgba(66,245,167,.30)!important;
   box-shadow:0 2px 12px rgba(0,0,0,.20);
@@ -370,6 +370,40 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
   padding:35px!important;
 }
 
+
+<style>
+.auto-compare-info{
+  padding:14px 16px;
+  border:1px solid rgba(139,92,246,.28);
+  border-radius:12px;
+  background:rgba(139,92,246,.07);
+  color:#dbe4ff;
+  margin-bottom:14px;
+}
+.auto-compare-info b{
+  display:block;
+  margin-bottom:5px;
+  color:#b99cff;
+}
+.auto-compare-info div{
+  font-size:12px;
+  color:#91a0ad;
+  line-height:1.6;
+}
+
+<style>
+.auto-merge-hint{
+  margin:10px 0 4px;
+  padding:9px 12px;
+  border:1px solid rgba(40,216,255,.18);
+  border-radius:10px;
+  background:rgba(40,216,255,.045);
+  color:#8fa7b5;
+  font-size:12px;
+}
+.auto-merge-hint b{color:#62e4ff}
+</style>
+</style>
 </style>
 </head>
 <body>
@@ -395,19 +429,15 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
           หรือลากไฟล์ ZIP มาวางที่นี่
           <input id="file" type="file" accept=".zip">
         </div>
+        <div class="auto-merge-hint">⚡ <b>รวมอัตโนมัติ</b> — เมื่อเลือก ZIP แล้วระบบจะเริ่มรวมไฟล์ Excel ให้ทันที</div>
         <div class="beta-stats">
           <div class="beta-stat">ไฟล์ Excel<div class="sv" id="fileCount">0</div></div>
           <div class="beta-stat">จำนวนแถว<div class="sv" id="rowCount">0</div></div>
         </div>
-        <div class="beta-options">
-          <strong>เลือกคอลัมน์ที่ต้องการลบก่อนรวมไฟล์</strong>
-          <div class="beta-cols" id="cols"></div>
-          <p style="font-size:13px;color:#71848a">ค่าเริ่มต้นเลือก C, D, F, H, I, J, K, L ตามงานเดิม</p>
-        </div>
         <div class="beta-progress"><div class="beta-bar" id="bar"></div></div>
         <div class="beta-status" id="status">ยังไม่ได้เลือกไฟล์</div>
         <div class="beta-actions">
-          <button class="beta-primary" id="process" disabled>🔄 รวมไฟล์</button>
+          <button class="beta-primary" id="process" disabled style="display:none">🔄 รวมไฟล์</button>
           <button class="beta-secondary" id="download" disabled>⬇️ ดาวน์โหลด Excel</button>
           <button class="beta-secondary" id="sendCompare2" disabled>🔎 นำไปเปรียบเทียบเป็นไฟล์ 2</button>
           <button class="beta-danger" id="clear">ล้างข้อมูล</button>
@@ -427,13 +457,20 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 </div>
 
 <div class="panel">
-<h2>🔑 เลือกหัวข้อจากคอลัมน์บนสุดของไฟล์</h2>
-<div class="cols" id="columnList"><div class="empty">กรุณาเลือกไฟล์ทั้ง 2 ก่อน</div></div>
-<div class="mini"><button id="allCols" disabled>☑ เลือกทั้งหมด</button><button id="noCols" disabled>☐ ยกเลิกทั้งหมด</button></div><div style="font-size:12px;color:#71848a;margin-top:7px">หัวข้อทั้งหมดด้านบนดึงมาจากชื่อคอลัมน์แถวแรกของไฟล์ที่ 1 และต้องมีชื่อเดียวกันในไฟล์ที่ 2</div>
-<div class="settings">
-<div><label>🏷️ เลือกคอลัมน์สำหรับจับคู่</label><select id="sku" disabled><option>เลือกไฟล์ก่อน</option></select></div>
-<div><label>🔢 เลือกคอลัมน์จำนวน</label><select id="qty" disabled><option>เลือกไฟล์ก่อน</option></select></div>
+<div id="autoCompareInfo" class="auto-compare-info">
+  <b>⚡ ระบบเปรียบเทียบอัตโนมัติ</b>
+  <div id="autoCompareDetail">เลือกไฟล์ 1 และไฟล์ 2 แล้วระบบจะตรวจจับคอลัมน์ SKU และจำนวนจากหัวตารางให้อัตโนมัติ</div>
 </div>
+
+<!-- เก็บ select ไว้ภายในเพื่อให้โค้ดเดิมทำงานต่อได้ แต่ไม่แสดงเป็น UI -->
+<div style="display:none">
+  <select id="sku"><option value=""></option></select>
+  <select id="qty"><option value=""></option></select>
+  <div id="columnList"></div>
+  <button id="allCols"></button>
+  <button id="noCols"></button>
+</div>
+
 <div class="rules"><b>📌 กติกา:</b><br>• ไฟล์ 1 น้อยกว่าไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 เท่ากับไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 มากกว่าไฟล์ 2 → หักจำนวน แล้วเก็บยอดคงเหลือ</div>
 <div class="actions"><button class="primary" id="compare2" disabled style="display:none">▶ เปรียบเทียบข้อมูล</button><button class="red" id="clear2">🗑 ล้างข้อมูล</button></div>
 </div>
@@ -775,15 +812,12 @@ document.querySelectorAll(".tab").forEach(btn => {
 <script>
 // ===== ZIP MERGE TOOL (จาก Beta.html) =====
 
-let zipFile=null, resultRows=[], headers=[], outputWorkbook=null, mergedFile=null;
+let zipFile=null, resultRows=[], headers=[], outputWorkbook=null, mergedFile=null, mergeProcessing=false;
 
-const colBox=document.getElementById('cols');
-for(let i=0;i<26;i++){
-  const letter=String.fromCharCode(65+i);
-  const label=document.createElement('label');
-  label.innerHTML=`<input type="checkbox" value="${i}" ${'CDFHIJKL'.includes(letter)?'checked':''}> ${letter}`;
-  colBox.appendChild(label);
-}
+// คอลัมน์ที่ระบบลบอัตโนมัติตามเงื่อนไขเดิม: C, D, F, H, I, J, K, L
+const AUTO_REMOVE_MERGE_COLS = new Set(
+  ['C','D','F','H','I','J','K','L'].map(letter => letter.charCodeAt(0) - 65)
+);
 const drop=document.getElementById('drop'), input=document.getElementById('file');
 
 drop.onclick=()=>input.click();
@@ -796,10 +830,23 @@ function setFile(f){
   if(!f || !f.name.toLowerCase().endsWith('.zip')){
     alert('กรุณาเลือกไฟล์ ZIP'); return;
   }
+  if(mergeProcessing)return;
+
   zipFile=f;
-  document.getElementById('status').textContent='เลือกไฟล์: '+f.name;
-  document.getElementById('process').disabled=false;
+  resultRows=[];
+  headers=[];
+  outputWorkbook=null;
+  mergedFile=null;
+
+  document.getElementById('fileCount').textContent='0';
+  document.getElementById('rowCount').textContent='0';
   document.getElementById('download').disabled=true;
+  document.getElementById('sendCompare2').disabled=true;
+  document.getElementById('process').disabled=true;
+  document.getElementById('status').textContent='เลือกไฟล์แล้ว — กำลังเริ่มรวมอัตโนมัติ...';
+
+  // เริ่มรวมทันที ไม่ต้องกดปุ่ม
+  setTimeout(()=>processZip(),30);
 }
 
 document.getElementById('process').onclick=processZip;
@@ -826,7 +873,8 @@ document.getElementById('sendCompare2').onclick=async()=>{
 };
 
 async function processZip(){
-  if(!zipFile)return;
+  if(!zipFile || mergeProcessing)return;
+  mergeProcessing=true;
   resultRows=[]; headers=[]; outputWorkbook=null;
   const bar=document.getElementById('bar');
   const status=document.getElementById('status');
@@ -869,7 +917,7 @@ async function processZip(){
 
     // ลบคอลัมน์ที่เลือก โดยอิงตำแหน่งคอลัมน์ A-Z
     // ขั้นตอนนี้ทำก่อนการลบแถว FRONT / DELETE
-    const remove=new Set([...document.querySelectorAll('#cols input:checked')].map(x=>Number(x.value)));
+    const remove = AUTO_REMOVE_MERGE_COLS;
     resultRows=resultRows.map(row=>row.filter((_,i)=>!remove.has(i)));
 
     // เปลี่ยนชื่อหัวคอลัมน์ผลลัพธ์ให้ตรงตามรูปแบบที่กำหนด
@@ -963,10 +1011,12 @@ async function processZip(){
     const mergedBytes=XLSX.write(outputWorkbook,{bookType:'xlsx',type:'array'});
     mergedFile=new File([mergedBytes],'รวมไฟล์จาก ZIP.xlsx',{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     document.getElementById('sendCompare2').disabled=false;
+    mergeProcessing=false;
   }catch(err){
     console.error(err);
     status.textContent='❌ เกิดข้อผิดพลาด: '+err.message;
     bar.style.width='0%';
+    mergeProcessing=false;
     alert(err.message);
   }
 }
@@ -1004,7 +1054,7 @@ document.getElementById('download').onclick=()=>{
 };
 
 document.getElementById('clear').onclick=()=>{
-  zipFile=null; resultRows=[]; outputWorkbook=null; input.value='';
+  zipFile=null; resultRows=[]; outputWorkbook=null; mergeProcessing=false; input.value='';
   document.getElementById('fileCount').textContent='0';
   document.getElementById('rowCount').textContent='0';
   document.getElementById('status').textContent='ยังไม่ได้เลือกไฟล์';
@@ -1029,10 +1079,8 @@ $("file2").onchange=e=>loadFile(e.target.files[0],2);
 $("compare2").onclick=compareFiles;
 $("download2").onclick=downloadResult;
 $("clear2").onclick=clearAll;
-$("allCols").onclick=()=>setCols(true);
-$("noCols").onclick=()=>setCols(false);
-$("sku").onchange=()=>{updateButton(); if(data1&&data2) compareFiles();};
-$("qty").onchange=()=>{updateButton(); if(data1&&data2) compareFiles();};
+$("sku").onchange=()=>{updateButton();};
+$("qty").onchange=()=>{updateButton();};
 
 async function loadFile(file,n){
  if(!file)return;
@@ -1046,84 +1094,80 @@ async function loadFile(file,n){
   if(n===1){data1=rows;$("name1").textContent=file.name;$("info1").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
   else{data2=rows;$("name2").textContent=file.name;$("info2").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
   updateColumns();updateStatus();setProgress(100);setTimeout(()=>setProgress(0),300);
-  if(data1&&data2){ setTimeout(()=>{ if(data1&&data2&&$("sku").value&&$("qty").value) compareFiles(); }, 50); }
+  if(data1&&data2){
+  setTimeout(()=>{
+    if(data1&&data2&&$("sku").value&&$("qty").value&&$("sku").value!==$("qty").value) compareFiles();
+  },50);
+}
  }catch(e){setProgress(0);alert("ไม่สามารถอ่านไฟล์ได้\n\n"+e.message)}
 }
 
 function updateColumns(){
- const list=$("columnList"),sku=$("sku"),qty=$("qty");
- list.innerHTML="";sku.innerHTML="";qty.innerHTML="";
+ const sku=$("sku"),qty=$("qty");
 
  if(!data1||!data2){
-  list.innerHTML='<div class="empty">กรุณาเลือกไฟล์ทั้ง 2 ก่อน</div>';
-  sku.innerHTML=qty.innerHTML='<option value="">เลือกไฟล์ก่อน</option>';
+  sku.innerHTML=qty.innerHTML='<option value=""></option>';
   sku.disabled=qty.disabled=true;
   $("compare2").disabled=true;
-  $("allCols").disabled=$("noCols").disabled=true;
+  const info=$("autoCompareDetail");
+  if(info) info.textContent="เลือกไฟล์ 1 และไฟล์ 2 แล้วระบบจะตรวจจับคอลัมน์ SKU และจำนวนจากหัวตารางให้อัตโนมัติ";
   return;
  }
 
- // ใช้ชื่อคอลัมน์จากแถวบนสุด (Header row) ของไฟล์ที่อัปโหลดจริง
- const headers1=Object.keys(data1[0]);
- const headers2=Object.keys(data2[0]);
+ const headers1=Object.keys(data1[0]||{});
+ const headers2=Object.keys(data2[0]||{});
 
- // ต้องเป็นคอลัมน์ที่มีชื่อเดียวกันในทั้ง 2 ไฟล์ จึงจะใช้เทียบได้
- const common=headers1.filter(c=>headers2.includes(c));
+ // จับคู่ชื่อหัวตารางแบบยืดหยุ่น: ตัดช่องว่างและไม่สนใจตัวพิมพ์
+ const cleanHeader=v=>String(v??"").trim().replace(/\s+/g,"").toLowerCase();
+ const map2=new Map(headers2.map(h=>[cleanHeader(h),h]));
+ const common=headers1
+   .map(h=>({h1:h,h2:map2.get(cleanHeader(h))}))
+   .filter(x=>x.h2);
 
  if(!common.length){
-  list.innerHTML='<div class="empty">ไม่พบชื่อคอลัมน์ที่ตรงกันระหว่างไฟล์ 1 และไฟล์ 2</div>';
-  sku.innerHTML=qty.innerHTML='<option value="">ไม่พบคอลัมน์ที่ใช้ร่วมกัน</option>';
+  sku.innerHTML=qty.innerHTML='<option value=""></option>';
   sku.disabled=qty.disabled=true;
   $("compare2").disabled=true;
-  $("allCols").disabled=$("noCols").disabled=true;
+  const info=$("autoCompareDetail");
+  if(info) info.textContent="ไม่พบหัวคอลัมน์ที่ตรงกันระหว่างไฟล์ 1 และไฟล์ 2";
   return;
  }
 
- // แสดง checkbox ตามหัวคอลัมน์จริงทั้งหมด
- common.forEach((c,i)=>{
-  const l=document.createElement("label");
-  l.className="col"+(i===0?" on":"");
-
-  const x=document.createElement("input");
-  x.type="checkbox";
-  x.value=c;
-  x.checked=i===0;
-  x.onchange=()=>l.classList.toggle("on",x.checked);
-
-  const sp=document.createElement("span");
-  sp.textContent=c;
-  sp.title=c;
-
-  l.append(x,sp);
-  list.append(l);
-
-  // Dropdown ก็สร้างจากชื่อคอลัมน์จริงของไฟล์
-  sku.add(new Option(c,c));
-  qty.add(new Option(c,c));
+ sku.innerHTML="";
+ qty.innerHTML="";
+ common.forEach(x=>{
+   sku.add(new Option(x.h1,x.h1));
+   qty.add(new Option(x.h1,x.h1));
  });
 
- // ถ้ามีชื่อที่สื่อถึง SKU/รหัส/สินค้า ให้เลือกเป็นค่าเริ่มต้น
- // แต่ผู้ใช้สามารถเปลี่ยนเป็นหัวข้อใดก็ได้
- const sg=common.find(c=>/sku|รหัส|code|product|item/i.test(c));
- const qg=common.find(c=>/จำนวน|qty|quantity|amount|count|ยอด/i.test(c));
+ // ตรวจจับ SKU และจำนวนอัตโนมัติ
+ const skuGuess=common.find(x=>/sku|รหัส|code|product|item/i.test(x.h1));
+ const qtyGuess=common.find(x=>/จำนวน|qty|quantity|amount|count|ยอด/i.test(x.h1));
 
- sku.value=sg||common[0];
- qty.value=qg||(common[1]||common[0]);
+ const skuCol=(skuGuess||common[0]).h1;
+ let qtyCol=(qtyGuess||common.find(x=>x.h1!==skuCol)||common[0]).h1;
 
+ // ถ้าชื่อคอลัมน์จำนวนหาไม่เจอ ให้ลองใช้ตำแหน่งคอลัมน์ที่มักเป็นจำนวน
+ if(qtyCol===skuCol && common.length>1) qtyCol=common[1].h1;
+
+ sku.value=skuCol;
+ qty.value=qtyCol;
  sku.disabled=false;
  qty.disabled=false;
- $("allCols").disabled=false;
- $("noCols").disabled=false;
- updateButton();
 
- $("status").textContent=
-   `● โหลดหัวคอลัมน์แล้ว ${common.length} หัวข้อ — สามารถเลือกหัวข้อใดก็ได้`;
+ $("compare2").disabled=false;
+
+ const info=$("autoCompareDetail");
+ if(info){
+   info.textContent=`ตรวจพบอัตโนมัติ: SKU = "${skuCol}"  |  จำนวน = "${qtyCol}"`;
+ }
+
+ $("status").textContent=`● พร้อมเปรียบเทียบอัตโนมัติ — SKU: ${skuCol} | จำนวน: ${qtyCol}`;
 }
-
 function updateButton(){$("compare2").disabled=!data1||!data2||!$("sku").value||!$("qty").value||$("sku").value===$("qty").value}
 function autoCompare(){ if(data1&&data2&&$("sku").value&&$("qty").value&&$("sku").value!==$("qty").value) compareFiles(); }
-function setCols(v){document.querySelectorAll("#columnList input").forEach(x=>{x.checked=v;x.parentElement.classList.toggle("on",v)})}
-function updateStatus(){$("status").textContent=data1&&data2?"● พร้อมเลือกหัวคอลัมน์จากไฟล์ที่อัปโหลด":"● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์"}
+function setCols(v){}
+function updateStatus(){$("status").textContent=data1&&data2?"● ระบบพร้อมเปรียบเทียบอัตโนมัติ":"● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์"}
 function num(v){const n=Number(String(v??"").replace(/,/g,"").trim());return Number.isFinite(n)?n:0}
 function norm(v){return String(v??"").trim()}
 
@@ -1217,7 +1261,7 @@ function compareFiles(){
   $("downloadBox").style.display="flex";
   $("resultBox").style.display="block";
   $("deletedBox").style.display="none";
-  renderTable(previewData,"resultPreview");
+  renderTable(previewData,"resultPreview",[...Object.keys(data1?.[0]||{}),"ตำแหน่ง"].filter((c,i,a)=>a.indexOf(c)===i));
   setProgress(100);setTimeout(()=>setProgress(0),400);
  }catch(e){setProgress(0);alert("เกิดข้อผิดพลาด\n\n"+e.message)}
 }
@@ -1225,46 +1269,134 @@ function compareFiles(){
 function buildCompareAnalytics(sc,qc){
   const extra=$("compareExtra"); if(!extra)return;
   extra.style.display='block';
+
   const map2=new Map();
-  (data2||[]).forEach(r=>{const s=norm(r[sc]); if(s)map2.set(s,(map2.get(s)||0)+num(r[qc]));});
+  (data2||[]).forEach(r=>{
+    const s=norm(r[sc]);
+    if(s)map2.set(s,(map2.get(s)||0)+num(r[qc]));
+  });
+
   let remainingSku=0,partialSku=0,deletedSku=deletedData?.length||0,remainingQty=0;
-  (resultData||[]).forEach(r=>{const s=norm(r[sc]); const q=num(r[qc]); if(s&&q>0){remainingSku++;remainingQty+=q; const b=map2.get(s)||0; if(b>0)partialSku++;}});
+  (resultData||[]).forEach(r=>{
+    const s=norm(r[sc]), q=num(r[qc]);
+    if(s&&q>0){
+      remainingSku++;
+      remainingQty+=q;
+      const b=map2.get(s)||0;
+      if(b>0)partialSku++;
+    }
+  });
+
   $("remainingSku").textContent=remainingSku.toLocaleString();
   $("partialSku").textContent=partialSku.toLocaleString();
   $("deletedSku").textContent=deletedSku.toLocaleString();
   $("remainingQty").textContent=remainingQty.toLocaleString();
   $("compareExtraNote").textContent=`SKU: ${sc} | จำนวน: ${qc}`;
+
+  /*
+   * FIX:
+   * เดิม renderTable ใช้ Object.keys(rows[0]) เป็นหัวตาราง
+   * ทำให้เมื่อค้นหาแล้วผลลัพธ์ชุดแรกเป็น deletedData ซึ่งมีโครงสร้าง
+   * คนละแบบกับ resultData หัวคอลัมน์บางหัวจึงหายไป และพอล้างคำค้น
+   * ตารางอาจดูเหมือนเปลี่ยนหัวคอลัมน์
+   *
+   * รอบนี้กำหนดหัวคอลัมน์ของตาราง Compare จากไฟล์ 1 แบบคงที่
+   * แล้วเติม "ตำแหน่ง" ต่อท้าย จึงค้นหา/ล้างคำค้นกี่ครั้งหัวตารางก็ไม่หาย
+   */
+  const baseColumns=Object.keys(data1?.[0]||{});
+  const compareColumns=[...baseColumns];
+  if(!compareColumns.includes("ตำแหน่ง")) compareColumns.push("ตำแหน่ง");
+
   const renderFiltered=()=>{
-    const q=$("compareSearch").value.trim().toLowerCase();
+    const raw=$("compareSearch").value||"";
+    const q=raw.trim().toLowerCase();
     const f=$("compareStatusFilter").value;
-    const deleted=deletedData||[];
+
     const combined=[];
+
+    // ข้อมูลที่ยังเหลือจากไฟล์ 1
     (resultData||[]).forEach(r=>{
-      const s=norm(r[sc]); const b=map2.get(s)||0; const qv=num(r[qc]);
+      const s=norm(r[sc]);
+      const b=map2.get(s)||0;
+      const qv=num(r[qc]);
       const status=b<=0?'notfound':(qv>0?'partial':'remaining');
-      if(f!=='all'&&f!==status)return;
-      const text=Object.values(r).join(' ').toLowerCase(); if(q&&!text.includes(q))return;
-      combined.push(r);
+
+      if(f!=='all' && f!==status)return;
+
+      // ค้นหาจากข้อมูลทุกช่องของแถวนั้น
+      const text=Object.values(r).map(v=>String(v??"")).join(" ").toLowerCase();
+      if(q && !text.includes(q))return;
+
+      combined.push({...r,"ตำแหน่ง":(posMapForSearch(s)||"-")});
     });
+
+    // รายการที่ถูกลบ: ค้นหาได้เหมือนเดิม แต่สร้างแถวให้ใช้หัวคอลัมน์เดียวกับไฟล์ 1
     if(f==='deleted'||f==='all'){
-      deleted.forEach(r=>{const text=Object.values(r).join(' ').toLowerCase();if(q&&!text.includes(q))return;if(f==='deleted'||f==='all')combined.push(r);});
+      (deletedData||[]).forEach(r=>{
+        const text=Object.values(r).map(v=>String(v??"")).join(" ").toLowerCase();
+        if(q && !text.includes(q))return;
+
+        const row={};
+        baseColumns.forEach(c=>{
+          if(Object.prototype.hasOwnProperty.call(r,c)) row[c]=r[c];
+          else row[c]="";
+        });
+        // ถ้าคอลัมน์จำนวนของไฟล์ 1 ใช้ชื่อเดียวกับ qc ให้แสดงจำนวนเดิม
+        if(!Object.prototype.hasOwnProperty.call(r,qc) && Object.prototype.hasOwnProperty.call(r,"จำนวนไฟล์ที่ 1")){
+          row[qc]=r["จำนวนไฟล์ที่ 1"];
+        }
+        row["ตำแหน่ง"]=r["ตำแหน่ง"]||"-";
+        combined.push(row);
+      });
     }
+
     $("compareExtraNote").textContent=`พบ ${combined.length.toLocaleString()} รายการตามตัวกรอง`;
-    renderTable(combined.slice(0,1000),'resultPreview');
+    renderTable(combined.slice(0,1000),'resultPreview',compareColumns);
   };
-  $("compareSearch").oninput=renderFiltered; $("compareStatusFilter").onchange=renderFiltered;
+
+  $("compareSearch").oninput=renderFiltered;
+  $("compareStatusFilter").onchange=renderFiltered;
+  renderFiltered();
 }
 
-function renderTable(rows,id){
+// ใช้ข้อมูลตำแหน่งที่คำนวณไว้ใน compareFiles โดยไม่พึ่งโครงสร้างของแถวผลลัพธ์
+function posMapForSearch(s){
+  if(!s)return "";
+  const posCol=Object.keys(data2?.[0]||{}).find(c=>/ตำแหน่ง|position|location|loc/i.test(c));
+  if(!posCol)return "";
+  const vals=[];
+  (data2||[]).forEach(r=>{
+    if(norm(r[compareSkuCol])!==s)return;
+    const p=norm(r[posCol]);
+    if(!p)return;
+    const v=formatComparePosition(p).toUpperCase();
+    if(v && !vals.includes(v))vals.push(v);
+  });
+  return vals.join(",");
+}
+
+function renderTable(rows,id,columns=null){
  const box=$(id);
  if(!rows.length){box.innerHTML='<div class="empty">ไม่มีข้อมูล</div>';return}
- const cs=Object.keys(rows[0]);
+
+ // ถ้า caller ไม่กำหนด columns ให้ใช้ union ของทุกแถว
+ // ป้องกันหัวคอลัมน์หายเมื่อ rows มีหลายโครงสร้าง
+ const cs=columns&&columns.length
+   ? columns
+   : [...new Set(rows.flatMap(r=>Object.keys(r||{})))];
+
  const limit=1000;
  let h="<table><thead><tr>"+cs.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr></thead><tbody>";
- rows.slice(0,limit).forEach(r=>h+="<tr>"+cs.map(c=>`<td>${esc(r[c])}</td>`).join("")+"</tr>");
+ rows.slice(0,limit).forEach(r=>{
+   h+="<tr>"+cs.map(c=>`<td>${esc(r?.[c]??"")}</td>`).join("")+"</tr>";
+ });
  h+="</tbody></table>";
- if(rows.length>limit)h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดง ${limit.toLocaleString()} แถวแรก จาก ${rows.length.toLocaleString()} แถว</div>`;
- else h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดงข้อมูลทั้งหมด ${rows.length.toLocaleString()} แถว</div>`;
+
+ if(rows.length>limit)
+   h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดง ${limit.toLocaleString()} แถวแรก จาก ${rows.length.toLocaleString()} แถว</div>`;
+ else
+   h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดงข้อมูลทั้งหมด ${rows.length.toLocaleString()} แถว</div>`;
+
  box.innerHTML=h;
 }
 function downloadResult(){
@@ -1283,8 +1415,10 @@ function clearAll(){
  $("name1").textContent=$("name2").textContent="คลิกเพื่อเลือกไฟล์";
  $("info1").textContent=$("info2").textContent="รองรับ Excel / CSV";
  $("columnList").innerHTML='<div class="empty">กรุณาเลือกไฟล์ทั้ง 2 ก่อน</div>';
- $("sku").innerHTML=$("qty").innerHTML='<option value="">เลือกไฟล์ก่อน</option>';
+ $("sku").innerHTML=$("qty").innerHTML='<option value=""></option>';
  $("sku").disabled=$("qty").disabled=true;$("compare2").disabled=true;
+ const autoInfo=$("autoCompareDetail");
+ if(autoInfo) autoInfo.textContent="เลือกไฟล์ 1 และไฟล์ 2 แล้วระบบจะตรวจจับคอลัมน์ SKU และจำนวนจากหัวตารางให้อัตโนมัติ";
  $("allCols").disabled=$("noCols").disabled=true;$("downloadBox").style.display="none";$("deletedBox").style.display="none";$("resultBox").style.display="none";
  $("resultPreview").innerHTML='<div class="empty">ยังไม่มีผลลัพธ์</div>';
  $("deletedPreview").innerHTML="";
@@ -1542,7 +1676,26 @@ function buildOrderFilters() {
       applyOrderFilters();
     };
 
-    search.oninput = renderValues;
+    search.oninput = () => {
+      const q = search.value.trim().toLowerCase();
+
+      if (!q) {
+        // ล้างคำค้นหา = เลือกทุกค่าอัตโนมัติ
+        state.values.forEach(v => state.selected.add(v));
+      } else {
+        // มีคำค้นหา = เลือกเฉพาะค่าที่ตรงกับคำค้นหาอัตโนมัติ
+        const matchedValues = state.values.filter(v =>
+          String(v).toLowerCase().includes(q)
+        );
+
+        // รีเซ็ตเฉพาะคอลัมน์นี้ แล้วเลือกค่าที่ค้นพบ
+        state.selected.clear();
+        matchedValues.forEach(v => state.selected.add(v));
+      }
+
+      renderValues();
+      applyOrderFilters();
+    };
 
     card.append(title, search, actions, list, count);
     orderFiltersBox.append(card);
