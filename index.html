@@ -894,25 +894,41 @@ async function processZip(){
 
     // สร้าง Pivot จากข้อมูลที่ผ่านการลบทุกขั้นตอนแล้วเท่านั้น
     // ใช้ SKU Merchant + รวมจำนวน และเรียง SKU Merchant
-    const skuIndex = keptHeader.findIndex(h => /SKU\s*Merchant/i.test(String(h)));
+    const skuIndex = keptHeader.findIndex(h => /^\s*SKU\s*Merchant\s*$/i.test(String(h)));
+    const skuNameIndex = keptHeader.findIndex(h => /^\s*ชื่อ\s*SKU\s*$/i.test(String(h)));
     const qtyIndex = keptHeader.findIndex(h => /^\s*จำนวน\s*$/i.test(String(h)) || /จำนวน/i.test(String(h)));
     const pivotMap = new Map();
 
     if(skuIndex >= 0 && qtyIndex >= 0){
       resultRows.slice(1).forEach(row => {
         const sku = String(row?.[skuIndex] ?? '').trim() || '(ว่าง)';
+        const skuName = skuNameIndex >= 0
+          ? (String(row?.[skuNameIndex] ?? '').trim() || '(ว่าง)')
+          : '(ว่าง)';
         const qtyRaw = String(row?.[qtyIndex] ?? '').replace(/,/g,'').trim();
         const qty = Number(qtyRaw);
         const amount = Number.isFinite(qty) ? qty : 0;
-        pivotMap.set(sku, (pivotMap.get(sku) || 0) + amount);
+        // เก็บทั้ง "ชื่อ SKU" และ "SKU Merchant" ไว้ใน Pivot เพื่อให้ผู้ใช้
+        // สามารถเลือกนำคอลัมน์ใดไปจัดกลุ่มต่อเองใน Excel ได้
+        const key = skuName + '\u0000' + sku;
+        const current = pivotMap.get(key);
+        if(current){
+          current.qty += amount;
+        }else{
+          pivotMap.set(key, {skuName, sku, qty: amount});
+        }
       });
     }
 
     const pivotRows = [
-      ['SKU Merchant', 'รวมจำนวน'],
-      ...[...pivotMap.entries()]
-        .map(([sku, qty]) => [sku, qty])
-        .sort((a,b) => String(a[0]).localeCompare(String(b[0]), undefined, {numeric:true, sensitivity:'base'}))
+      ['ชื่อ SKU', 'SKU Merchant', 'รวมจำนวน'],
+      ...[...pivotMap.values()]
+        .map(item => [item.skuName, item.sku, item.qty])
+        .sort((a,b) => {
+          const nameCmp = String(a[0]).localeCompare(String(b[0]), undefined, {numeric:true, sensitivity:'base'});
+          if(nameCmp !== 0) return nameCmp;
+          return String(a[1]).localeCompare(String(b[1]), undefined, {numeric:true, sensitivity:'base'});
+        })
     ];
 
     outputWorkbook=XLSX.utils.book_new();
@@ -923,6 +939,7 @@ async function processZip(){
     const pivotWs=XLSX.utils.aoa_to_sheet(pivotRows);
     pivotWs['!cols']=[
       {wch: Math.min(Math.max(Math.max(13, ...pivotRows.map(r => String(r[0] ?? '').length + 2)), 13), 40)},
+      {wch: Math.min(Math.max(Math.max(13, ...pivotRows.map(r => String(r[1] ?? '').length + 2)), 13), 40)},
       {wch: 14}
     ];
     XLSX.utils.book_append_sheet(outputWorkbook,pivotWs,'Pivot');
