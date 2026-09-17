@@ -1617,7 +1617,7 @@ function addOrderSkuSpacingRows(rows, groupIndex, skuIndex) {
   // 2) "ชื่อ SKU Merchant" ที่ลงท้าย FRONT ไม่นับเป็นกลุ่มใหม่
   // 3) ข้อมูลที่แสดงยังใช้ค่า "SKU Merchant" เต็ม ๆ
   // 4) ภายในกลุ่มไม่เว้นบรรทัด
-  // 5) เมื่อเปลี่ยนกลุ่ม เว้น 4 บรรทัด
+  // 5) เมื่อเปลี่ยนกลุ่ม เว้น 3 บรรทัด
   if (!rows.length) return [];
 
   const sorted = [...rows].sort((a, b) =>
@@ -1630,7 +1630,7 @@ function addOrderSkuSpacingRows(rows, groupIndex, skuIndex) {
   sorted.forEach((row) => {
     const group = normalizeOrderGroupName(row?.[groupIndex]);
     if (previousGroup !== null && group !== previousGroup) {
-      for (let i = 0; i < 4; i++) out.push([]);
+      for (let i = 0; i < 3; i++) out.push([]);
     }
     out.push(row);
     previousGroup = group;
@@ -1664,12 +1664,15 @@ function downloadOrderPivotExcel() {
   const groupIndex = getOrderGroupIndex() >= 0 ? getOrderGroupIndex() : skuIndex;
   const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
 
-  // แบ่งกลุ่มจาก "ชื่อ SKU Merchant" แต่ข้อมูลที่แสดงยังเป็นคอลัมน์ "SKU Merchant"
-  const spacedDataRows = addOrderSkuSpacingRows(dataRows, groupIndex, skuIndex);
+  // Excel ไม่เว้นบรรทัดระหว่างกลุ่ม
+  // ยังคงเรียงตาม "ชื่อ SKU Merchant" และแสดงข้อมูลทุกคอลัมน์ตามเดิม
+  const sortedDataRows = [...dataRows].sort((a, b) =>
+    compareOrderExportRows(a, b, groupIndex, skuIndex)
+  );
 
   const data = [
     [...orderHeaders],
-    ...spacedDataRows.map(row => orderHeaders.map((_, i) => row?.[i] ?? ''))
+    ...sortedDataRows.map(row => orderHeaders.map((_, i) => row?.[i] ?? ''))
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -1693,17 +1696,9 @@ function downloadOrderPivotExcel() {
     orderHeaders[skuIndex] || 'SKU Merchant',
     orderHeaders[qtyIndex] || 'จำนวน'
   ];
+  // Pivot ใน Excel ไม่เว้นบรรทัดระหว่างกลุ่ม
   const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
-  const pivotRowsForExcel = [];
-  let previousGroup = null;
-  sortedPivotRows.forEach((item) => {
-    const group = normalizeOrderGroupName(item.groupName);
-    if (previousGroup !== null && group !== previousGroup) {
-      for (let i = 0; i < 4; i++) pivotRowsForExcel.push([]);
-    }
-    pivotRowsForExcel.push([item.sku, item.qty]);
-    previousGroup = group;
-  });
+  const pivotRowsForExcel = sortedPivotRows.map(item => [item.sku, item.qty]);
   const pivotData = [
     pivotHeader,
     ...pivotRowsForExcel
@@ -1900,7 +1895,7 @@ async function downloadOrderWord() {
   }
 
   // แสดงเฉพาะค่าในคอลัมน์ "SKU Merchant"
-  // แต่แบ่งกลุ่มและเว้น 4 บรรทัดจากคอลัมน์ "ชื่อ SKU Merchant"
+  // แต่แบ่งกลุ่มและเว้น 3 บรรทัดจากคอลัมน์ "ชื่อ SKU Merchant"
   // ชื่อกลุ่มที่ลงท้าย FRONT จะไม่สร้างกลุ่มใหม่
   const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
   let previousGroup = null;
@@ -1909,7 +1904,7 @@ async function downloadOrderWord() {
       const group = normalizeOrderGroupName(r.groupName);
       let spacer = '';
       if (previousGroup !== null && group !== previousGroup) {
-        spacer = Array.from({length: 4}, () => wordParagraph('', {after: 100, line: 200})).join('');
+        spacer = Array.from({length: 3}, () => wordParagraph('', {after: 100, line: 200})).join('');
       }
       previousGroup = group;
       return spacer + itemParagraph(r.sku, r.qty);
