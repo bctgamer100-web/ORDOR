@@ -162,7 +162,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 .order-summary-grid{gap:12px}.order-summary-grid>div{position:relative;overflow:hidden}.order-summary-grid>div:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:linear-gradient(var(--cyan),var(--violet))}
 /* page-specific identity */
 #mergeTool{border-top:2px solid var(--cyan)!important}#compareTool{border-top:2px solid var(--violet)!important}#orderTool{border-top:2px solid var(--green)!important}
-#mergeTool h2:after{content:"  /  DATA INGEST";font-size:11px;color:var(--cyan);letter-spacing:1.5px}#compareTool h2:after{content:"  /  ANALYTICS";font-size:11px;color:var(--violet);letter-spacing:1.5px}#orderTool h2:after{content:"  /  FULFILLMENT";font-size:11px;color:var(--green);letter-spacing:1.5px}
+#mergeTool h2:after{content:"  /  DATA INGEST";font-size:11px;color:var(--cyan);letter-spacing:1.5px}#compareTool h2:after{content:"  /  ORDER vs STOCK";font-size:11px;color:var(--violet);letter-spacing:1.5px}#orderTool h2:after{content:"  /  FULFILLMENT";font-size:11px;color:var(--green);letter-spacing:1.5px}
 @media(max-width:800px){.shell{padding:12px 10px 30px}.top{padding:20px 16px 0;border-radius:20px}.top h1{font-size:27px}.tabs{overflow-x:auto}.tab{white-space:nowrap;padding:13px 14px}.tool{border-radius:18px!important}.order-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 
@@ -278,6 +278,11 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 #orderTool .beta-progress{background:rgba(255,255,255,.06)!important}
 #orderTool .beta-status{padding:10px 12px;min-height:38px;display:flex;align-items:center;background:rgba(255,255,255,.025)!important;border:1px solid rgba(255,255,255,.07);margin:10px 0!important}
 #orderTool .beta-actions button{min-height:44px;border-radius:12px!important}
+/* ซ่อนปุ่มของ ORDER จนกว่าจะเลือกไฟล์ */
+#orderTool .beta-actions{display:none}
+#orderTool .order-filter-actions{display:none}
+#orderTool.has-file .beta-actions{display:flex}
+#orderTool.has-file .order-filter-actions{display:flex}
 #orderTool .word-export-btn,#orderTool .pdf-print-btn{background:linear-gradient(135deg,#2b579a,#5c7cff)!important;border:0!important}
 #orderTool .excel-pivot-export-btn{background:linear-gradient(135deg,#147d59,#2fcf91)!important;border:0!important}
 #orderTool .beta-danger{background:rgba(255,84,120,.14)!important;color:#ff9ab0!important;border:1px solid rgba(255,107,138,.28)!important}
@@ -413,7 +418,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
     <p>รวมไฟล์ Excel จาก ZIP และเปรียบเทียบยอดตาม SKU ได้ในหน้าเดียว</p>
     <div class="tabs">
       <button class="tab active" data-tool="mergeTool">📦 รวมไฟล์ ZIP</button>
-      <button class="tab" data-tool="compareTool">🔎 เปรียบเทียบ 2 ไฟล์</button>
+      <button class="tab" data-tool="compareTool">🔎 ตรวจ ORDER กับ Stock</button>
       <button class="tab" data-tool="orderTool">📥 รับORDER</button>
       <button class="tab" data-tool="summaryTool">📋 สรุปงาน</button>
     </div>
@@ -451,58 +456,100 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
       <div class="app" style="max-width:none;background:transparent;border:0;box-shadow:none">
         <header style="display:none"></header>
         <main>
-<div class="grid">
-<div class="card"><h2>📄 ไฟล์ที่ 1 — ไฟล์ตั้งต้น</h2><label class="drop"><input id="file1" type="file" accept=".xlsx,.xls,.csv"><div class="icon">📁</div><div class="name" id="name1">คลิกเพื่อเลือกไฟล์</div><div class="info" id="info1">รองรับ Excel / CSV</div></label></div>
-<div class="card"><h2>🔎 ไฟล์ที่ 2 — ไฟล์สำหรับเทียบ</h2><label class="drop"><input id="file2" type="file" accept=".xlsx,.xls,.csv"><div class="icon">📁</div><div class="name" id="name2">คลิกเพื่อเลือกไฟล์</div><div class="info" id="info2">รองรับ Excel / CSV</div></label></div>
-</div>
+          <div class="grid">
+            <div class="card">
+              <h2>📥 ไฟล์ที่ 1 — ORDER</h2>
+              <label class="drop">
+                <input id="file1" type="file" accept=".xlsx,.xls,.csv">
+                <div class="icon">📥</div>
+                <div class="name" id="name1">คลิกเพื่อเลือกไฟล์ ORDER</div>
+                <div class="info" id="info1">รองรับ Excel / CSV</div>
+              </label>
+            </div>
 
-<div class="panel">
-<div id="autoCompareInfo" class="auto-compare-info">
-  <b>⚡ ระบบเปรียบเทียบอัตโนมัติ</b>
-  <div id="autoCompareDetail">เลือกไฟล์ 1 และไฟล์ 2 แล้วระบบจะตรวจจับคอลัมน์ SKU และจำนวนจากหัวตารางให้อัตโนมัติ</div>
-</div>
+            <div class="card">
+              <h2>📦 ไฟล์ที่ 2 — Stock</h2>
+              <label class="drop">
+                <input id="file2" type="file" accept=".xlsx,.xls,.csv">
+                <div class="icon">📦</div>
+                <div class="name" id="name2">คลิกเพื่อเลือกไฟล์ Stock</div>
+                <div class="info" id="info2">รองรับ Excel / CSV</div>
+              </label>
+            </div>
+          </div>
 
-<!-- เก็บ select ไว้ภายในเพื่อให้โค้ดเดิมทำงานต่อได้ แต่ไม่แสดงเป็น UI -->
-<div style="display:none">
-  <select id="sku"><option value=""></option></select>
-  <select id="qty"><option value=""></option></select>
-  <div id="columnList"></div>
-  <button id="allCols"></button>
-  <button id="noCols"></button>
-</div>
+          <div class="panel">
+            <div id="autoCompareInfo" class="auto-compare-info">
+              <b>⚡ ตรวจ ORDER กับ Stock อัตโนมัติ</b>
+              <div id="autoCompareDetail">
+                เลือกไฟล์ ORDER และ Stock แล้วระบบจะตรวจจับหัวคอลัมน์จากแถวบนสุดให้อัตโนมัติ
+              </div>
+            </div>
 
-<div class="rules"><b>📌 กติกา:</b><br>• ไฟล์ 1 น้อยกว่าไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 เท่ากับไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 มากกว่าไฟล์ 2 → หักจำนวน แล้วเก็บยอดคงเหลือ</div>
-<div class="actions"><button class="primary" id="compare2" disabled style="display:none">▶ เปรียบเทียบข้อมูล</button><button class="red" id="clear2">🗑 ล้างข้อมูล</button></div>
-</div>
+            <div class="rules">
+              <b>📌 กติกา:</b><br>
+              • Stock SKU เดียวกันหลายแถว → รวมจำนวน Stock ทุกแถว<br>
+              • ORDER SKU เดียวกันหลายแถว → รวมจำนวน ORDER ทุกแถว<br>
+              • Stock ≥ ORDER → <b>✅ พอ</b><br>
+              • Stock &lt; ORDER → <b>⚠️ ขาด X</b><br>
+              • ไม่พบ SKU ใน Stock หรือ Stock เป็น 0 → <b>❌ ไม่มี Stock</b><br>
+              • ตำแหน่งที่มีรูปแบบ เช่น KT-001-01 จะแสดงเฉพาะ KT และรวมตำแหน่งที่ไม่ซ้ำกัน
+            </div>
 
-<div class="progress" id="progress"><div class="bar" id="bar"></div></div>
-<div class="status" id="status">● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์</div>
+            <div class="actions">
+              <button class="red" id="clear2">🗑 ล้างข้อมูล</button>
+            </div>
+          </div>
 
-<div class="download-box" id="downloadBox"><div><b>✅ เปรียบเทียบเสร็จแล้ว</b><div class="download-note">ไฟล์ผลลัพธ์มี 2 Sheet: ยอดคงเหลือ และรายการที่ถูกลบ/ถูกหัก</div></div><button class="green" id="download2">⬇ ดาวน์โหลดไฟล์ผลลัพธ์ Excel</button></div>
+          <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
+          <div class="status" id="status">● กรุณาเลือกไฟล์ Stock และ ORDER</div>
 
-<div class="stats">
-<div class="stat"><div>📄 ข้อมูลในไฟล์ที่ 1</div><div class="sv" id="total">0</div></div>
-<div class="stat"><div>🗑️ SKU ที่ถูกลบ/หัก</div><div class="sv" id="affected">0</div></div>
-<div class="stat"><div>✅ ข้อมูลที่เหลือ</div><div class="sv" id="remaining">0</div></div>
-</div>
+          <div class="download-box" id="downloadBox" style="display:none">
+            <div>
+              <b>✅ ตรวจสอบเสร็จแล้ว</b>
+              <div class="download-note">ดาวน์โหลดผลตรวจ Stock เทียบกับ ORDER เป็น Excel ได้ทันที</div>
+            </div>
+            <button class="green" id="download2">⬇ ดาวน์โหลดผลตรวจ Excel</button>
+          </div>
 
-<div class="compare-tools-extra" id="compareExtra" style="display:none">
-  <div class="extra-head"><strong>🔍 ค้นหา SKU และดูสถานะผลเปรียบเทียบ</strong><span id="compareExtraNote"></span></div>
-  <div class="extra-controls">
-    <input id="compareSearch" aria-label="ค้นหา SKU" type="text" placeholder="🔍 ค้นหา SKU...">
-    <select id="compareStatusFilter"><option value="all">ทุกสถานะ</option><option value="remaining">มีคงเหลือ</option><option value="partial">ถูกหักบางส่วน</option><option value="deleted">ถูกลบ</option><option value="notfound">ไม่พบในไฟล์ 2</option></select>
-  </div>
-  <div class="compare-mini-stats">
-    <span>SKU คงเหลือ <b id="remainingSku">0</b></span>
-    <span>ถูกหักบางส่วน <b id="partialSku">0</b></span>
-    <span>ถูกลบ <b id="deletedSku">0</b></span>
-    <span>ยอดคงเหลือรวม <b id="remainingQty">0</b></span>
-  </div>
-</div>
+          <div class="stats">
+            <div class="stat"><div>📥 SKU ORDER</div><div class="sv" id="total">0</div></div>
+            <div class="stat"><div>⚠️ SKU ที่ขาด</div><div class="sv" id="affected">0</div></div>
+            <div class="stat"><div>✅ SKU ที่พอ</div><div class="sv" id="remaining">0</div></div>
+          </div>
 
-<div class="preview" id="resultBox" style="display:none"><h2>📋 ตัวอย่างข้อมูลที่เหลือ</h2><div class="table" id="resultPreview"><div class="empty">ยังไม่มีผลลัพธ์</div></div></div>
-<div class="preview" id="deletedBox" style="display:none"><h2>🗑️ ตัวอย่างแถวที่ถูกลบออกไป</h2><div class="table" id="deletedPreview"></div></div>
-</main>
+          <div class="compare-tools-extra" id="compareExtra" style="display:none">
+            <div class="extra-head">
+              <strong>🔍 ค้นหา SKU และกรองสถานะ</strong>
+              <span id="compareExtraNote"></span>
+            </div>
+            <div class="extra-controls">
+              <input id="compareSearch" aria-label="ค้นหา SKU" type="text" placeholder="🔍 ค้นหา SKU...">
+              <select id="compareStatusFilter">
+                <option value="all">ทุกสถานะ</option>
+                <option value="ok">พอ</option>
+                <option value="short">ขาด</option>
+                <option value="none">ไม่มี Stock</option>
+              </select>
+            </div>
+            <div class="compare-mini-stats">
+              <span>SKU ทั้งหมด <b id="remainingSku">0</b></span>
+              <span>พอ <b id="partialSku">0</b></span>
+              <span>ขาด <b id="deletedSku">0</b></span>
+              <span>ไม่มี Stock <b id="remainingQty">0</b></span>
+            </div>
+          </div>
+
+          <div class="preview" id="resultBox" style="display:none">
+            <div class="extra-head" style="margin-bottom:10px">
+              <strong>📋 ตัวอย่างผลตรวจ ORDER กับ Stock</strong>
+              <span id="resultHeaderNote"></span>
+            </div>
+            <div class="table" id="resultPreview">
+              <div class="empty">ยังไม่มีผลลัพธ์</div>
+            </div>
+          </div>
+        </main>
       </div>
     </section>
 
@@ -612,7 +659,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
   let summaryDate = todayKey(new Date());
   const tabNames = {
     mergeTool: '📦 รวมไฟล์ ZIP',
-    compareTool: '🔎 เปรียบเทียบ 2 ไฟล์',
+    compareTool: '🔎 ตรวจ ORDER กับ Stock',
     orderTool: '📥 รับORDER',
     summaryTool: '📋 สรุปงาน'
   };
@@ -721,8 +768,8 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
   const buttonMap = {
     process:['mergeTool','รวมไฟล์ ZIP'],
     download:['mergeTool','ดาวน์โหลด Excel'],
-    compare2:['compareTool','เปรียบเทียบไฟล์ 2 ไฟล์'],
-    download2:['compareTool','ดาวน์โหลดไฟล์ผลลัพธ์ Excel'],
+    
+    download2:['compareTool','ดาวน์โหลดผลตรวจ ORDER กับ Stock Excel'],
     orderProcess:['orderTool','เตรียมข้อมูล ORDER'],
     orderDownload:['orderTool','พิมพ์ ORDER (Pivot)'],
     orderPivotExcelDownload:['orderTool','ดาวน์โหลด Excel ตามตัวอย่าง'],
@@ -813,6 +860,8 @@ document.querySelectorAll(".tab").forEach(btn => {
 // ===== ZIP MERGE TOOL (จาก Beta.html) =====
 
 let zipFile=null, resultRows=[], headers=[], outputWorkbook=null, mergedFile=null, mergeProcessing=false;
+// ข้อมูล Stock ที่ผ่านการรวม/ลบ FRONT-DELETE แล้ว ใช้ต่อในหน้า "ตรวจ ORDER กับ Stock"
+let mergedStockRows=[];
 
 // คอลัมน์ที่ระบบลบอัตโนมัติตามเงื่อนไขเดิม: C, D, F, H, I, J, K, L
 const AUTO_REMOVE_MERGE_COLS = new Set(
@@ -947,6 +996,10 @@ async function processZip(){
 
     const keptHeader=resultRows[0]||[];
 
+    // เก็บ Stock จากข้อมูลที่ผ่านกติกาการรวมทั้งหมดแล้ว
+    // เพื่อให้หน้า ORDER สามารถตรวจ Stock ได้โดยไม่ต้องอัปโหลด Stock ซ้ำ
+    mergedStockRows = resultRows.slice(1).map(row => [...row]);
+
     // สร้าง Pivot จากข้อมูลที่ผ่านการลบทุกขั้นตอนแล้วเท่านั้น
     // ใช้ SKU Merchant + รวมจำนวน และเรียง SKU Merchant
     const skuIndex = keptHeader.findIndex(h => /^\s*SKU\s*Merchant\s*$/i.test(String(h)));
@@ -1054,7 +1107,7 @@ document.getElementById('download').onclick=()=>{
 };
 
 document.getElementById('clear').onclick=()=>{
-  zipFile=null; resultRows=[]; outputWorkbook=null; mergeProcessing=false; input.value='';
+  zipFile=null; resultRows=[]; headers=[]; outputWorkbook=null; mergedFile=null; mergedStockRows=[]; mergeProcessing=false; input.value='';
   document.getElementById('fileCount').textContent='0';
   document.getElementById('rowCount').textContent='0';
   document.getElementById('status').textContent='ยังไม่ได้เลือกไฟล์';
@@ -1067,366 +1120,526 @@ document.getElementById('clear').onclick=()=>{
 </script>
 
 <script>
-// ===== COMPARE TOOL (จาก report.html) =====
+// ===== COMPARE TOOL : ORDER vs STOCK =====
 
 const $=id=>document.getElementById(id);
-let data1=null,data2=null,resultData=null,deletedData=null,previewData=null,compareSkuCol=null,compareQtyCol=null;
-// ไฟล์ที่ 2 ที่ส่งมาจากหน้า 'รวมไฟล์ ZIP' จะถูกเก็บแยกไว้จนกว่าจะกด 'ล้างข้อมูล' ในหน้าเปรียบเทียบ
-let compareFile2Locked=null;
 
-$("file1").onchange=e=>loadFile(e.target.files[0],1);
-$("file2").onchange=e=>loadFile(e.target.files[0],2);
-$("compare2").onclick=compareFiles;
-$("download2").onclick=downloadResult;
+let data1=null;              // Stock rows as objects
+let data2=null;              // ORDER rows as objects
+let stockFileName='';
+let orderFileName='';
+let stockSkuCol='';
+let stockQtyCol='';
+let stockPosCol='';
+let orderSkuCol='';
+let orderQtyCol='';
+let compareResults=[];
+
+// ล็อกการทำงานของช่องไฟล์ให้ตรงกับตำแหน่งบนหน้าจอแบบชัดเจน
+// ช่องแรก = ORDER, ช่องที่สอง = Stock
+$("file1").onchange=function(e){
+  const file=e.target.files && e.target.files[0];
+  if(file) loadOrderCompareFile(file);
+};
+$("file2").onchange=function(e){
+  const file=e.target.files && e.target.files[0];
+  if(file) loadStockFile(file);
+};
+$("download2").onclick=downloadStockCheckResult;
 $("clear2").onclick=clearAll;
-$("sku").onchange=()=>{updateButton();};
-$("qty").onchange=()=>{updateButton();};
 
-async function loadFile(file,n){
- if(!file)return;
- try{
-  setProgress(20);
+async function readCompareFile(file){
   const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
-  setProgress(60);
   const ws=wb.Sheets[wb.SheetNames[0]];
   const rows=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
-  if(!rows.length)throw new Error("ไม่พบข้อมูลหรือหัวตาราง");
-  if(n===1){data1=rows;$("name1").textContent=file.name;$("info1").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
-  else{data2=rows;$("name2").textContent=file.name;$("info2").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
-  updateColumns();updateStatus();setProgress(100);setTimeout(()=>setProgress(0),300);
-  if(data1&&data2){
-  setTimeout(()=>{
-    if(data1&&data2&&$("sku").value&&$("qty").value&&$("sku").value!==$("qty").value) compareFiles();
-  },50);
-}
- }catch(e){setProgress(0);alert("ไม่สามารถอ่านไฟล์ได้\n\n"+e.message)}
+  if(!rows.length) throw new Error("ไม่พบข้อมูลหรือหัวตาราง");
+  return rows;
 }
 
-function updateColumns(){
- const sku=$("sku"),qty=$("qty");
+function cleanCompareHeader(v){
+  return String(v??"").trim().replace(/\s+/g,"").toLowerCase();
+}
 
- if(!data1||!data2){
-  sku.innerHTML=qty.innerHTML='<option value=""></option>';
-  sku.disabled=qty.disabled=true;
-  $("compare2").disabled=true;
+function detectColumn(headers, patterns, fallbackIndex=-1){
+  const found=headers.find(h=>patterns.some(re=>re.test(String(h))));
+  if(found!==undefined) return found;
+  return fallbackIndex>=0 && fallbackIndex<headers.length ? headers[fallbackIndex] : '';
+}
+
+function detectStockColumns(rows){
+  const headers=Object.keys(rows[0]||{});
+  const sku=detectColumn(headers,[/sku/i,/รหัส/i,/code/i,/product/i,/item/i],0);
+  const qty=detectColumn(headers,[/จำนวน/i,/qty/i,/quantity/i,/amount/i,/count/i,/ยอด/i],headers.length>1?1:-1);
+
+  // ตรวจหัวคอลัมน์ตำแหน่งให้กว้างขึ้น เพราะไฟล์ Stock แต่ละไฟล์
+  // อาจใช้ชื่อ เช่น ตำแหน่ง, ที่เก็บ, location, loc, warehouse ฯลฯ
+  let pos=detectColumn(headers,[
+    /ตำแหน่ง/i,
+    /ที่เก็บ/i,
+    /สถานที่/i,
+    /คลัง/i,
+    /จุดเก็บ/i,
+    /location/i,
+    /loc(?:ation)?/i,
+    /warehouse/i,
+    /storage/i,
+    /bin/i,
+    /shelf/i,
+    /rack/i
+  ],-1);
+
+  // ถ้าหัวคอลัมน์ไม่ตรง ให้ดูจากข้อมูลจริง:
+  // ตำแหน่งมักมีรูปแบบ เช่น KT-001-01, C-00-01, WH-01 ฯลฯ
+  if(!pos){
+    const candidates=headers.filter(h=>h!==sku && h!==qty);
+    let bestHeader='';
+    let bestScore=0;
+
+    candidates.forEach(h=>{
+      let score=0;
+      rows.slice(0,500).forEach(r=>{
+        const v=String(r[h]??'').trim();
+        if(!v)return;
+        if(/^[A-Za-zก-ฮ]{1,10}[-_][A-Za-z0-9ก-ฮ]+/i.test(v)) score++;
+        else if(/^(KT|C|WH|FG|RM|ST|DC|B)[-_]/i.test(v)) score+=2;
+      });
+      if(score>bestScore){
+        bestScore=score;
+        bestHeader=h;
+      }
+    });
+
+    if(bestScore>0) pos=bestHeader;
+  }
+
+  return {headers,sku,qty,pos};
+}
+
+function detectOrderColumns(rows){
+  const headers=Object.keys(rows[0]||{});
+  const sku=detectColumn(headers,[/sku/i,/รหัส/i,/code/i,/product/i,/item/i],0);
+  const qty=detectColumn(headers,[/จำนวน/i,/qty/i,/quantity/i,/amount/i,/count/i,/ยอด/i],headers.length>1?1:-1);
+  return {headers,sku,qty};
+}
+
+async function loadStockFile(file){
+  if(!file)return;
+  try{
+    if(!/\.(xlsx|xls|csv)$/i.test(file.name)) throw new Error("รองรับเฉพาะไฟล์ Excel (.xlsx/.xls) หรือ CSV");
+    setProgress(20);
+    data1=await readCompareFile(file);
+    setProgress(55);
+
+    stockFileName=file.name;
+    const d=detectStockColumns(data1);
+    stockSkuCol=d.sku;
+    stockQtyCol=d.qty;
+    stockPosCol=d.pos;
+
+    // loadStockFile ใช้เฉพาะช่องที่ 2
+    $("name2").textContent=file.name;
+    $("info2").textContent=`${data1.length.toLocaleString()} แถว | ${d.headers.length} คอลัมน์`;
+    setProgress(100);
+    setTimeout(()=>setProgress(0),300);
+
+    updateCompareReady();
+  }catch(e){
+    setProgress(0);
+    data1=null;
+    alert("ไม่สามารถอ่านไฟล์ Stock ได้\n\n"+e.message);
+  }
+}
+
+async function loadOrderCompareFile(file){
+  if(!file)return;
+  try{
+    if(!/\.(xlsx|xls|csv)$/i.test(file.name)) throw new Error("รองรับเฉพาะไฟล์ Excel (.xlsx/.xls) หรือ CSV");
+    setProgress(20);
+    data2=await readCompareFile(file);
+    setProgress(55);
+
+    orderFileName=file.name;
+    const d=detectOrderColumns(data2);
+    orderSkuCol=d.sku;
+    orderQtyCol=d.qty;
+
+    // loadOrderCompareFile ใช้เฉพาะช่องที่ 1
+    $("name1").textContent=file.name;
+    $("info1").textContent=`${data2.length.toLocaleString()} แถว | ${d.headers.length} คอลัมน์`;
+    setProgress(100);
+    setTimeout(()=>setProgress(0),300);
+
+    updateCompareReady();
+  }catch(e){
+    setProgress(0);
+    data2=null;
+    alert("ไม่สามารถอ่านไฟล์ ORDER ได้\n\n"+e.message);
+  }
+}
+
+function updateCompareReady(){
   const info=$("autoCompareDetail");
-  if(info) info.textContent="เลือกไฟล์ 1 และไฟล์ 2 แล้วระบบจะตรวจจับคอลัมน์ SKU และจำนวนจากหัวตารางให้อัตโนมัติ";
-  return;
- }
 
- const headers1=Object.keys(data1[0]||{});
- const headers2=Object.keys(data2[0]||{});
+  if(!data1 || !data2){
+    $("status").textContent="● กรุณาเลือกไฟล์ ORDER และ Stock";
+    if(info){
+      if(data1){
+        info.innerHTML=`ตรวจพบ ORDER: SKU = <b>"${escapeHtml(orderSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(orderQtyCol)}"</b><br>รอเลือกไฟล์ Stock`;
+      }else if(data2){
+        info.innerHTML=`ตรวจพบ Stock: SKU = <b>"${escapeHtml(stockSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(stockQtyCol)}"</b>${stockPosCol?` | ตำแหน่ง = <b>"${escapeHtml(stockPosCol)}"</b>`:''}<br>รอเลือกไฟล์ ORDER`;
+      }else{
+        info.textContent="เลือกไฟล์ ORDER และ Stock แล้วระบบจะตรวจจับหัวคอลัมน์จากแถวบนสุดให้อัตโนมัติ";
+      }
+    }
+    return;
+  }
 
- // จับคู่ชื่อหัวตารางแบบยืดหยุ่น: ตัดช่องว่างและไม่สนใจตัวพิมพ์
- const cleanHeader=v=>String(v??"").trim().replace(/\s+/g,"").toLowerCase();
- const map2=new Map(headers2.map(h=>[cleanHeader(h),h]));
- const common=headers1
-   .map(h=>({h1:h,h2:map2.get(cleanHeader(h))}))
-   .filter(x=>x.h2);
+  if(!stockSkuCol || !stockQtyCol || !orderSkuCol || !orderQtyCol){
+    $("status").textContent="❌ ตรวจจับหัวคอลัมน์ SKU/จำนวนไม่ครบ";
+    if(info) info.textContent="ไม่พบหัวคอลัมน์ที่ใช้ตรวจสอบ กรุณาตรวจชื่อหัวคอลัมน์ในแถวบนสุดของไฟล์";
+    return;
+  }
 
- if(!common.length){
-  sku.innerHTML=qty.innerHTML='<option value=""></option>';
-  sku.disabled=qty.disabled=true;
-  $("compare2").disabled=true;
-  const info=$("autoCompareDetail");
-  if(info) info.textContent="ไม่พบหัวคอลัมน์ที่ตรงกันระหว่างไฟล์ 1 และไฟล์ 2";
-  return;
- }
+  if(cleanCompareHeader(stockSkuCol)!==cleanCompareHeader(orderSkuCol)){
+    // อนุญาตให้ชื่อหัวคอลัมน์ต่างกันได้ แต่แจ้งให้เห็นชื่อที่ตรวจพบ
+  }
 
- sku.innerHTML="";
- qty.innerHTML="";
- common.forEach(x=>{
-   sku.add(new Option(x.h1,x.h1));
-   qty.add(new Option(x.h1,x.h1));
- });
+  if(info){
+    info.innerHTML=
+      `ตรวจพบอัตโนมัติ — Stock: SKU = <b>"${escapeHtml(stockSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(stockQtyCol)}"</b>`+
+      (stockPosCol?` | ตำแหน่ง = <b>"${escapeHtml(stockPosCol)}"</b>`:'')+
+      `<br>ORDER: SKU = <b>"${escapeHtml(orderSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(orderQtyCol)}"</b>`;
+  }
 
- // ตรวจจับ SKU และจำนวนอัตโนมัติ
- const skuGuess=common.find(x=>/sku|รหัส|code|product|item/i.test(x.h1));
- const qtyGuess=common.find(x=>/จำนวน|qty|quantity|amount|count|ยอด/i.test(x.h1));
-
- const skuCol=(skuGuess||common[0]).h1;
- let qtyCol=(qtyGuess||common.find(x=>x.h1!==skuCol)||common[0]).h1;
-
- // ถ้าชื่อคอลัมน์จำนวนหาไม่เจอ ให้ลองใช้ตำแหน่งคอลัมน์ที่มักเป็นจำนวน
- if(qtyCol===skuCol && common.length>1) qtyCol=common[1].h1;
-
- sku.value=skuCol;
- qty.value=qtyCol;
- sku.disabled=false;
- qty.disabled=false;
-
- $("compare2").disabled=false;
-
- const info=$("autoCompareDetail");
- if(info){
-   info.textContent=`ตรวจพบอัตโนมัติ: SKU = "${skuCol}"  |  จำนวน = "${qtyCol}"`;
- }
-
- $("status").textContent=`● พร้อมเปรียบเทียบอัตโนมัติ — SKU: ${skuCol} | จำนวน: ${qtyCol}`;
+  $("status").textContent="⚡ พบไฟล์ครบแล้ว — กำลังตรวจ ORDER กับ Stock อัตโนมัติ...";
+  setTimeout(compareFiles,50);
 }
-function updateButton(){$("compare2").disabled=!data1||!data2||!$("sku").value||!$("qty").value||$("sku").value===$("qty").value}
-function autoCompare(){ if(data1&&data2&&$("sku").value&&$("qty").value&&$("sku").value!==$("qty").value) compareFiles(); }
-function setCols(v){}
-function updateStatus(){$("status").textContent=data1&&data2?"● ระบบพร้อมเปรียบเทียบอัตโนมัติ":"● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์"}
-function num(v){const n=Number(String(v??"").replace(/,/g,"").trim());return Number.isFinite(n)?n:0}
-function norm(v){return String(v??"").trim()}
 
-// รูปแบบตำแหน่งสำหรับหน้าเปรียบเทียบ:
-// ถ้ามี "-" ให้ใช้เฉพาะข้อความก่อน "-" แรกเสมอ ไม่จำกัดจำนวนตัวอักษร
-// เช่น KT-00-01-02 -> KT, C-00-01 -> C, ABCD-99-01 -> ABCD
-// ถ้าไม่มี "-" ให้แสดงตำแหน่งเดิม และไม่สนใจตัวพิมพ์เล็ก/ใหญ่ในการรวมค่าซ้ำ
+function num(v){
+  const n=Number(String(v??"").replace(/,/g,"").trim());
+  return Number.isFinite(n)?n:0;
+}
+
+function norm(v){
+  return String(v??"").trim();
+}
+
+function extractCompareLocationPrefixes(value){
+  const raw=norm(value);
+  if(!raw)return [];
+
+  // รองรับตำแหน่งหลายค่าที่อยู่ในเซลล์เดียวกัน
+  // เช่น KT-001-01, C-00-01 / WH-01
+  const chunks=raw
+    .split(/[\\n,;\\/|]+/)
+    .map(x=>x.trim())
+    .filter(Boolean);
+
+  const result=[];
+  chunks.forEach(x=>{
+    const first=(x.split("-")[0]||x).trim();
+    if(!first)return;
+
+    // ตำแหน่งมาตรฐาน เช่น KT-001-01 / C-00-01 / WH-01
+    if(/^[A-Za-zก-ฮ][A-Za-z0-9ก-ฮ_]*$/i.test(first)){
+      result.push(first.toUpperCase());
+    }
+  });
+
+  return result.filter((x,i,a)=>a.indexOf(x)===i);
+}
+
 function formatComparePosition(v){
-  const raw=norm(v);
-  if(!raw) return "";
-  const first=raw.split("-")[0].trim();
-  return first || raw;
+  return extractCompareLocationPrefixes(v).join(", ");
 }
 
 function compareFiles(){
- const sc=$("sku").value,qc=$("qty").value;
- compareSkuCol=sc; compareQtyCol=qc;
- if(!sc||!qc||sc===qc){alert("กรุณาเลือกคอลัมน์ SKU และคอลัมน์จำนวนให้ถูกต้อง");return}
- try{
-  setProgress(15);
-
-  // ไฟล์ 2: รวมจำนวนของ SKU เดียวกันทั้งหมดก่อนนำไปหักไฟล์ 1
-  const map=new Map();
-  data2.forEach(r=>{
-   const s=norm(r[sc]);
-   if(s) map.set(s,(map.get(s)||0)+num(r[qc]));
-  });
-  setProgress(35);
-
-  // หา column "ตำแหน่ง" จากไฟล์ 2
-  const posCol=Object.keys(data2[0]||{}).find(c=>/ตำแหน่ง|position|location|loc/i.test(String(c)))||null;
-
-  // เก็บตำแหน่งของแต่ละ SKU จากไฟล์ 2
-  // เช่น D-01, D-02, H-01 -> แสดงเป็น D,H เท่านั้น และไม่ซ้ำกัน
-  const posMap=new Map();
-  if(posCol){
-   data2.forEach(r=>{
-    const s=norm(r[sc]), rawPos=norm(r[posCol]);
-    if(!s||!rawPos)return;
-    // แสดงเฉพาะข้อความก่อน "-" แรกเสมอ และใช้ตัวพิมพ์ใหญ่เป็นรูปแบบมาตรฐาน
-    // เช่น KT-00-01-02 => KT, C-00-01 => C, ABCD-01-02 => ABCD
-    const firstPos=formatComparePosition(rawPos).toUpperCase();
-    if(!firstPos)return;
-    if(!posMap.has(s))posMap.set(s,[]);
-    const arr=posMap.get(s);
-    if(!arr.some(x=>String(x).toUpperCase()===firstPos))arr.push(firstPos);
-   });
+  if(!data1 || !data2)return;
+  if(!stockSkuCol || !stockQtyCol || !orderSkuCol || !orderQtyCol){
+    alert("ไม่พบหัวคอลัมน์ SKU/จำนวน ที่จำเป็นสำหรับการตรวจ");
+    return;
   }
 
-  resultData=[];deletedData=[];previewData=[];
+  try{
+    setProgress(15);
 
-  data1.forEach(r=>{
-   const s=norm(r[sc]), a=num(r[qc]), b=map.get(s)||0;
-   const nr={...r};
-   let deleted=false;
-   let position="";
+    // รวม Stock ตาม SKU และเก็บตำแหน่งที่ไม่ซ้ำ
+    const stockMap=new Map();
 
-   if(s&&b>0){
-    if(a>b){
-     // เหลือยอด: ยังแสดงแถวเดิม แต่ไม่ใส่ตำแหน่ง
-     nr[qc]=a-b;
-     resultData.push(nr);
-    }else{
-     // ถูกลบทั้งแถว: จำนวนในตัวอย่างต้องเป็น 0 และแสดงตำแหน่งทั้งหมดจากไฟล์ 2
-     deleted=true;
-     position=(posMap.get(s)||[]).join(",");
-     nr[qc]=0;
-     deletedData.push({
-      [sc]:s,
-      "จำนวนไฟล์ที่ 1":a,
-      "จำนวนไฟล์ที่ 2":b,
-      "จำนวนที่ถูกลบ":a,
-      "ยอดคงเหลือ":0,
-      "ตำแหน่ง":position
-     });
-    }
-   }else{
-    // ไม่มี SKU ในไฟล์ 2: แถวไฟล์ 1 ยังคงอยู่
-    resultData.push(nr);
-   }
-   const previewPositions=(posMap.get(s)||[]).join(",")||"-";
-   previewData.push({...nr,"ตำแหน่ง":previewPositions});
-  });
+    data1.forEach(row=>{
+      const sku=norm(row[stockSkuCol]);
+      if(!sku)return;
 
-  setProgress(85);
-  $("total").textContent=data1.length.toLocaleString();
-  $("affected").textContent=deletedData.length.toLocaleString();
-  $("remaining").textContent=resultData.length.toLocaleString();
-  buildCompareAnalytics(sc,qc);
-  $("status").textContent=`● เปรียบเทียบเสร็จแล้ว — SKU: ${sc} | จำนวน: ${qc}${posCol?" | ตำแหน่ง: "+posCol:""}`;
-  $("downloadBox").style.display="flex";
-  $("resultBox").style.display="block";
-  $("deletedBox").style.display="none";
-  renderTable(previewData,"resultPreview",[...Object.keys(data1?.[0]||{}),"ตำแหน่ง"].filter((c,i,a)=>a.indexOf(c)===i));
-  setProgress(100);setTimeout(()=>setProgress(0),400);
- }catch(e){setProgress(0);alert("เกิดข้อผิดพลาด\n\n"+e.message)}
-}
+      const qty=num(row[stockQtyCol]);
+      let item=stockMap.get(sku);
+      if(!item){
+        item={sku,qty:0,locations:[]};
+        stockMap.set(sku,item);
+      }
+      item.qty+=qty;
 
-function buildCompareAnalytics(sc,qc){
-  const extra=$("compareExtra"); if(!extra)return;
-  extra.style.display='block';
+      // อ่านตำแหน่งจากคอลัมน์ที่ตรวจพบก่อน
+      // ถ้าไม่พบ/คอลัมน์นั้นว่าง ให้ค้นจากทุกคอลัมน์ของ Stock
+      // เพื่อรองรับไฟล์ที่ตั้งชื่อหัวคอลัมน์ตำแหน่งต่างจากมาตรฐาน
+      let locationPrefixes=[];
 
-  const map2=new Map();
-  (data2||[]).forEach(r=>{
-    const s=norm(r[sc]);
-    if(s)map2.set(s,(map2.get(s)||0)+num(r[qc]));
-  });
+      if(stockPosCol){
+        locationPrefixes=extractCompareLocationPrefixes(row[stockPosCol]);
+      }
 
-  let remainingSku=0,partialSku=0,deletedSku=deletedData?.length||0,remainingQty=0;
-  (resultData||[]).forEach(r=>{
-    const s=norm(r[sc]), q=num(r[qc]);
-    if(s&&q>0){
-      remainingSku++;
-      remainingQty+=q;
-      const b=map2.get(s)||0;
-      if(b>0)partialSku++;
-    }
-  });
+      if(!locationPrefixes.length){
+        Object.keys(row).forEach(header=>{
+          if(header===stockSkuCol || header===stockQtyCol)return;
 
-  $("remainingSku").textContent=remainingSku.toLocaleString();
-  $("partialSku").textContent=partialSku.toLocaleString();
-  $("deletedSku").textContent=deletedSku.toLocaleString();
-  $("remainingQty").textContent=remainingQty.toLocaleString();
-  $("compareExtraNote").textContent=`SKU: ${sc} | จำนวน: ${qc}`;
+          const rawValue=norm(row[header]);
+          if(!rawValue)return;
 
-  /*
-   * FIX:
-   * เดิม renderTable ใช้ Object.keys(rows[0]) เป็นหัวตาราง
-   * ทำให้เมื่อค้นหาแล้วผลลัพธ์ชุดแรกเป็น deletedData ซึ่งมีโครงสร้าง
-   * คนละแบบกับ resultData หัวคอลัมน์บางหัวจึงหายไป และพอล้างคำค้น
-   * ตารางอาจดูเหมือนเปลี่ยนหัวคอลัมน์
-   *
-   * รอบนี้กำหนดหัวคอลัมน์ของตาราง Compare จากไฟล์ 1 แบบคงที่
-   * แล้วเติม "ตำแหน่ง" ต่อท้าย จึงค้นหา/ล้างคำค้นกี่ครั้งหัวตารางก็ไม่หาย
-   */
-  const baseColumns=Object.keys(data1?.[0]||{});
-  const compareColumns=[...baseColumns];
-  if(!compareColumns.includes("ตำแหน่ง")) compareColumns.push("ตำแหน่ง");
+          // ดึงเฉพาะค่าที่มีลักษณะเป็นรหัสตำแหน่ง เช่น
+          // KT-001-01, C-00-01, WH-01
+          const chunks=rawValue
+            .split(/[\\n,;\\/|]+/)
+            .map(x=>x.trim())
+            .filter(Boolean);
 
-  const renderFiltered=()=>{
-    const raw=$("compareSearch").value||"";
-    const q=raw.trim().toLowerCase();
-    const f=$("compareStatusFilter").value;
+          chunks.forEach(chunk=>{
+            if(/^[A-Za-zก-ฮ][A-Za-z0-9ก-ฮ_]*-[A-Za-z0-9ก-ฮ_.]+(?:-[A-Za-z0-9ก-ฮ_.]+)*$/i.test(chunk)){
+              const prefix=(chunk.split("-")[0]||"").trim().toUpperCase();
+              if(prefix && !locationPrefixes.includes(prefix)){
+                locationPrefixes.push(prefix);
+              }
+            }
+          });
+        });
+      }
 
-    const combined=[];
-
-    // ข้อมูลที่ยังเหลือจากไฟล์ 1
-    (resultData||[]).forEach(r=>{
-      const s=norm(r[sc]);
-      const b=map2.get(s)||0;
-      const qv=num(r[qc]);
-      const status=b<=0?'notfound':(qv>0?'partial':'remaining');
-
-      if(f!=='all' && f!==status)return;
-
-      // ค้นหาจากข้อมูลทุกช่องของแถวนั้น
-      const text=Object.values(r).map(v=>String(v??"")).join(" ").toLowerCase();
-      if(q && !text.includes(q))return;
-
-      combined.push({...r,"ตำแหน่ง":(posMapForSearch(s)||"-")});
+      locationPrefixes.forEach(loc=>{
+        if(loc && !item.locations.some(x=>x.toUpperCase()===loc.toUpperCase())){
+          item.locations.push(loc);
+        }
+      });
     });
 
-    // รายการที่ถูกลบ: ค้นหาได้เหมือนเดิม แต่สร้างแถวให้ใช้หัวคอลัมน์เดียวกับไฟล์ 1
-    if(f==='deleted'||f==='all'){
-      (deletedData||[]).forEach(r=>{
-        const text=Object.values(r).map(v=>String(v??"")).join(" ").toLowerCase();
-        if(q && !text.includes(q))return;
+    setProgress(40);
 
-        const row={};
-        baseColumns.forEach(c=>{
-          if(Object.prototype.hasOwnProperty.call(r,c)) row[c]=r[c];
-          else row[c]="";
-        });
-        // ถ้าคอลัมน์จำนวนของไฟล์ 1 ใช้ชื่อเดียวกับ qc ให้แสดงจำนวนเดิม
-        if(!Object.prototype.hasOwnProperty.call(r,qc) && Object.prototype.hasOwnProperty.call(r,"จำนวนไฟล์ที่ 1")){
-          row[qc]=r["จำนวนไฟล์ที่ 1"];
-        }
-        row["ตำแหน่ง"]=r["ตำแหน่ง"]||"-";
-        combined.push(row);
-      });
+    // รวม ORDER ตาม SKU
+    const orderMap=new Map();
+
+    data2.forEach(row=>{
+      const sku=norm(row[orderSkuCol]);
+      if(!sku)return;
+
+      const qty=num(row[orderQtyCol]);
+      orderMap.set(sku,(orderMap.get(sku)||0)+qty);
+    });
+
+    setProgress(65);
+
+    compareResults=[...orderMap.entries()].map(([sku,orderQty])=>{
+      const stock=stockMap.get(sku);
+      const stockQty=stock ? stock.qty : 0;
+      const locations=stock ? stock.locations.join(", ") : "";
+
+      let status;
+      if(!stock || stockQty<=0){
+        status="❌ ไม่มี Stock";
+      }else if(stockQty<orderQty){
+        status=`⚠️ ขาด ${formatPivotNumber(orderQty-stockQty)}`;
+      }else{
+        status="✅ พอ";
+      }
+
+      return {
+        sku,
+        orderQty,
+        stockQty,
+        status,
+        locations
+      };
+    });
+
+    compareResults.sort((a,b)=>String(a.sku).localeCompare(String(b.sku),undefined,{numeric:true,sensitivity:"base"}));
+
+    const total=compareResults.length;
+    const shortCount=compareResults.filter(x=>x.status.startsWith("⚠️")).length;
+    const okCount=compareResults.filter(x=>x.status.startsWith("✅")).length;
+    const noneCount=compareResults.filter(x=>x.status.startsWith("❌")).length;
+
+    $("total").textContent=total.toLocaleString();
+    $("affected").textContent=shortCount.toLocaleString();
+    $("remaining").textContent=okCount.toLocaleString();
+
+    $("remainingSku").textContent=total.toLocaleString();
+    $("partialSku").textContent=okCount.toLocaleString();
+    $("deletedSku").textContent=shortCount.toLocaleString();
+    $("remainingQty").textContent=noneCount.toLocaleString();
+
+    $("compareExtra").style.display="block";
+    $("resultBox").style.display="block";
+    $("downloadBox").style.display="flex";
+
+    $("resultHeaderNote").textContent=
+      `Stock: ${stockSkuCol} / ${stockQtyCol}${stockPosCol?` / ${stockPosCol}`:''}  •  ORDER: ${orderSkuCol} / ${orderQtyCol}`;
+
+    $("compareExtraNote").textContent=`ทั้งหมด ${total.toLocaleString()} SKU`;
+    $("status").textContent=
+      `✅ ตรวจเสร็จแล้ว | Stock ${stockFileName} | ORDER ${orderFileName}`;
+
+    renderCompareResults();
+
+    setProgress(100);
+    setTimeout(()=>setProgress(0),400);
+  }catch(e){
+    setProgress(0);
+    alert("เกิดข้อผิดพลาด\n\n"+e.message);
+  }
+}
+
+function renderCompareResults(){
+  const search=norm($("compareSearch").value).toLowerCase();
+  const filter=$("compareStatusFilter").value;
+
+  const filtered=compareResults.filter(item=>{
+    if(filter==="ok" && !item.status.startsWith("✅"))return false;
+    if(filter==="short" && !item.status.startsWith("⚠️"))return false;
+    if(filter==="none" && !item.status.startsWith("❌"))return false;
+
+    if(search){
+      const text=[
+        item.sku,
+        item.orderQty,
+        item.stockQty,
+        item.status,
+        item.locations
+      ].join(" ").toLowerCase();
+      if(!text.includes(search))return false;
     }
-
-    $("compareExtraNote").textContent=`พบ ${combined.length.toLocaleString()} รายการตามตัวกรอง`;
-    renderTable(combined.slice(0,1000),'resultPreview',compareColumns);
-  };
-
-  $("compareSearch").oninput=renderFiltered;
-  $("compareStatusFilter").onchange=renderFiltered;
-  renderFiltered();
-}
-
-// ใช้ข้อมูลตำแหน่งที่คำนวณไว้ใน compareFiles โดยไม่พึ่งโครงสร้างของแถวผลลัพธ์
-function posMapForSearch(s){
-  if(!s)return "";
-  const posCol=Object.keys(data2?.[0]||{}).find(c=>/ตำแหน่ง|position|location|loc/i.test(c));
-  if(!posCol)return "";
-  const vals=[];
-  (data2||[]).forEach(r=>{
-    if(norm(r[compareSkuCol])!==s)return;
-    const p=norm(r[posCol]);
-    if(!p)return;
-    const v=formatComparePosition(p).toUpperCase();
-    if(v && !vals.includes(v))vals.push(v);
+    return true;
   });
-  return vals.join(",");
+
+  $("compareExtraNote").textContent=
+    `พบ ${filtered.length.toLocaleString()} / ${compareResults.length.toLocaleString()} SKU`;
+
+  const rows=filtered.slice(0,1000).map(item=>({
+    "SKU":item.sku,
+    "ORDER":formatPivotNumber(item.orderQty),
+    "Stock รวม":formatPivotNumber(item.stockQty),
+    "สถานะ":item.status,
+    "ตำแหน่ง":item.locations || "-"
+  }));
+
+  renderTable(rows,"resultPreview",["SKU","ORDER","Stock รวม","สถานะ","ตำแหน่ง"]);
 }
 
-function renderTable(rows,id,columns=null){
- const box=$(id);
- if(!rows.length){box.innerHTML='<div class="empty">ไม่มีข้อมูล</div>';return}
+$("compareSearch").oninput=renderCompareResults;
+$("compareStatusFilter").onchange=renderCompareResults;
 
- // ถ้า caller ไม่กำหนด columns ให้ใช้ union ของทุกแถว
- // ป้องกันหัวคอลัมน์หายเมื่อ rows มีหลายโครงสร้าง
- const cs=columns&&columns.length
-   ? columns
-   : [...new Set(rows.flatMap(r=>Object.keys(r||{})))];
+function renderTable(rows,id,columns){
+  const box=$(id);
+  if(!rows.length){
+    box.innerHTML='<div class="empty">ไม่พบข้อมูลตามเงื่อนไข</div>';
+    return;
+  }
 
- const limit=1000;
- let h="<table><thead><tr>"+cs.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr></thead><tbody>";
- rows.slice(0,limit).forEach(r=>{
-   h+="<tr>"+cs.map(c=>`<td>${esc(r?.[c]??"")}</td>`).join("")+"</tr>";
- });
- h+="</tbody></table>";
+  let h="<table><thead><tr>"+
+    columns.map(c=>`<th>${esc(c)}</th>`).join("")+
+    "</tr></thead><tbody>";
 
- if(rows.length>limit)
-   h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดง ${limit.toLocaleString()} แถวแรก จาก ${rows.length.toLocaleString()} แถว</div>`;
- else
-   h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดงข้อมูลทั้งหมด ${rows.length.toLocaleString()} แถว</div>`;
+  rows.forEach(r=>{
+    h+="<tr>"+columns.map(c=>`<td>${esc(r?.[c]??"")}</td>`).join("")+"</tr>";
+  });
 
- box.innerHTML=h;
+  h+="</tbody></table>";
+
+  if(rows.length>=1000){
+    h+='<div style="padding:10px;text-align:center;color:#687d83">แสดงสูงสุด 1,000 รายการ</div>';
+  }else{
+    h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดงข้อมูล ${rows.length.toLocaleString()} รายการ</div>`;
+  }
+
+  box.innerHTML=h;
 }
-function downloadResult(){
- if(!resultData)return;
- const wb=XLSX.utils.book_new();
- XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resultData),"ยอดคงเหลือ");
- XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(deletedData||[]),"รายการที่ถูกลบ-ถูกหัก");
- XLSX.writeFile(wb,"ผลลัพธ์_เปรียบเทียบและยอดคงเหลือ.xlsx");
+
+function downloadStockCheckResult(){
+  if(!compareResults.length)return alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
+
+  const data=[
+    ["SKU","ORDER","Stock รวม","สถานะ","ตำแหน่ง"],
+    ...compareResults.map(item=>[
+      item.sku,
+      item.orderQty,
+      item.stockQty,
+      item.status,
+      item.locations || "-"
+    ])
+  ];
+
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws["!cols"]=[
+    {wch:24},
+    {wch:14},
+    {wch:14},
+    {wch:18},
+    {wch:20}
+  ];
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"ตรวจ ORDER-Stock");
+  XLSX.writeFile(wb,"ผลตรวจ_ORDER_กับ_Stock.xlsx");
 }
+
 function clearAll(){
- // ล้างไฟล์ที่ 2 ที่ล็อกไว้จากหน้า 'รวมไฟล์ ZIP' เฉพาะเมื่อผู้ใช้กดล้างข้อมูลในหน้านี้
- compareFile2Locked=null;
- zipFile=null; mergedFile=null; document.getElementById('sendCompare2').disabled=true;
- data1=null;data2=null;resultData=null;deletedData=null;previewData=null;
- $("file1").value="";$("file2").value="";
- $("name1").textContent=$("name2").textContent="คลิกเพื่อเลือกไฟล์";
- $("info1").textContent=$("info2").textContent="รองรับ Excel / CSV";
- $("columnList").innerHTML='<div class="empty">กรุณาเลือกไฟล์ทั้ง 2 ก่อน</div>';
- $("sku").innerHTML=$("qty").innerHTML='<option value=""></option>';
- $("sku").disabled=$("qty").disabled=true;$("compare2").disabled=true;
- const autoInfo=$("autoCompareDetail");
- if(autoInfo) autoInfo.textContent="เลือกไฟล์ 1 และไฟล์ 2 แล้วระบบจะตรวจจับคอลัมน์ SKU และจำนวนจากหัวตารางให้อัตโนมัติ";
- $("allCols").disabled=$("noCols").disabled=true;$("downloadBox").style.display="none";$("deletedBox").style.display="none";$("resultBox").style.display="none";
- $("resultPreview").innerHTML='<div class="empty">ยังไม่มีผลลัพธ์</div>';
- $("deletedPreview").innerHTML="";
- $("total").textContent=$("affected").textContent=$("remaining").textContent="0";
- $("status").textContent="● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์";setProgress(0);
+  data1=null;
+  data2=null;
+  stockFileName='';
+  orderFileName='';
+  stockSkuCol='';
+  stockQtyCol='';
+  stockPosCol='';
+  orderSkuCol='';
+  orderQtyCol='';
+  compareResults=[];
+
+  $("file1").value="";
+  $("file2").value="";
+  $("name1").textContent="คลิกเพื่อเลือกไฟล์ ORDER";
+  $("name2").textContent="คลิกเพื่อเลือกไฟล์ Stock";
+  $("info1").textContent="รองรับ Excel / CSV";
+  $("info2").textContent="รองรับ Excel / CSV";
+
+  $("autoCompareDetail").textContent="เลือกไฟล์ ORDER และ Stock แล้วระบบจะตรวจจับหัวคอลัมน์จากแถวบนสุดให้อัตโนมัติ";
+  $("status").textContent="● กรุณาเลือกไฟล์ ORDER และ Stock";
+
+  $("downloadBox").style.display="none";
+  $("resultBox").style.display="none";
+  $("compareExtra").style.display="none";
+  $("resultPreview").innerHTML='<div class="empty">ยังไม่มีผลลัพธ์</div>';
+
+  $("compareSearch").value="";
+  $("compareStatusFilter").value="all";
+
+  $("total").textContent="0";
+  $("affected").textContent="0";
+  $("remaining").textContent="0";
+  $("remainingSku").textContent="0";
+  $("partialSku").textContent="0";
+  $("deletedSku").textContent="0";
+  $("remainingQty").textContent="0";
+
+  setProgress(0);
 }
-function setProgress(v){$("progress").style.display=v?"block":"none";$("bar").style.width=v+"%"}
-function esc(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+
+function setProgress(v){
+  $("progress").style.display=v?"block":"none";
+  $("bar").style.width=v+"%";
+}
+
+function esc(v){
+  return String(v??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
 
 </script>
 
@@ -1531,6 +1744,7 @@ async function loadOrderFile(file) {
 
     document.getElementById("orderFileName").textContent = file.name;
     document.getElementById("orderFileCount").textContent = "1";
+    document.getElementById("orderTool").classList.add("has-file");
     document.getElementById("orderRowCount").textContent =
       Math.max(0, rows.length - 1).toLocaleString();
 
@@ -1722,6 +1936,12 @@ function applyOrderFilters() {
   buildOrderPivot();
   buildOrderSummary();
 
+  // ถ้าเคยตรวจ Stock ไว้แล้ว ให้คำนวณใหม่ตามตัวกรอง ORDER ปัจจุบัน
+  const stockCheckBox = document.getElementById("orderStockCheck");
+  if (stockCheckBox && stockCheckBox.style.display !== "none" && mergedStockRows.length) {
+    checkOrderAgainstMergedStock();
+  }
+
   if (orderRows.length) {
     document.getElementById("orderStatus").textContent =
       `● กรองข้อมูลแล้ว ${orderFilteredRows.length.toLocaleString()} รายการ จากทั้งหมด ${Math.max(0, orderRows.length - 1).toLocaleString()} รายการ`;
@@ -1773,11 +1993,170 @@ function buildOrderSummary() {
   skuEl.textContent = pivot.length.toLocaleString();
   qtyEl.textContent = formatPivotNumber(totalQty);
 
-  // หน้านี้ยังไม่มีไฟล์/ข้อมูล Stock ให้ใช้เปรียบเทียบ
-  // จึงแสดง 0 ไว้ก่อน และไม่เดาค่า Stock จากข้อมูล ORDER
+  // จำนวน SKU ที่ไม่มี Stock จะอัปเดตอีกครั้งเมื่อกด "ตรวจ ORDER กับ Stock"
   missingEl.textContent = "0";
 
   summaryExtra.style.display = "block";
+}
+
+
+// ===== ตรวจ ORDER กับ Stock จากข้อมูลที่รวมในหน้า ZIP =====
+// กติกา:
+// - SKU ซ้ำใน Stock: รวม "จำนวน" ทุกแถวเข้าด้วยกัน
+// - ตำแหน่งหลายจุด: แสดงทุกตำแหน่งในช่องเดียว
+// - ตำแหน่ง เช่น KT-001-01 / C-00-01 -> แสดง KT / C
+// - ตำแหน่งซ้ำกัน -> แสดงเพียงครั้งเดียว
+// - ถ้ายังไม่ได้รวม Stock: แจ้งให้ไปทำหน้า "รวมไฟล์ ZIP" ก่อน
+function formatStockLocationShort(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  return (raw.split('-')[0] || raw).trim().toUpperCase();
+}
+
+function buildMergedStockMap() {
+  const map = new Map();
+
+  if (!Array.isArray(mergedStockRows) || !mergedStockRows.length) {
+    return map;
+  }
+
+  // ข้อมูลจาก merge ถูกทำให้เป็นมาตรฐาน:
+  // A = SKU Merchant, B = ชื่อ SKU, C = ตำแหน่ง, D = จำนวน
+  // แต่ยังหา index จากหัวตารางจริงไว้เพื่อความปลอดภัย
+  const header = ['SKU Merchant', 'ชื่อ SKU', 'ตำแหน่ง', 'จำนวน'];
+  const skuIndex = header.findIndex(h => /^SKU\s*Merchant$/i.test(h));
+  const posIndex = header.findIndex(h => /^ตำแหน่ง$/i.test(h));
+  const qtyIndex = header.findIndex(h => /^จำนวน$/i.test(h));
+
+  mergedStockRows.forEach(row => {
+    const sku = norm(row?.[skuIndex]);
+    if (!sku) return;
+
+    const qty = num(row?.[qtyIndex]);
+    let item = map.get(sku);
+
+    if (!item) {
+      item = {
+        sku,
+        qty: 0,
+        locations: []
+      };
+      map.set(sku, item);
+    }
+
+    item.qty += qty;
+
+    const shortLocation = formatStockLocationShort(row?.[posIndex]);
+    if (
+      shortLocation &&
+      !item.locations.some(x => String(x).toUpperCase() === shortLocation)
+    ) {
+      item.locations.push(shortLocation);
+    }
+  });
+
+  return map;
+}
+
+function checkOrderAgainstMergedStock() {
+  const box = document.getElementById("orderStockCheck");
+  const missingEl = document.getElementById("orderSummaryMissing");
+
+  if (!box) return;
+
+  if (!mergedStockRows.length) {
+    if (missingEl) missingEl.textContent = "0";
+    box.style.display = "block";
+    box.innerHTML = `
+      <div class="empty">
+        ⚠️ ยังไม่มีข้อมูล Stock<br>
+        กรุณาไปที่หน้า <b>📦 รวมไฟล์ ZIP</b> และเลือก ZIP เพื่อรวม Stock ก่อน
+      </div>`;
+    return;
+  }
+
+  if (!orderPivotRows.length) {
+    if (missingEl) missingEl.textContent = "0";
+    box.style.display = "block";
+    box.innerHTML = '<div class="empty">ไม่มีข้อมูล ORDER หลังกรอง</div>';
+    return;
+  }
+
+  const stockMap = buildMergedStockMap();
+  const rows = [];
+  let missingCount = 0;
+
+  // orderPivotRows รวม SKU ซ้ำของ ORDER อยู่แล้ว
+  orderPivotRows.forEach(order => {
+    const sku = String(order?.sku ?? '').trim();
+    const orderQty = num(order?.qty);
+    const stock = stockMap.get(sku);
+
+    const stockQty = stock ? stock.qty : 0;
+    const locations = stock ? stock.locations.join(', ') : '';
+
+    let status = '';
+    let rowClass = '';
+
+    if (!stock || stockQty <= 0) {
+      status = '❌ ไม่มี Stock';
+      rowClass = 'stock-none';
+      missingCount++;
+    } else if (stockQty < orderQty) {
+      status = `⚠️ ขาด ${formatPivotNumber(orderQty - stockQty)}`;
+      rowClass = 'stock-short';
+    } else {
+      status = '✅ พอ';
+      rowClass = 'stock-ok';
+    }
+
+    rows.push({
+      sku,
+      orderQty,
+      stockQty,
+      status,
+      locations,
+      rowClass
+    });
+  });
+
+  if (missingEl) missingEl.textContent = missingCount.toLocaleString();
+
+  let html = `
+    <div style="margin-bottom:8px;font-size:12px;color:#94adbd">
+      รวม Stock จากหน้า "รวมไฟล์ ZIP" โดยรวม SKU ที่ซ้ำกัน และรวมตำแหน่งแบบไม่ซ้ำ
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>ORDER</th>
+          <th>Stock รวม</th>
+          <th>สถานะ</th>
+          <th>ตำแหน่ง</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  rows.forEach(r => {
+    html += `
+      <tr class="${r.rowClass}">
+        <td>${escapeHtml(r.sku)}</td>
+        <td>${escapeHtml(formatPivotNumber(r.orderQty))}</td>
+        <td>${escapeHtml(formatPivotNumber(r.stockQty))}</td>
+        <td>${escapeHtml(r.status)}</td>
+        <td>${escapeHtml(r.locations || '-')}</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  box.innerHTML = html;
+  box.style.display = "block";
+}
+
+const orderStockCheckBtn = document.getElementById("orderStockCheckBtn");
+if (orderStockCheckBtn) {
+  orderStockCheckBtn.onclick = checkOrderAgainstMergedStock;
 }
 
 // ใช้ "ชื่อ SKU Merchant" เป็นตัวกำหนดกลุ่ม
@@ -2200,6 +2579,7 @@ orderClearBtn.onclick = () => {
   orderFiltersState = [];
   orderPivotRows = [];
   orderInput.value = "";
+  document.getElementById("orderTool").classList.remove("has-file");
 
   document.getElementById("orderFileName").textContent = "";
   document.getElementById("orderFileCount").textContent = "0";
@@ -2260,3 +2640,16 @@ function toggleOrderFilters(){
 </script>
 </body>
 </html>
+
+<style>
+/* ===== ORDER vs STOCK replacement for Compare tab ===== */
+#compareTool .rules b{color:#c9baff!important}
+#compareTool .card:first-child{box-shadow:inset 3px 0 0 var(--merge)!important}
+#compareTool .card:nth-child(2){box-shadow:inset 3px 0 0 var(--order)!important}
+#compareTool .card:first-child .drop{border-color:rgba(40,216,255,.50)!important}
+#compareTool .card:nth-child(2) .drop{border-color:rgba(66,245,167,.50)!important}
+#compareTool .card:first-child .drop .icon{filter:drop-shadow(0 0 12px rgba(40,216,255,.35))}
+#compareTool .card:nth-child(2) .drop .icon{filter:drop-shadow(0 0 12px rgba(66,245,167,.35))}
+#compareTool .preview .extra-head strong{color:#eef9ff}
+#compareTool .preview .extra-head span{color:var(--muted);font-size:11px}
+</style>
