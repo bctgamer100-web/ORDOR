@@ -1126,6 +1126,17 @@ function updateStatus(){$("status").textContent=data1&&data2?"● พร้อ�
 function num(v){const n=Number(String(v??"").replace(/,/g,"").trim());return Number.isFinite(n)?n:0}
 function norm(v){return String(v??"").trim()}
 
+// รูปแบบตำแหน่งสำหรับหน้าเปรียบเทียบ:
+// ถ้ามี "-" ให้ใช้เฉพาะข้อความก่อน "-" แรกเสมอ ไม่จำกัดจำนวนตัวอักษร
+// เช่น KT-00-01-02 -> KT, C-00-01 -> C, ABCD-99-01 -> ABCD
+// ถ้าไม่มี "-" ให้แสดงตำแหน่งเดิม และไม่สนใจตัวพิมพ์เล็ก/ใหญ่ในการรวมค่าซ้ำ
+function formatComparePosition(v){
+  const raw=norm(v);
+  if(!raw) return "";
+  const first=raw.split("-")[0].trim();
+  return first || raw;
+}
+
 function compareFiles(){
  const sc=$("sku").value,qc=$("qty").value;
  compareSkuCol=sc; compareQtyCol=qc;
@@ -1151,11 +1162,13 @@ function compareFiles(){
    data2.forEach(r=>{
     const s=norm(r[sc]), rawPos=norm(r[posCol]);
     if(!s||!rawPos)return;
-    const firstPos=rawPos.charAt(0).toUpperCase();
+    // แสดงเฉพาะข้อความก่อน "-" แรกเสมอ และใช้ตัวพิมพ์ใหญ่เป็นรูปแบบมาตรฐาน
+    // เช่น KT-00-01-02 => KT, C-00-01 => C, ABCD-01-02 => ABCD
+    const firstPos=formatComparePosition(rawPos).toUpperCase();
     if(!firstPos)return;
     if(!posMap.has(s))posMap.set(s,[]);
     const arr=posMap.get(s);
-    if(!arr.includes(firstPos))arr.push(firstPos);
+    if(!arr.some(x=>String(x).toUpperCase()===firstPos))arr.push(firstPos);
    });
   }
 
