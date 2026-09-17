@@ -1275,7 +1275,13 @@ function getOrderColumnIndex(headerName) {
 }
 
 function getOrderSkuIndex() {
+  // คอลัมน์ที่นำมาแสดงผลจริง
   return getOrderColumnIndex('SKU Merchant');
+}
+
+function getOrderGroupIndex() {
+  // คอลัมน์ที่ใช้แบ่งกลุ่ม: "ชื่อ SKU Merchant"
+  return getOrderColumnIndex('ชื่อ SKU Merchant');
 }
 
 function getOrderQtyIndex() {
@@ -1580,61 +1586,67 @@ function buildOrderSummary() {
   summaryExtra.style.display = "block";
 }
 
-// ใช้สำหรับจัดกลุ่ม SKU Merchant ตอนส่งออกไฟล์
-// ยึด "ค่าในคอลัมน์ SKU Merchant" เป็นกลุ่มโดยตรง
-// เช่น CADENZA และ CADENZA FRONT = คนละกลุ่ม เพราะเป็นคนละค่าในคอลัมน์
-function normalizeOrderSkuForSpacing(sku) {
-  // กลุ่มยึดจาก "ชื่อสินค้า/SKU หลัก" ในคอลัมน์ SKU Merchant
-  // เช่น 1623065-BK-L / 1623065-PK-S / 1623065-WH-L = กลุ่ม 1623065 เดียวกัน
-  // และ SKU ที่ลงท้ายด้วย FRONT ยังอยู่ในกลุ่มเดียวกับ SKU หลัก
-  const value = String(sku ?? '').trim().replace(/\s*FRONT\s*$/i, '').trim();
-  const dash = value.indexOf('-');
-  return dash > 0 ? value.slice(0, dash).trim() : value;
+// ใช้ "ชื่อ SKU Merchant" เป็นตัวกำหนดกลุ่ม
+// และใช้ "SKU Merchant" เป็นข้อมูลที่นำมาแสดงผล
+// ถ้าชื่อกลุ่มลงท้ายด้วย FRONT จะยังถือเป็นกลุ่มเดิม
+function normalizeOrderGroupName(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s*FRONT\s*$/i, '')
+    .trim();
 }
 
-function compareOrderSku(a, b) {
-  const ba = normalizeOrderSkuForSpacing(a);
-  const bb = normalizeOrderSkuForSpacing(b);
-  const baseCmp = ba.localeCompare(bb, undefined, {numeric:true, sensitivity:"base"});
-  if (baseCmp !== 0) return baseCmp;
-  // ถ้าเป็น SKU เดียวกัน ให้ตัวปกติมาก่อน แล้ว FRONT ตามหลัง
-  const af = /\s*FRONT\s*$/i.test(String(a ?? ""));
-  const bf = /\s*FRONT\s*$/i.test(String(b ?? ""));
-  if (af !== bf) return af ? 1 : -1;
-  return String(a ?? "").localeCompare(String(b ?? ""), undefined, {numeric:true, sensitivity:"base"});
+function compareOrderGroup(a, b) {
+  const aa = normalizeOrderGroupName(a);
+  const bb = normalizeOrderGroupName(b);
+  return aa.localeCompare(bb, undefined, {numeric:true, sensitivity:'base'});
 }
 
-function addOrderSkuSpacingRows(rows, skuIndex) {
-  // กติกาการเว้นระยะ:
-  // 1) ใช้เฉพาะข้อมูลจากหัวคอลัมน์ "SKU Merchant" ในการจัดกลุ่ม
-  // 2) SKU ที่มีรหัสหลักเดียวกันก่อนเครื่องหมาย - อยู่กลุ่มเดียวกัน
-  // 3) คำว่า FRONT ที่ต่อท้ายไม่ทำให้เกิดกลุ่มใหม่
-  // 4) ภายในกลุ่มเรียงติดกัน ไม่เว้นบรรทัด
-  // 5) เปลี่ยนกลุ่มแล้วเว้น 4 บรรทัด
+function compareOrderExportRows(a, b, groupIndex, skuIndex) {
+  const groupCmp = compareOrderGroup(a?.[groupIndex], b?.[groupIndex]);
+  if (groupCmp !== 0) return groupCmp;
+  return String(a?.[skuIndex] ?? '').localeCompare(
+    String(b?.[skuIndex] ?? ''),
+    undefined,
+    {numeric:true, sensitivity:'base'}
+  );
+}
+
+function addOrderSkuSpacingRows(rows, groupIndex, skuIndex) {
+  // 1) แบ่งกลุ่มจาก "ชื่อ SKU Merchant" เท่านั้น
+  // 2) "ชื่อ SKU Merchant" ที่ลงท้าย FRONT ไม่นับเป็นกลุ่มใหม่
+  // 3) ข้อมูลที่แสดงยังใช้ค่า "SKU Merchant" เต็ม ๆ
+  // 4) ภายในกลุ่มไม่เว้นบรรทัด
+  // 5) เมื่อเปลี่ยนกลุ่ม เว้น 4 บรรทัด
   if (!rows.length) return [];
 
   const sorted = [...rows].sort((a, b) =>
-    compareOrderSku(a?.[skuIndex], b?.[skuIndex])
+    compareOrderExportRows(a, b, groupIndex, skuIndex)
   );
 
   const out = [];
-  let previousBase = null;
-  let groupNo = 0;
+  let previousGroup = null;
 
   sorted.forEach((row) => {
-    const base = normalizeOrderSkuForSpacing(row?.[skuIndex]);
-    if (previousBase !== null && base !== previousBase) {
-      groupNo += 1;
-      // กลุ่มเดียวกันติดกันปกติ; เปลี่ยนรหัสหลักแล้วเว้น 4 บรรทัด
-      if (groupNo >= 1) {
-        for (let i = 0; i < 4; i++) out.push([]);
-      }
+    const group = normalizeOrderGroupName(row?.[groupIndex]);
+    if (previousGroup !== null && group !== previousGroup) {
+      for (let i = 0; i < 4; i++) out.push([]);
     }
     out.push(row);
-    previousBase = base;
+    previousGroup = group;
   });
 
   return out;
+}
+
+function compareOrderPivotRows(a, b) {
+  const groupCmp = compareOrderGroup(a?.groupName, b?.groupName);
+  if (groupCmp !== 0) return groupCmp;
+  return String(a?.sku ?? '').localeCompare(
+    String(b?.sku ?? ''),
+    undefined,
+    {numeric:true, sensitivity:'base'}
+  );
 }
 
 function downloadOrderPivotExcel() {
@@ -1649,11 +1661,11 @@ function downloadOrderPivotExcel() {
     ? orderFilteredRows
     : orderRows.slice(1);
   const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const groupIndex = getOrderGroupIndex() >= 0 ? getOrderGroupIndex() : skuIndex;
   const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
 
-  // ดาวน์โหลดทุกแบบให้ใช้กติกาเดียวกัน โดยใช้ข้อมูลจากคอลัมน์ SKU Merchant เท่านั้น
-  // จัดกลุ่มจากรหัสหลักก่อนเครื่องหมาย - และเว้น 4 บรรทัดเมื่อเปลี่ยนกลุ่ม
-  const spacedDataRows = addOrderSkuSpacingRows(dataRows, skuIndex);
+  // แบ่งกลุ่มจาก "ชื่อ SKU Merchant" แต่ข้อมูลที่แสดงยังเป็นคอลัมน์ "SKU Merchant"
+  const spacedDataRows = addOrderSkuSpacingRows(dataRows, groupIndex, skuIndex);
 
   const data = [
     [...orderHeaders],
@@ -1681,21 +1693,16 @@ function downloadOrderPivotExcel() {
     orderHeaders[skuIndex] || 'SKU Merchant',
     orderHeaders[qtyIndex] || 'จำนวน'
   ];
-  const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
+  const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
   const pivotRowsForExcel = [];
-  let previousBase = null;
-  let groupNo = 0;
+  let previousGroup = null;
   sortedPivotRows.forEach((item) => {
-    const base = normalizeOrderSkuForSpacing(item.sku);
-    if (previousBase !== null && base !== previousBase) {
-      groupNo += 1;
-      // กลุ่มเดียวกันติดกันปกติ; เปลี่ยนรหัสหลักแล้วเว้น 4 บรรทัด
-      if (groupNo >= 1) {
-        for (let i = 0; i < 4; i++) pivotRowsForExcel.push([]);
-      }
+    const group = normalizeOrderGroupName(item.groupName);
+    if (previousGroup !== null && group !== previousGroup) {
+      for (let i = 0; i < 4; i++) pivotRowsForExcel.push([]);
     }
     pivotRowsForExcel.push([item.sku, item.qty]);
-    previousBase = base;
+    previousGroup = group;
   });
   const pivotData = [
     pivotHeader,
@@ -1744,19 +1751,27 @@ function buildOrderPivot() {
     return;
   }
 
-  // Pivot ตามภาพตัวอย่าง: SKU Merchant เป็นแถว และ จำนวน เป็นผลรวม
+  const groupIndex = getOrderGroupIndex() >= 0 ? getOrderGroupIndex() : skuIndex;
+
+  // Pivot แสดงเฉพาะค่าในคอลัมน์ "SKU Merchant"
+  // แต่ลำดับและการเว้นบรรทัดยึดจากคอลัมน์ "ชื่อ SKU Merchant"
   const map = new Map();
   orderFilteredRows.forEach(row => {
     const sku = String(row?.[skuIndex] ?? "").trim() || "(ว่าง)";
+    const groupName = normalizeOrderGroupName(row?.[groupIndex]) || "(ว่าง)";
     const qtyRaw = String(row?.[qtyIndex] ?? "").replace(/,/g, "").trim();
     const qty = Number(qtyRaw);
     const amount = Number.isFinite(qty) ? qty : 0;
-    map.set(sku, (map.get(sku) || 0) + amount);
+    const key = sku;
+    const existing = map.get(key);
+    if (existing) {
+      existing.qty += amount;
+    } else {
+      map.set(key, { sku, qty: amount, groupName });
+    }
   });
 
-  orderPivotRows = [...map.entries()]
-    .map(([sku, qty]) => ({ sku, qty }))
-    .sort((a,b) => String(a.sku ?? "").localeCompare(String(b.sku ?? ""), undefined, {numeric:true, sensitivity:"base"}));
+  orderPivotRows = [...map.values()].sort(compareOrderPivotRows);
 
   const skuHeader = orderHeaders[skuIndex] || "SKU Merchant";
   const qtyHeader = orderHeaders[qtyIndex] || "จำนวน";
@@ -1884,24 +1899,19 @@ async function downloadOrderWord() {
     </w:p>`;
   }
 
-  // ใช้ข้อมูลจากคอลัมน์ SKU Merchant เท่านั้นในการแสดงผล Word
-  // กลุ่มใช้รหัสหลักก่อนเครื่องหมาย -; FRONT ที่ต่อท้ายไม่เป็นกลุ่มใหม่
-  // แต่ค่าที่แสดงยังเป็น SKU Merchant เต็มตามข้อมูลจริง
-  const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
-  let previousBase = null;
-  let groupNo = 0;
+  // แสดงเฉพาะค่าในคอลัมน์ "SKU Merchant"
+  // แต่แบ่งกลุ่มและเว้น 4 บรรทัดจากคอลัมน์ "ชื่อ SKU Merchant"
+  // ชื่อกลุ่มที่ลงท้าย FRONT จะไม่สร้างกลุ่มใหม่
+  const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
+  let previousGroup = null;
   const allItemsXml = sortedPivotRows
     .map((r) => {
-      const base = normalizeOrderSkuForSpacing(r.sku);
+      const group = normalizeOrderGroupName(r.groupName);
       let spacer = '';
-      if (previousBase !== null && base !== previousBase) {
-        groupNo += 1;
-        // กลุ่มเดียวกันติดกันปกติ; เปลี่ยนรหัสหลักแล้วเว้น 4 บรรทัด
-        if (groupNo >= 1) {
-          spacer = Array.from({length: 4}, () => wordParagraph('', {after: 100, line: 200})).join('');
-        }
+      if (previousGroup !== null && group !== previousGroup) {
+        spacer = Array.from({length: 4}, () => wordParagraph('', {after: 100, line: 200})).join('');
       }
-      previousBase = base;
+      previousGroup = group;
       return spacer + itemParagraph(r.sku, r.qty);
     })
     .join('');
