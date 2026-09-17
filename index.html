@@ -1584,11 +1584,12 @@ function buildOrderSummary() {
 // ยึด "ค่าในคอลัมน์ SKU Merchant" เป็นกลุ่มโดยตรง
 // เช่น CADENZA และ CADENZA FRONT = คนละกลุ่ม เพราะเป็นคนละค่าในคอลัมน์
 function normalizeOrderSkuForSpacing(sku) {
-  // FRONT ที่ต่อท้ายไม่ถือเป็นกลุ่มใหม่ แต่ค่าที่แสดงผลยังใช้ SKU Merchant เดิม
-  return String(sku ?? '')
-    .trim()
-    .replace(/\s*FRONT\s*$/i, '')
-    .trim();
+  // กลุ่มยึดจาก "ชื่อสินค้า/SKU หลัก" ในคอลัมน์ SKU Merchant
+  // เช่น 1623065-BK-L / 1623065-PK-S / 1623065-WH-L = กลุ่ม 1623065 เดียวกัน
+  // และ SKU ที่ลงท้ายด้วย FRONT ยังอยู่ในกลุ่มเดียวกับ SKU หลัก
+  const value = String(sku ?? '').trim().replace(/\s*FRONT\s*$/i, '').trim();
+  const dash = value.indexOf('-');
+  return dash > 0 ? value.slice(0, dash).trim() : value;
 }
 
 function compareOrderSku(a, b) {
@@ -1605,10 +1606,11 @@ function compareOrderSku(a, b) {
 
 function addOrderSkuSpacingRows(rows, skuIndex) {
   // กติกาการเว้นระยะ:
-  // 1) กลุ่มยึดตามค่าในคอลัมน์ "SKU Merchant" โดยตรง
-  // 2) ค่าเดียวกันอยู่ติดกันทั้งหมด ไม่มีแถวว่างคั่น
-  // 3) เมื่อเปลี่ยนเป็นค่า SKU Merchant ใหม่ ให้เว้น 4 บรรทัด
-  // 4) เรียงค่า SKU Merchant ตามพยัญชนะ/ตัวอักษรก่อนเสมอ
+  // 1) ใช้เฉพาะข้อมูลจากหัวคอลัมน์ "SKU Merchant" ในการจัดกลุ่ม
+  // 2) SKU ที่มีรหัสหลักเดียวกันก่อนเครื่องหมาย - อยู่กลุ่มเดียวกัน
+  // 3) คำว่า FRONT ที่ต่อท้ายไม่ทำให้เกิดกลุ่มใหม่
+  // 4) ภายในกลุ่มเรียงติดกัน ไม่เว้นบรรทัด
+  // 5) เปลี่ยนกลุ่มแล้วเว้น 4 บรรทัด
   if (!rows.length) return [];
 
   const sorted = [...rows].sort((a, b) =>
@@ -1623,7 +1625,7 @@ function addOrderSkuSpacingRows(rows, skuIndex) {
     const base = normalizeOrderSkuForSpacing(row?.[skuIndex]);
     if (previousBase !== null && base !== previousBase) {
       groupNo += 1;
-      // กลุ่มแรกติดกันปกติ; ก่อนกลุ่มที่ 2 เป็นต้นไป เว้น 4 บรรทัด
+      // กลุ่มเดียวกันติดกันปกติ; เปลี่ยนรหัสหลักแล้วเว้น 4 บรรทัด
       if (groupNo >= 1) {
         for (let i = 0; i < 4; i++) out.push([]);
       }
@@ -1649,8 +1651,8 @@ function downloadOrderPivotExcel() {
   const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
   const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
 
-  // ดาวน์โหลดทุกแบบให้ใช้กติกาเดียวกัน: ยึดค่าในหัวคอลัมน์ SKU Merchant เป็นกลุ่ม
-  // และเว้น 4 บรรทัดเมื่อเปลี่ยนไปเป็น SKU Merchant ค่าใหม่
+  // ดาวน์โหลดทุกแบบให้ใช้กติกาเดียวกัน โดยใช้ข้อมูลจากคอลัมน์ SKU Merchant เท่านั้น
+  // จัดกลุ่มจากรหัสหลักก่อนเครื่องหมาย - และเว้น 4 บรรทัดเมื่อเปลี่ยนกลุ่ม
   const spacedDataRows = addOrderSkuSpacingRows(dataRows, skuIndex);
 
   const data = [
@@ -1687,7 +1689,7 @@ function downloadOrderPivotExcel() {
     const base = normalizeOrderSkuForSpacing(item.sku);
     if (previousBase !== null && base !== previousBase) {
       groupNo += 1;
-      // กลุ่มแรกติดกันปกติ; ก่อนกลุ่มที่ 2 เป็นต้นไป เว้น 4 บรรทัด
+      // กลุ่มเดียวกันติดกันปกติ; เปลี่ยนรหัสหลักแล้วเว้น 4 บรรทัด
       if (groupNo >= 1) {
         for (let i = 0; i < 4; i++) pivotRowsForExcel.push([]);
       }
@@ -1882,9 +1884,9 @@ async function downloadOrderWord() {
     </w:p>`;
   }
 
-  // เรียงตามค่า SKU Merchant ในคอลัมน์โดยตรงก่อนสร้างไฟล์ Word
-  // ค่า SKU Merchant ที่เหมือนกันอยู่กลุ่มเดียวกัน
-  // และเว้น 4 บรรทัดเมื่อเปลี่ยนไปเป็นค่าใหม่
+  // ใช้ข้อมูลจากคอลัมน์ SKU Merchant เท่านั้นในการแสดงผล Word
+  // กลุ่มใช้รหัสหลักก่อนเครื่องหมาย -; FRONT ที่ต่อท้ายไม่เป็นกลุ่มใหม่
+  // แต่ค่าที่แสดงยังเป็น SKU Merchant เต็มตามข้อมูลจริง
   const sortedPivotRows = [...orderPivotRows].sort((a, b) => compareOrderSku(a.sku, b.sku));
   let previousBase = null;
   let groupNo = 0;
@@ -1894,7 +1896,7 @@ async function downloadOrderWord() {
       let spacer = '';
       if (previousBase !== null && base !== previousBase) {
         groupNo += 1;
-        // กลุ่มแรกติดกันปกติ; ก่อนกลุ่มที่ 2 เป็นต้นไป เว้น 4 บรรทัด
+        // กลุ่มเดียวกันติดกันปกติ; เปลี่ยนรหัสหลักแล้วเว้น 4 บรรทัด
         if (groupNo >= 1) {
           spacer = Array.from({length: 4}, () => wordParagraph('', {after: 100, line: 200})).join('');
         }
