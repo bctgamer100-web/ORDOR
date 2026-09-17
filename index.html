@@ -121,7 +121,7 @@ h2{margin:0 0 13px;font-size:17px}.drop{border:2px dashed #7bc7cf;border-radius:
 .order-pivot-table table{font-size:12px}
 .order-pivot-table th{background:#087f8c;color:#fff;position:sticky;top:0}
 .order-pivot-table td,.order-pivot-table th{padding:6px 9px}
-.word-export-btn{background:#2b579a;color:#fff} .excel-pivot-export-btn{background:#217346;color:#fff}
+.word-export-btn,.pdf-print-btn{background:#2b579a;color:#fff} .pdf-print-btn{background:linear-gradient(135deg,#2b579a,#5c7cff)!important;border:0!important} .excel-pivot-export-btn{background:#217346;color:#fff}
 @media(max-width:700px){.order-pivot-table{max-height:220px}}
 
 .compare-tools-extra,.order-summary-extra{margin-top:16px;padding:14px;border:1px solid #d8e8ec;border-radius:14px;background:rgba(255,255,255,.78)}
@@ -278,7 +278,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 #orderTool .beta-progress{background:rgba(255,255,255,.06)!important}
 #orderTool .beta-status{padding:10px 12px;min-height:38px;display:flex;align-items:center;background:rgba(255,255,255,.025)!important;border:1px solid rgba(255,255,255,.07);margin:10px 0!important}
 #orderTool .beta-actions button{min-height:44px;border-radius:12px!important}
-#orderTool .word-export-btn{background:linear-gradient(135deg,#2b579a,#5c7cff)!important;border:0!important}
+#orderTool .word-export-btn,#orderTool .pdf-print-btn{background:linear-gradient(135deg,#2b579a,#5c7cff)!important;border:0!important}
 #orderTool .excel-pivot-export-btn{background:linear-gradient(135deg,#147d59,#2fcf91)!important;border:0!important}
 #orderTool .beta-danger{background:rgba(255,84,120,.14)!important;color:#ff9ab0!important;border:1px solid rgba(255,107,138,.28)!important}
 #orderTool .order-summary-extra,#orderTool .order-pivot-wrap{background:rgba(255,255,255,.035)!important;border-color:rgba(255,255,255,.10)!important;border-radius:18px!important}
@@ -435,7 +435,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 <div><label>🔢 เลือกคอลัมน์จำนวน</label><select id="qty" disabled><option>เลือกไฟล์ก่อน</option></select></div>
 </div>
 <div class="rules"><b>📌 กติกา:</b><br>• ไฟล์ 1 น้อยกว่าไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 เท่ากับไฟล์ 2 → ลบ SKU นั้นออกทั้งแถว<br>• ไฟล์ 1 มากกว่าไฟล์ 2 → หักจำนวน แล้วเก็บยอดคงเหลือ</div>
-<div class="actions"><button class="primary" id="compare2" disabled>▶ เปรียบเทียบข้อมูล</button><button class="red" id="clear2">🗑 ล้างข้อมูล</button></div>
+<div class="actions"><button class="primary" id="compare2" disabled style="display:none">▶ เปรียบเทียบข้อมูล</button><button class="red" id="clear2">🗑 ล้างข้อมูล</button></div>
 </div>
 
 <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
@@ -450,9 +450,9 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 </div>
 
 <div class="compare-tools-extra" id="compareExtra" style="display:none">
-  <div class="extra-head"><strong>🔍 ค้นหาและดูสถานะผลเปรียบเทียบ</strong><span id="compareExtraNote"></span></div>
+  <div class="extra-head"><strong>🔍 ค้นหา SKU และดูสถานะผลเปรียบเทียบ</strong><span id="compareExtraNote"></span></div>
   <div class="extra-controls">
-    <input id="compareSearch" type="text" placeholder="🔍 ค้นหา SKU / ข้อมูล...">
+    <input id="compareSearch" aria-label="ค้นหา SKU" type="text" placeholder="🔍 ค้นหา SKU...">
     <select id="compareStatusFilter"><option value="all">ทุกสถานะ</option><option value="remaining">มีคงเหลือ</option><option value="partial">ถูกหักบางส่วน</option><option value="deleted">ถูกลบ</option><option value="notfound">ไม่พบในไฟล์ 2</option></select>
   </div>
   <div class="compare-mini-stats">
@@ -506,8 +506,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
         <div class="beta-status" id="orderStatus">ยังไม่ได้เลือกไฟล์ ORDER</div>
 
         <div class="beta-actions">
-          <button class="beta-primary" id="orderProcess" disabled>▶ เตรียมข้อมูล ORDER</button>
-          <button class="word-export-btn" id="orderDownload" disabled>📝 ดาวน์โหลด Word (Pivot)</button>
+          <button class="pdf-print-btn" id="orderDownload" disabled>🖨️ พิมพ์ ORDER (Pivot)</button>
           <button class="excel-pivot-export-btn" id="orderPivotExcelDownload" disabled>📊 ดาวน์โหลด Excel (ตามตัวอย่าง)</button>
           <button class="beta-danger" id="orderClear">ล้างข้อมูล</button>
         </div>
@@ -688,7 +687,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
     compare2:['compareTool','เปรียบเทียบไฟล์ 2 ไฟล์'],
     download2:['compareTool','ดาวน์โหลดไฟล์ผลลัพธ์ Excel'],
     orderProcess:['orderTool','เตรียมข้อมูล ORDER'],
-    orderDownload:['orderTool','ดาวน์โหลด Word (Pivot)'],
+    orderDownload:['orderTool','พิมพ์ ORDER (Pivot)'],
     orderPivotExcelDownload:['orderTool','ดาวน์โหลด Excel ตามตัวอย่าง'],
     orderSelectAll:['orderTool','เลือกค่าทั้งหมดในตัวกรอง'],
     orderClearFilters:['orderTool','ล้างตัวกรอง ORDER'],
@@ -1032,8 +1031,8 @@ $("download2").onclick=downloadResult;
 $("clear2").onclick=clearAll;
 $("allCols").onclick=()=>setCols(true);
 $("noCols").onclick=()=>setCols(false);
-$("sku").onchange=updateButton;
-$("qty").onchange=updateButton;
+$("sku").onchange=()=>{updateButton(); if(data1&&data2) compareFiles();};
+$("qty").onchange=()=>{updateButton(); if(data1&&data2) compareFiles();};
 
 async function loadFile(file,n){
  if(!file)return;
@@ -1047,6 +1046,7 @@ async function loadFile(file,n){
   if(n===1){data1=rows;$("name1").textContent=file.name;$("info1").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
   else{data2=rows;$("name2").textContent=file.name;$("info2").textContent=`${rows.length.toLocaleString()} แถว | ${Object.keys(rows[0]).length} คอลัมน์`}
   updateColumns();updateStatus();setProgress(100);setTimeout(()=>setProgress(0),300);
+  if(data1&&data2){ setTimeout(()=>{ if(data1&&data2&&$("sku").value&&$("qty").value) compareFiles(); }, 50); }
  }catch(e){setProgress(0);alert("ไม่สามารถอ่านไฟล์ได้\n\n"+e.message)}
 }
 
@@ -1121,6 +1121,7 @@ function updateColumns(){
 }
 
 function updateButton(){$("compare2").disabled=!data1||!data2||!$("sku").value||!$("qty").value||$("sku").value===$("qty").value}
+function autoCompare(){ if(data1&&data2&&$("sku").value&&$("qty").value&&$("sku").value!==$("qty").value) compareFiles(); }
 function setCols(v){document.querySelectorAll("#columnList input").forEach(x=>{x.checked=v;x.parentElement.classList.toggle("on",v)})}
 function updateStatus(){$("status").textContent=data1&&data2?"● พร้อมเลือกหัวคอลัมน์จากไฟล์ที่อัปโหลด":"● กรุณาเลือกไฟล์ Excel ทั้ง 2 ไฟล์"}
 function num(v){const n=Number(String(v??"").replace(/,/g,"").trim());return Number.isFinite(n)?n:0}
@@ -1306,7 +1307,6 @@ let orderPivotRows = [];
 
 const orderDrop = document.getElementById("orderDrop");
 const orderInput = document.getElementById("orderFile");
-const orderProcessBtn = document.getElementById("orderProcess");
 const orderDownloadBtn = document.getElementById("orderDownload");
 const orderPivotExcelDownloadBtn = document.getElementById("orderPivotExcelDownload");
 const orderClearBtn = document.getElementById("orderClear");
@@ -1403,13 +1403,12 @@ async function loadOrderFile(file) {
     buildOrderFilters();
     applyOrderFilters();
 
-    orderProcessBtn.disabled = false;
     orderDownloadBtn.disabled = false;
   orderPivotExcelDownloadBtn.disabled = false;
 
     document.getElementById("orderBar").style.width = "100%";
     document.getElementById("orderStatus").textContent =
-      `✅ โหลดไฟล์สำเร็จ ${Math.max(0, rows.length - 1).toLocaleString()} รายการ | ${orderHeaders.length} คอลัมน์`;
+      `✅ เตรียมข้อมูล ORDER อัตโนมัติแล้ว | ${Math.max(0, rows.length - 1).toLocaleString()} รายการ | ${orderHeaders.length} คอลัมน์`;
 
     setTimeout(() => {
       document.getElementById("orderBar").style.width = "0%";
@@ -1758,20 +1757,6 @@ function downloadOrderPivotExcel() {
 
 orderPivotExcelDownloadBtn.onclick = downloadOrderPivotExcel;
 
-orderProcessBtn.onclick = () => {
-  if (!orderRows.length) return;
-  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
-  const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
-  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length || skuIndex < 0 || qtyIndex < 0) {
-    alert("ไฟล์นี้มีคอลัมน์ไม่ครบสำหรับสร้าง Pivot (ต้องมีอย่างน้อย 5 คอลัมน์)");
-    return;
-  }
-  document.getElementById("orderStatus").textContent =
-    `✅ เตรียมข้อมูล ORDER แล้ว | ${orderHeaders[skuIndex]} + ${orderHeaders[qtyIndex]} | เหลือ ${orderFilteredRows.length.toLocaleString()} รายการ`;
-  orderDownloadBtn.disabled = false;
-  orderPivotExcelDownloadBtn.disabled = false;
-};
-
 orderDownloadBtn.onclick = downloadOrderWord;
 
 function buildOrderPivot() {
@@ -1873,174 +1858,186 @@ function wordTableRow(cells, header=false) {
   return `<w:tr>${header ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${cells.join('')}</w:tr>`;
 }
 
-async function downloadOrderWord() {
+function printOrderPDF() {
   if (!orderRows.length) return alert('ยังไม่มีรายการ ORDER');
-  if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูลสำหรับสร้างไฟล์ Word');
-  if (!window.JSZip) return alert('ไม่พบ JSZip');
+  if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูลสำหรับพิมพ์ PDF');
 
-  const zip = new JSZip();
+  // ใช้ข้อมูล Pivot เดียวกับเดิม แต่ส่งเข้า Print ของเบราว์เซอร์โดยตรง
+  // ผู้ใช้สามารถเลือก "Save as PDF" ในหน้าต่างพิมพ์ได้ทันที
+  const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
 
-  // A1012 reference:
-  // - A4 portrait
-  // - narrow, balanced margins
-  // - two newspaper-style columns
-  // - compact Tahoma text
-  // - tight paragraph spacing
-  // - no visible table borders
-  const PAGE_W = 11906;   // A4 width 210 mm
-  const PAGE_H = 16838;   // A4 height 297 mm
-
-  // Fine-tuned from the A1012-style compact order list.
-  // 0.55" top/bottom, 0.65" left/right.
-  const MARGIN_LR = 936;   // 0.65"
-  const MARGIN_TB = 792;   // 0.55"
-
-  const CONTENT_W = PAGE_W - (MARGIN_LR * 2);
-  const COLUMN_GAP = 360;  // 0.25"
-  const COLUMN_W = Math.floor((CONTENT_W - COLUMN_GAP) / 2);
-
-  // Right-aligned quantity: ขยับเข้ามาจากขอบขวาประมาณครึ่งหนึ่งของระยะเดิม.
-  const QTY_TAB = 3540; // ขยับจำนวนออกจากตำแหน่งเดิมอีก 20 pt
-
-  function escXml(s) {
-    return String(s ?? '')
+  function escHtml(value) {
+    return String(value ?? '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+      .replace(/'/g, '&#39;');
   }
 
-  function wordRun(text) {
-    return `<w:r>
-      <w:rPr>
-        <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
-        <w:sz w:val="20"/><w:szCs w:val="20"/>
-      </w:rPr>
-      <w:t xml:space="preserve">${escXml(text)}</w:t>
-    </w:r>`;
-  }
-
-  function itemParagraph(sku, qty) {
-    // 10 pt Tahoma, เพิ่มระยะห่างแนวตั้งเล็กน้อยให้แต่ละแถวไม่อึดอัด, zero before/after.
-    // A right tab keeps quantity aligned without forcing a fixed 30-item split.
-    return `<w:p>
-      <w:pPr>
-        <w:tabs><w:tab w:val="right" w:pos="${QTY_TAB}"/></w:tabs>
-        <w:spacing w:before="0" w:after="100" w:line="200" w:lineRule="exact"/>
-        <w:keepNext w:val="0"/>
-        <w:widowControl/>
-      </w:pPr>
-      ${wordRun(sku)}
-      <w:r><w:tab/></w:r>
-      ${wordRun(formatPivotNumber(qty))}
-    </w:p>`;
-  }
-
-  // แสดงเฉพาะค่าในคอลัมน์ "SKU Merchant"
-  // แต่แบ่งกลุ่มและเว้น 3 บรรทัดจากคอลัมน์ "ชื่อ SKU Merchant"
-  // ชื่อกลุ่มที่ลงท้าย FRONT จะไม่สร้างกลุ่มใหม่
-  const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
   let previousGroup = null;
-  const allItemsXml = sortedPivotRows
-    .map((r) => {
-      const group = normalizeOrderGroupName(r.groupName);
-      let spacer = '';
-      if (previousGroup !== null && group !== previousGroup) {
-        spacer = Array.from({length: 2}, () => wordParagraph('', {after: 100, line: 200})).join('');
-      }
-      previousGroup = group;
-      return spacer + itemParagraph(r.sku, r.qty);
-    })
-    .join('');
+  let itemsHtml = '';
 
-  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-            xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">
-  <w:body>
-    ${allItemsXml}
-    <w:sectPr>
-      <w:pgSz w:w="${PAGE_W}" w:h="${PAGE_H}"/>
-      <w:pgMar w:top="${MARGIN_TB}"
-               w:right="${MARGIN_LR}"
-               w:bottom="${MARGIN_TB}"
-               w:left="${MARGIN_LR}"
-               w:header="0"
-               w:footer="0"
-               w:gutter="0"/>
-      <w:cols w:num="2" w:space="${COLUMN_GAP}"/>
-      <w:docGrid w:linePitch="200"/>
-    </w:sectPr>
-  </w:body>
-</w:document>`;
+  sortedPivotRows.forEach((r) => {
+    const group = normalizeOrderGroupName(r.groupName);
 
-  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:docDefaults>
-    <w:rPrDefault>
-      <w:rPr>
-        <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
-        <w:sz w:val="20"/><w:szCs w:val="20"/>
-      </w:rPr>
-    </w:rPrDefault>
-    <w:pPrDefault>
-      <w:pPr>
-        <w:spacing w:before="0" w:after="100" w:line="200" w:lineRule="exact"/>
-        <w:widowControl/>
-      </w:pPr>
-    </w:pPrDefault>
-  </w:docDefaults>
+    if (previousGroup !== null && group !== previousGroup) {
+      itemsHtml += '<div class="group-spacer" aria-hidden="true"></div>';
+    }
 
-  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
-    <w:name w:val="Normal"/>
-    <w:qFormat/>
-    <w:rPr>
-      <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
-      <w:sz w:val="20"/><w:szCs w:val="20"/>
-    </w:rPr>
-    <w:pPr>
-      <w:spacing w:before="0" w:after="100" w:line="200" w:lineRule="exact"/>
-    </w:pPr>
-  </w:style>
-</w:styles>`;
+    itemsHtml += `
+      <div class="order-item">
+        <span class="sku">${escHtml(r.sku)}</span>
+        <span class="qty">${escHtml(formatPivotNumber(r.qty))}</span>
+      </div>`;
 
-  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml"
-    ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-  <Override PartName="/word/styles.xml"
-    ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-</Types>`;
+    previousGroup = group;
+  });
 
-  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1"
-    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
-    Target="word/document.xml"/>
-</Relationships>`;
+  const printWindow = window.open('', '_blank', 'width=1000,height=800');
+  if (!printWindow) {
+    alert('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up สำหรับเว็บนี้ แล้วกดปุ่มอีกครั้ง');
+    return;
+  }
 
-  const documentRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1"
-    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"
-    Target="styles.xml"/>
-</Relationships>`;
+  const printDate = new Date().toLocaleString('th-TH');
 
-  zip.file('[Content_Types].xml', contentTypesXml);
-  zip.folder('_rels').file('.rels', relsXml);
-  zip.folder('word').file('document.xml', documentXml);
-  zip.folder('word').file('styles.xml', stylesXml);
-  zip.folder('word').folder('_rels').file('document.xml.rels', documentRelsXml);
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>พิมพ์ ORDER_${new Date().toISOString().slice(0,10)}</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 14mm;
+  }
 
-  const blob = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `รับORDER_${new Date().toISOString().slice(0, 10)}.docx`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #111;
+    font-family: Tahoma, "Noto Sans Thai", sans-serif;
+  }
+
+  body {
+    font-size: 10pt;
+    line-height: 1.35;
+  }
+
+  .print-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 0 0 5mm;
+    padding-bottom: 2mm;
+    border-bottom: 1px solid #bbb;
+    font-size: 9pt;
+  }
+
+  .print-head strong {
+    font-size: 12pt;
+  }
+
+  .print-grid {
+    column-count: 2;
+    column-gap: 10mm;
+    column-fill: auto;
+  }
+
+  .order-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 5mm;
+    align-items: baseline;
+    width: 100%;
+    min-height: 5.2mm;
+    padding: 0.7mm 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sku {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .qty {
+    min-width: 14mm;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .group-spacer {
+    height: 7mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  @media screen {
+    body {
+      padding: 15mm;
+      background: #eee;
+    }
+
+    .sheet {
+      max-width: 182mm;
+      margin: 0 auto;
+      padding: 10mm;
+      background: #fff;
+      box-shadow: 0 0 12px rgba(0,0,0,.15);
+    }
+  }
+
+  @media print {
+    .print-head {
+      margin-bottom: 4mm;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="print-head">
+      <strong>ใบรายการสินค้า (Order Picking)</strong>
+      <span>พิมพ์เมื่อ ${escHtml(printDate)}</span>
+    </div>
+    <div class="print-grid">
+      ${itemsHtml}
+    </div>
+  </div>
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      window.focus();
+      window.print();
+    }, 250);
+  });
+
+  window.addEventListener('afterprint', function () {
+    setTimeout(function () {
+      window.close();
+    }, 150);
+  });
+<\/script>
+</body>
+</html>`);
+  printWindow.document.close();
+
+  if (typeof window.workHistoryLog === 'function') {
+    window.workHistoryLog(
+      'download',
+      'orderTool',
+      'พิมพ์ข้อมูล Pivot ผ่านหน้าต่าง Print'
+    );
+  }
 }
+
+orderDownloadBtn.onclick = printOrderPDF;
 
 orderClearBtn.onclick = () => {
   orderWorkbook = null;
