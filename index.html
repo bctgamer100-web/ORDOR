@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -102,6 +103,61 @@ h2{margin:0 0 13px;font-size:17px}.drop{border:2px dashed #7bc7cf;border-radius:
 @media(max-width:900px){.order-filter-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.order-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:460px){.order-filter-grid{grid-template-columns:1fr}}
+/* ===== ORDER TRACKING COPY ===== */
+#orderTrackingCopy{
+  display:none;
+  margin-top:10px;
+  padding:12px;
+  border:1px solid rgba(66,245,167,.22);
+  border-radius:12px;
+  background:rgba(66,245,167,.045);
+}
+#orderTrackingCopy .tracking-copy-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#orderTrackingCopy .tracking-copy-head strong{color:#fff}
+#orderTrackingCopy .tracking-copy-note{font-size:11px;color:var(--muted)}
+#orderTrackingCopy .tracking-copy-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+#orderTrackingCopy button{
+  min-height:38px;
+  padding:8px 12px;
+  border-radius:10px;
+}
+#copySelectedTracking{
+  background:linear-gradient(135deg,#18b979,#21d69b)!important;
+  color:#061c15!important;
+  border:0!important;
+}
+#copySelectedTracking:disabled{opacity:.45}
+#orderTrackingPreview{
+  margin-top:10px;
+  max-height:220px;
+  overflow:auto;
+  padding:9px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:9px;
+  background:rgba(0,0,0,.22);
+  font-family:Consolas,"Courier New",monospace;
+  font-size:12px;
+  line-height:1.55;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+#orderTrackingPreview .tracking-group{
+  color:#aef7d2;
+  font-family:inherit;
+  font-weight:800;
+  margin-top:2px;
+}
+#orderTrackingPreview .tracking-item{color:#d8e9ef}
+#orderTrackingPreview .tracking-empty{color:#819aa8;font-family:inherit}
+@media(max-width:650px){
+  #orderTrackingCopy .tracking-copy-head{align-items:flex-start}
+}
 
 
 /* ===== ORDER FILTER COLLAPSIBLE ===== */
@@ -586,6 +642,16 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
             <div class="empty">กรุณาเลือกไฟล์ ORDER ก่อน</div>
           </div>
           <div class="order-summary" id="orderFilterSummary">ยังไม่มีข้อมูล</div>
+<div id="orderTrackingCopy">
+            <div class="tracking-copy-head">
+              <strong>📋 เลข Tracking ตามชื่อ SKU Merchant ที่เลือก</strong>
+              <span class="tracking-copy-note" id="trackingCopyNote">เลือกชื่อในคอลัมน์ “ชื่อ SKU Merchant” เพื่อแสดงเลข Tracking</span>
+            </div>
+            <div class="tracking-copy-actions">
+              <button type="button" id="copySelectedTracking" disabled>📋 คัดลอกเลข Tracking</button>
+            </div>
+            <div id="orderTrackingPreview"><span class="tracking-empty">ยังไม่ได้เลือก SKU Merchant</span></div>
+          </div>
         </div>
 
         <div class="beta-progress"><div class="beta-bar" id="orderBar"></div></div>
@@ -1992,8 +2058,249 @@ function applyOrderFilters() {
 
   orderDownloadBtn.disabled = false;
   orderPivotExcelDownloadBtn.disabled = false;
+  renderSelectedTrackingCopy();
 }
 
+/* ===== COPY TRACKING BY SELECTED SKU MERCHANT ===== */
+function getOrderTrackingIndex() {
+  if (!orderHeaders.length) return -1;
+
+  // รองรับชื่อหัวคอลัมน์ Tracking/เลขพัสดุที่พบได้หลายแบบในไฟล์ ORDER
+  const normalized = s => String(s ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[._\-/]+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const exact = new Set([
+    'tracking',
+    'tracking no',
+    'tracking number',
+    'tracking no.',
+    'เลข tracking',
+    'เลขแท็กกิ้ง',
+    'เลขแทกกิ้ง',
+    'เลขแท็กกิง',
+    'เลขแทกกิง',
+    'เลขแท็คกิ้ง',
+    'เลขแท็คกิง',
+    'เลขแทร็กกิ้ง',
+    'เลขแทรกกิ้ง',
+    'เลขแทร็คกิ้ง',
+    'เลขแทร็คกิง',
+    'เลขแท็ก',
+    'เลขแทก',
+    'เลขพัสดุ',
+    'หมายเลขพัสดุ',
+    'เลขติดตาม',
+    'หมายเลขติดตาม',
+    'หมายเลข tracking',
+    'หมายเลขแทกกิ้ง',
+    'หมายเลขแทกกิง',
+    'หมายเลขแท็กกิ้ง',
+    'หมายเลขแท็กกิง',
+    'หมายเลขแท็คกิ้ง',
+    'หมายเลขแท็คกิง',
+    'หมายเลขแทรกกิ้ง',
+    'หมายเลขแทรกกิง',
+    'หมายเลขแทรคกิ้ง',
+    'หมายเลขแทรคกิง',
+    'หมายเลขแทร็คกิ้ง',
+    'หมายเลขแทร็คกิง'
+  ]);
+
+  const normalizedHeaders = orderHeaders.map(normalized);
+  const exactIndex = normalizedHeaders.findIndex(h => exact.has(h));
+  if (exactIndex >= 0) return exactIndex;
+
+  // ถ้าเป็นหัวคอลัมน์ภาษาไทย ให้ตรวจจากคำสำคัญด้วย เช่น
+  // "หมายเลขแทกกิ้ง", "เลขพัสดุ", "เลขติดตามพัสดุ"
+  const thaiIndex = normalizedHeaders.findIndex(s =>
+    !/(status|สถานะ|สถานะการจัดส่ง|status tracking)/i.test(s) &&
+    (/tracking/.test(s) || /(?:หมายเลข|เลข).*(?:พัสดุ|ติดตาม|แท็กกิ้ง|แทกกิ้ง|แท็กกิง|แทกกิง|แท็คกิ้ง|แท็คกิง|แทร็กกิ้ง|แทรกกิ้ง|แทร็คกิ้ง)/i.test(s))
+  );
+  if (thaiIndex >= 0) return thaiIndex;
+
+  return -1;
+}
+
+function getOrderSkuMerchantFilterState() {
+  const groupIndex = getOrderGroupIndex();
+  if (groupIndex < 0) return null;
+  return orderFiltersState.find(state => state.colIndex === groupIndex) || null;
+}
+
+function buildSelectedTrackingGroups() {
+  const groupIndex = getOrderGroupIndex();
+  const trackingIndex = getOrderTrackingIndex();
+  const skuState = getOrderSkuMerchantFilterState();
+
+  if (groupIndex < 0 || trackingIndex < 0 || !skuState || !skuState.selected.size) {
+    return { groups: [], trackingIndex, groupIndex };
+  }
+
+  const selected = skuState.selected;
+  const map = new Map();
+
+  // ใช้เฉพาะแถวที่ผ่านตัวกรองปัจจุบัน และต้องเป็นชื่อ SKU Merchant ที่เลือกไว้เท่านั้น
+  orderFilteredRows.forEach(row => {
+    const merchantName = String(row?.[groupIndex] ?? '');
+    if (!selected.has(merchantName)) return;
+
+    const tracking = String(row?.[trackingIndex] ?? '').trim();
+    if (!tracking) return;
+
+    const groupKey = normalizeOrderGroupName(merchantName) || '(ว่าง)';
+    if (!map.has(groupKey)) {
+      map.set(groupKey, {
+        key: groupKey,
+        label: merchantName.trim() || '(ว่าง)',
+        values: new Set()
+      });
+    }
+    map.get(groupKey).values.add(tracking);
+  });
+
+  const groups = [...map.values()]
+    .map(group => ({
+      ...group,
+      values: [...group.values]
+    }))
+    .sort((a,b) => a.key.localeCompare(b.key, undefined, {numeric:true, sensitivity:'base'}));
+
+  return { groups, trackingIndex, groupIndex };
+}
+
+function renderSelectedTrackingCopy() {
+  const panel = document.getElementById('orderTrackingCopy');
+  const preview = document.getElementById('orderTrackingPreview');
+  const note = document.getElementById('trackingCopyNote');
+  const btn = document.getElementById('copySelectedTracking');
+  if (!panel || !preview || !note || !btn) return;
+
+  const skuState = getOrderSkuMerchantFilterState();
+  const trackingIndex = getOrderTrackingIndex();
+
+  // ยังไม่เลือกชื่อ SKU Merchant = ไม่แสดงเลข Tracking
+  if (!skuState || !skuState.selected.size) {
+    panel.style.display = 'none';
+    btn.disabled = true;
+    preview.innerHTML = '<span class="tracking-empty">ยังไม่ได้เลือก SKU Merchant</span>';
+    return;
+  }
+
+  panel.style.display = 'block';
+
+  if (trackingIndex < 0) {
+    btn.disabled = true;
+    note.textContent = 'ไม่พบคอลัมน์ Tracking ในไฟล์ ORDER';
+    preview.innerHTML = '<span class="tracking-empty">ไม่พบหัวคอลัมน์เลข Tracking / เลขพัสดุ</span>';
+    return;
+  }
+
+  const result = buildSelectedTrackingGroups();
+  const total = result.groups.reduce((sum, g) => sum + g.values.length, 0);
+  const groupCount = result.groups.length;
+
+  btn.disabled = total === 0;
+
+  if (!total) {
+    note.textContent = `เลือก ${skuState.selected.size.toLocaleString()} ชื่อ แต่ไม่พบเลข Tracking`;
+    preview.innerHTML = '<span class="tracking-empty">ไม่มีเลข Tracking จากรายการที่เลือก</span>';
+    return;
+  }
+
+  note.textContent =
+    `พบ ${total.toLocaleString()} เลข Tracking | ${groupCount.toLocaleString()} กลุ่ม SKU | เว้นบรรทัดเมื่อเปลี่ยนกลุ่ม`;
+
+  preview.innerHTML = result.groups.map(group => {
+    const values = group.values
+      .map(v => `<div class="tracking-item">${escapeHtml(v)}</div>`)
+      .join('');
+    return `<div class="tracking-group">${escapeHtml(group.label || group.key)}</div>${values}`;
+  }).join('<div style="height:10px"></div>');
+}
+
+function getSelectedTrackingClipboardText() {
+  const result = buildSelectedTrackingGroups();
+  return result.groups
+    .map(group => group.values.join('\n'))
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+const copySelectedTrackingBtn = document.getElementById('copySelectedTracking');
+if (copySelectedTrackingBtn) {
+  copySelectedTrackingBtn.onclick = async () => {
+    const text = getSelectedTrackingClipboardText();
+    if (!text) {
+      alert('กรุณาเลือกชื่อ SKU Merchant ที่มีเลข Tracking ก่อน');
+      return;
+    }
+
+    let copied = false;
+
+    // วิธีหลัก: Clipboard API (ทำงานเมื่อ browser อนุญาต clipboard)
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch (err) {
+      copied = false;
+    }
+
+    // Fallback สำหรับไฟล์ HTML ที่เปิดด้วย file:// หรือ browser ที่บล็อก Clipboard API
+    if (!copied) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '-9999px';
+        ta.style.width = '1px';
+        ta.style.height = '1px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        copied = document.execCommand('copy');
+        ta.remove();
+      } catch (err) {
+        copied = false;
+      }
+    }
+
+    if (!copied) {
+      // ให้ผู้ใช้ยังสามารถคัดลอกเองได้ หาก browser ปิดกั้นทั้ง 2 วิธี
+      const box = document.getElementById('orderTrackingPreview');
+      const range = document.createRange();
+      range.selectNodeContents(box);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      alert('เบราว์เซอร์ไม่อนุญาตให้คัดลอกอัตโนมัติ\nระบบเลือกข้อความ Tracking ให้แล้ว กด Ctrl+C เพื่อคัดลอก');
+      return;
+    }
+
+    const count = text.split('\n').filter(Boolean).length;
+    const old = copySelectedTrackingBtn.textContent;
+    copySelectedTrackingBtn.textContent = `✅ คัดลอกแล้ว ${count.toLocaleString()} เลข`;
+    setTimeout(() => {
+      copySelectedTrackingBtn.textContent = old;
+    }, 1800);
+
+    if (typeof window.workHistoryLog === 'function') {
+      window.workHistoryLog(
+        'filter',
+        'orderTool',
+        `คัดลอก Tracking ตามชื่อ SKU Merchant ที่เลือก ${count.toLocaleString()} เลข`
+      );
+    }
+  };
+}
 document.getElementById("orderSelectAll").onclick = () => {
   // เลือกทั้งหมดเฉพาะค่าที่ตรงกับคำค้นของแต่ละคอลัมน์
   orderFiltersState.forEach((state, index) => {
@@ -2788,6 +3095,7 @@ orderClearBtn.onclick = () => {
   document.getElementById("orderPreview").textContent = "ยังไม่มีข้อมูล";
   document.getElementById("orderBar").style.width = "0%";
   orderFilterSummary.textContent = "ยังไม่มีข้อมูล";
+  document.getElementById("orderTrackingCopy").style.display = "none";
   document.getElementById("orderPivotWrap").style.display = "none";
   document.getElementById("orderPivotPreview").innerHTML = "";
   document.getElementById("orderSummaryExtra").style.display = "none";
