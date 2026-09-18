@@ -1532,13 +1532,8 @@ function renderCompareResults(){
     if(filter==="none" && !item.status.startsWith("❌"))return false;
 
     if(search){
-      const text=[
-        item.sku,
-        item.orderQty,
-        item.stockQty,
-        item.status,
-        item.locations
-      ].join(" ").toLowerCase();
+      const text=[item.sku,item.orderQty,item.stockQty,item.status,item.locations]
+        .join(" ").toLowerCase();
       if(!text.includes(search))return false;
     }
     return true;
@@ -1547,6 +1542,7 @@ function renderCompareResults(){
   $("compareExtraNote").textContent=
     `พบ ${filtered.length.toLocaleString()} / ${compareResults.length.toLocaleString()} SKU`;
 
+  // หน้าจอคงรูปแบบเดิม: SKU / ORDER / Stock รวม / สถานะ / ตำแหน่ง
   const rows=filtered.slice(0,1000).map(item=>({
     "SKU":item.sku,
     "ORDER":formatPivotNumber(item.orderQty),
@@ -1590,29 +1586,46 @@ function renderTable(rows,id,columns){
 function downloadStockCheckResult(){
   if(!compareResults.length)return alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
 
-  const data=[
-    ["SKU","ORDER","Stock รวม","สถานะ","ตำแหน่ง"],
-    ...compareResults.map(item=>[
-      item.sku,
-      item.orderQty,
-      item.stockQty,
-      item.status,
-      item.locations || "-"
-    ])
+  // Sheet 1: ยอดคงเหลือสำหรับสั่งของ
+  const remainingData=[
+    ["SKU Merchant","จำนวน"],
+    ...compareResults
+      .filter(item=>item.stockQty <= 0)
+      .map(item=>[
+        item.sku,
+        item.orderQty - item.stockQty
+      ])
   ];
 
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  ws["!cols"]=[
-    {wch:24},
-    {wch:14},
-    {wch:14},
-    {wch:18},
-    {wch:20}
+  // Sheet 2: รายละเอียดการตรวจ พร้อมตำแหน่งและสถานะว่าพอ/ขาด
+  const deductedData=[
+    ["SKU Merchant","จำนวนไฟล์ที่ 1","จำนวนไฟล์ที่ 2","จำนวนที่ถูกลบ","ยอดคงเหลือ","ตำแหน่ง","สถานะ"],
+    ...compareResults
+      .filter(item=>item.stockQty > 0)
+      .map(item=>[
+        item.sku,
+        item.orderQty,
+        item.stockQty,
+        Math.min(item.orderQty,item.stockQty),
+        Math.max(item.stockQty-item.orderQty,0),
+        item.locations || "-",
+        item.status
+      ])
+  ];
+
+  const wsRemaining=XLSX.utils.aoa_to_sheet(remainingData);
+  wsRemaining["!cols"]=[{wch:28},{wch:12}];
+
+  const wsDeducted=XLSX.utils.aoa_to_sheet(deductedData);
+  wsDeducted["!cols"]=[
+    {wch:28},{wch:18},{wch:18},{wch:16},{wch:16},{wch:18},{wch:18}
   ];
 
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"ตรวจ ORDER-Stock");
-  XLSX.writeFile(wb,"ผลตรวจ_ORDER_กับ_Stock.xlsx");
+  XLSX.utils.book_append_sheet(wb,wsRemaining,"ยอดคงเหลือ");
+  XLSX.utils.book_append_sheet(wb,wsDeducted,"รายการที่ถูกลบ-ถูกหัก");
+
+  XLSX.writeFile(wb,"ผลลัพธ์_เปรียบเทียบและยอดคงเหลือ.xlsx");
 }
 
 function clearAll(){
