@@ -2392,10 +2392,12 @@ function wordTableRow(cells, header=false) {
 
 function printOrderPDF() {
   if (!orderRows.length) return alert('ยังไม่มีรายการ ORDER');
-  if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูลสำหรับพิมพ์ PDF');
+  if (!orderPivotRows.length) {
+    // เผื่อกรณีข้อมูลมีแล้วแต่ Pivot ยังไม่ได้สร้าง
+    buildOrderPivot();
+    if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูลสำหรับพิมพ์ ORDER');
+  }
 
-  // ใช้ข้อมูล Pivot เดียวกับเดิม แต่ส่งเข้า Print ของเบราว์เซอร์โดยตรง
-  // ผู้ใช้สามารถเลือก "Save as PDF" ในหน้าต่างพิมพ์ได้ทันที
   const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
 
   function escHtml(value) {
@@ -2403,7 +2405,7 @@ function printOrderPDF() {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+      .replace(/\"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
 
@@ -2426,28 +2428,35 @@ function printOrderPDF() {
     previousGroup = group;
   });
 
-  const printWindow = window.open('', '_blank', 'width=1000,height=800');
-  if (!printWindow) {
-    alert('เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาต Pop-up สำหรับเว็บนี้ แล้วกดปุ่มอีกครั้ง');
-    return;
-  }
-
   const printDate = new Date().toLocaleString('th-TH');
 
-  printWindow.document.open();
-  printWindow.document.write(`<!doctype html>
+  // ใช้ iframe แทน window.open เพื่อไม่ให้เบราว์เซอร์บล็อกหน้าต่างพิมพ์ (Popup Blocker)
+  // การพิมพ์จึงทำงานจากปุ่มที่ผู้ใช้กดโดยตรง และไม่เปิดแท็บใหม่
+  const oldFrame = document.getElementById('orderPrintFrame');
+  if (oldFrame) oldFrame.remove();
+
+  const printFrame = document.createElement('iframe');
+  printFrame.id = 'orderPrintFrame';
+  printFrame.setAttribute('aria-hidden', 'true');
+  printFrame.style.position = 'fixed';
+  printFrame.style.right = '0';
+  printFrame.style.bottom = '0';
+  printFrame.style.width = '0';
+  printFrame.style.height = '0';
+  printFrame.style.border = '0';
+  printFrame.style.opacity = '0';
+  document.body.appendChild(printFrame);
+
+  const printDoc = printFrame.contentDocument || printFrame.contentWindow.document;
+  printDoc.open();
+  printDoc.write(`<!doctype html>
 <html lang="th">
 <head>
 <meta charset="utf-8">
 <title>พิมพ์ ORDER_${new Date().toISOString().slice(0,10)}</title>
 <style>
-  @page {
-    size: A4 portrait;
-    margin: 14mm;
-  }
-
+  @page { size: A4 portrait; margin: 14mm; }
   * { box-sizing: border-box; }
-
   html, body {
     margin: 0;
     padding: 0;
@@ -2455,12 +2464,7 @@ function printOrderPDF() {
     color: #111;
     font-family: Tahoma, "Noto Sans Thai", sans-serif;
   }
-
-  body {
-    font-size: 10pt;
-    line-height: 1.35;
-  }
-
+  body { font-size: 10pt; line-height: 1.35; }
   .print-head {
     display: flex;
     justify-content: space-between;
@@ -2470,17 +2474,12 @@ function printOrderPDF() {
     border-bottom: 1px solid #bbb;
     font-size: 9pt;
   }
-
-  .print-head strong {
-    font-size: 12pt;
-  }
-
+  .print-head strong { font-size: 12pt; }
   .print-grid {
     column-count: 2;
     column-gap: 10mm;
     column-fill: auto;
   }
-
   .order-item {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -2492,73 +2491,44 @@ function printOrderPDF() {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-
-  .sku {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
+  .sku { overflow-wrap: anywhere; word-break: break-word; }
   .qty {
     min-width: 14mm;
     text-align: right;
     white-space: nowrap;
   }
-
   .group-spacer {
     height: 7mm;
     break-inside: avoid;
     page-break-inside: avoid;
   }
-
-  @media screen {
-    body {
-      padding: 15mm;
-      background: #eee;
-    }
-
-    .sheet {
-      max-width: 182mm;
-      margin: 0 auto;
-      padding: 10mm;
-      background: #fff;
-      box-shadow: 0 0 12px rgba(0,0,0,.15);
-    }
-  }
-
-  @media print {
-    .print-head {
-      margin-bottom: 4mm;
-    }
-  }
 </style>
 </head>
 <body>
-  <div class="sheet">
-    <div class="print-head">
-      <strong>ใบรายการสินค้า (Order Picking)</strong>
-      <span>พิมพ์เมื่อ ${escHtml(printDate)}</span>
-    </div>
-    <div class="print-grid">
-      ${itemsHtml}
-    </div>
+  <div class="print-head">
+    <strong>ใบรายการสินค้า (Order Picking)</strong>
+    <span>พิมพ์เมื่อ ${escHtml(printDate)}</span>
   </div>
-<script>
-  window.addEventListener('load', function () {
-    setTimeout(function () {
-      window.focus();
-      window.print();
-    }, 250);
-  });
-
-  window.addEventListener('afterprint', function () {
-    setTimeout(function () {
-      window.close();
-    }, 150);
-  });
-<\/script>
+  <div class="print-grid">${itemsHtml}</div>
 </body>
 </html>`);
-  printWindow.document.close();
+  printDoc.close();
+
+  const doPrint = () => {
+    try {
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+    } finally {
+      // เก็บ iframe ไว้ชั่วครู่เพื่อให้ Chrome เปิด Print dialog ได้สมบูรณ์
+      setTimeout(() => printFrame.remove(), 2000);
+    }
+  };
+
+  if (printFrame.contentDocument.readyState === 'complete') {
+    setTimeout(doPrint, 100);
+  } else {
+    printFrame.onload = () => setTimeout(doPrint, 100);
+  }
 
   if (typeof window.workHistoryLog === 'function') {
     window.workHistoryLog(
