@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -1590,10 +1591,10 @@ function downloadStockCheckResult(){
   const remainingData=[
     ["SKU Merchant","จำนวน"],
     ...compareResults
-      .filter(item=>item.stockQty <= 0)
+      .filter(item=>item.stockQty <= 0 || item.stockQty < item.orderQty)
       .map(item=>[
         item.sku,
-        item.orderQty - item.stockQty
+        Math.max(item.orderQty - item.stockQty, 0)
       ])
   ];
 
@@ -2459,7 +2460,7 @@ function downloadOrderWord() {
   let bodyXml = '';
   let previousGroup = null;
 
-  // ตั้งตำแหน่งจำนวนให้ชิด SKU มากขึ้น
+  // ตั้งตำแหน่งจำนวนให้ชิด SKU มากขึ้น และเว้นหลังแต่ละบรรทัด 2pt
   const tabXml = '<w:tabs><w:tab w:val="right" w:pos="3900"/></w:tabs>';
 
   sortedPivotRows.forEach((r) => {
@@ -2478,7 +2479,7 @@ function downloadOrderWord() {
     bodyXml += `<w:p>
       <w:pPr>
         ${tabXml}
-        <w:spacing w:before="0" w:after="60" w:line="260"/>
+        <w:spacing w:before="0" w:after="40" w:line="260"/>
       </w:pPr>
       <w:r>
         <w:rPr>
@@ -2506,7 +2507,7 @@ function downloadOrderWord() {
     ${bodyXml}
     <w:sectPr>
       <w:pgSz w:w="11906" w:h="16838"/>
-      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/>
+      <w:pgMar w:top="1440" w:right="1080" w:bottom="1440" w:left="1080" w:header="360" w:footer="360" w:gutter="0"/>
       <w:cols w:num="2" w:space="720"/>
       <w:docGrid w:linePitch="260"/>
     </w:sectPr>
@@ -2852,4 +2853,3 @@ function toggleOrderFilters(){
 #compareTool .preview .extra-head strong{color:#eef9ff}
 #compareTool .preview .extra-head span{color:var(--muted);font-size:11px}
 </style>
-
