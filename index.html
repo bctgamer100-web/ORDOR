@@ -445,7 +445,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
         <div class="beta-actions">
           <button class="beta-primary" id="process" disabled style="display:none">🔄 รวมไฟล์</button>
           <button class="beta-secondary" id="download" disabled>⬇️ ดาวน์โหลด Excel</button>
-          <button class="beta-secondary" id="sendCompare2" disabled>🔎 นำไปเปรียบเทียบเป็นไฟล์ 2</button>
+          <button class="beta-secondary" id="sendCompare2" disabled>🔎 ไปหน้าตรวจ ORDER กับ Stock</button>
           <button class="beta-danger" id="clear">ล้างข้อมูล</button>
         </div>
         <h3 style="color:#0b5261">ตัวอย่างข้อมูล</h3>
@@ -591,7 +591,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
         <div class="beta-status" id="orderStatus">ยังไม่ได้เลือกไฟล์ ORDER</div>
 
         <div class="beta-actions">
-          <button class="pdf-print-btn" id="orderDownload" disabled>📄 ดาวน์โหลด PDF (ORDER Pivot)</button>
+          <button class="pdf-print-btn" id="orderDownload" disabled>📝 ดาวน์โหลด Word (ORDER Pivot)</button>
           <button class="excel-pivot-export-btn" id="orderPivotExcelDownload" disabled>📊 ดาวน์โหลด Excel (ตามตัวอย่าง)</button>
           <button class="beta-danger" id="orderClear">ล้างข้อมูล</button>
         </div>
@@ -901,25 +901,14 @@ function setFile(f){
 
 document.getElementById('process').onclick=processZip;
 
-document.getElementById('sendCompare2').onclick=async()=>{
-  if(!mergedFile)return alert('กรุณารวมไฟล์ ZIP ก่อน');
-  try{
-    // คัดลอกไฟล์ผลรวมเป็นไฟล์ที่ 2 แยกต่างหาก เพื่อให้การล้าง/ทำงานต่อในหน้ารวมไฟล์
-    // ไม่กระทบไฟล์ที่ 2 จนกว่าจะกด 'ล้างข้อมูล' ในหน้าเปรียบเทียบ
-    const lockedBytes=await mergedFile.arrayBuffer();
-    compareFile2Locked=new File(
-      [lockedBytes],
-      mergedFile.name,
-      {type:mergedFile.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
-    );
-    await loadFile(compareFile2Locked,2);
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));
-    const tab=document.querySelector('.tab[data-tool="compareTool"]');
-    if(tab)tab.classList.add('active');
-    document.getElementById('compareTool').classList.add('active');
-    document.getElementById('status').textContent='● ไฟล์ที่ 2 ถูกนำเข้าจากผลรวม ZIP แล้ว — ไฟล์ที่ 2 จะคงอยู่จนกว่าจะกด “ล้างข้อมูล” ในหน้าเปรียบเทียบ';
-  }catch(e){alert('ไม่สามารถส่งไฟล์ไปเปรียบเทียบได้\n\n'+e.message)}
+document.getElementById('sendCompare2').onclick=()=>{
+  if(!mergedStockRows.length)return alert('กรุณารวมไฟล์ ZIP ก่อน');
+  applyMergedStockToCompare();
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));
+  const tab=document.querySelector('.tab[data-tool="compareTool"]');
+  if(tab)tab.classList.add('active');
+  document.getElementById('compareTool').classList.add('active');
 };
 
 async function processZip(){
@@ -1064,6 +1053,10 @@ async function processZip(){
     // สร้างไฟล์ผลรวมในหน่วยความจำ เพื่อส่งต่อเป็น "ไฟล์ที่ 2" โดยไม่ต้องดาวน์โหลด/อัปโหลดใหม่
     const mergedBytes=XLSX.write(outputWorkbook,{bookType:'xlsx',type:'array'});
     mergedFile=new File([mergedBytes],'รวมไฟล์จาก ZIP.xlsx',{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+
+    // ส่ง Stock ที่รวมจาก ZIP เข้า "ไฟล์ที่ 2 — Stock" ของหน้าตรวจอัตโนมัติ
+    applyMergedStockToCompare();
+
     document.getElementById('sendCompare2').disabled=false;
     mergeProcessing=false;
   }catch(err){
@@ -1108,7 +1101,7 @@ document.getElementById('download').onclick=()=>{
 };
 
 document.getElementById('clear').onclick=()=>{
-  zipFile=null; resultRows=[]; headers=[]; outputWorkbook=null; mergedFile=null; mergedStockRows=[]; mergeProcessing=false; input.value='';
+  zipFile=null; resultRows=[]; headers=[]; outputWorkbook=null; mergedFile=null; mergeProcessing=false; input.value='';
   document.getElementById('fileCount').textContent='0';
   document.getElementById('rowCount').textContent='0';
   document.getElementById('status').textContent='ยังไม่ได้เลือกไฟล์';
@@ -1135,6 +1128,40 @@ let stockPosCol='';
 let orderSkuCol='';
 let orderQtyCol='';
 let compareResults=[];
+
+// รับ Stock ที่รวมจากหน้า "รวมไฟล์ ZIP" เข้าเป็นไฟล์ที่ 2 ของหน้า Compare โดยอัตโนมัติ
+// ข้อมูลจะคงอยู่ในหน้า Compare จนกว่าจะกด "ล้างข้อมูล" ในหน้า Compare
+function applyMergedStockToCompare(){
+  if(!Array.isArray(mergedStockRows) || !mergedStockRows.length || !Array.isArray(resultRows) || !resultRows.length){
+    return;
+  }
+
+  try{
+    const headers = resultRows[0].map(h => String(h ?? ''));
+    data1 = mergedStockRows.map(row => {
+      const obj = {};
+      headers.forEach((h,i) => { obj[h] = row?.[i] ?? ''; });
+      return obj;
+    });
+
+    const d = detectStockColumns(data1);
+    stockFileName = 'Stock จาก ZIP (รวมอัตโนมัติ)';
+    stockSkuCol = d.sku;
+    stockQtyCol = d.qty;
+    stockPosCol = d.pos;
+
+    const name2 = $('name2');
+    const info2 = $('info2');
+    if(name2) name2.textContent = 'Stock จาก ZIP (อัตโนมัติ)';
+    if(info2) info2.textContent = `${data1.length.toLocaleString()} แถว | ${d.headers.length} คอลัมน์`;
+
+    if(typeof updateCompareReady === 'function'){
+      updateCompareReady();
+    }
+  }catch(e){
+    console.error('ไม่สามารถส่ง Stock จาก ZIP ไปหน้า Compare:', e);
+  }
+}
 
 // ล็อกการทำงานของช่องไฟล์ให้ตรงกับตำแหน่งบนหน้าจอแบบชัดเจน
 // ช่องแรก = ORDER, ช่องที่สอง = Stock
@@ -1589,26 +1616,27 @@ function downloadStockCheckResult(){
 }
 
 function clearAll(){
-  data1=null;
+  // ล้างเฉพาะ ORDER และผลตรวจ แต่ "ไฟล์ที่ 2 — Stock" จะคงอยู่
+  // จนกว่าจะรีเฟรชหน้าเว็บ หรือกดล้างข้อมูล Stock โดยตรง
   data2=null;
-  stockFileName='';
   orderFileName='';
-  stockSkuCol='';
-  stockQtyCol='';
-  stockPosCol='';
   orderSkuCol='';
   orderQtyCol='';
   compareResults=[];
 
   $("file1").value="";
-  $("file2").value="";
   $("name1").textContent="คลิกเพื่อเลือกไฟล์ ORDER";
-  $("name2").textContent="คลิกเพื่อเลือกไฟล์ Stock";
   $("info1").textContent="รองรับ Excel / CSV";
-  $("info2").textContent="รองรับ Excel / CSV";
 
-  $("autoCompareDetail").textContent="เลือกไฟล์ ORDER และ Stock แล้วระบบจะตรวจจับหัวคอลัมน์จากแถวบนสุดให้อัตโนมัติ";
-  $("status").textContent="● กรุณาเลือกไฟล์ ORDER และ Stock";
+  if(data1 && stockSkuCol && stockQtyCol){
+    $("name2").textContent=stockFileName || "Stock จาก ZIP (อัตโนมัติ)";
+    $("info2").textContent=`${data1.length.toLocaleString()} แถว | ${Object.keys(data1[0]||{}).length} คอลัมน์`;
+    $("status").textContent="● Stock ยังคงอยู่ — กรุณาเลือกไฟล์ ORDER";
+  }else{
+    $("name2").textContent="คลิกเพื่อเลือกไฟล์ Stock";
+    $("info2").textContent="รองรับ Excel / CSV";
+    $("status").textContent="● กรุณาเลือกไฟล์ ORDER และ Stock";
+  }
 
   $("downloadBox").style.display="none";
   $("resultBox").style.display="none";
@@ -2418,8 +2446,8 @@ function downloadOrderWord() {
   let bodyXml = '';
   let previousGroup = null;
 
-  // ตั้งแท็บจำนวนไว้ด้านขวาของคอลัมน์ใน Word
-  const tabXml = '<w:tabs><w:tab w:val="right" w:pos="5000"/></w:tabs>';
+  // ตั้งตำแหน่งจำนวนให้ชิด SKU มากขึ้น
+  const tabXml = '<w:tabs><w:tab w:val="right" w:pos="3900"/></w:tabs>';
 
   sortedPivotRows.forEach((r) => {
     const group = normalizeOrderGroupName(r?.groupName);
@@ -2459,39 +2487,9 @@ function downloadOrderWord() {
     previousGroup = group;
   });
 
-  const title = xmlEscape('ใบรายการสินค้า (Order Picking)');
-  const printDate = xmlEscape(new Date().toLocaleString('th-TH'));
-
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
-    <w:p>
-      <w:pPr>
-        <w:jc w:val="center"/>
-        <w:spacing w:before="0" w:after="100" w:line="240"/>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
-          <w:b/><w:bCs/>
-          <w:sz w:val="24"/><w:szCs w:val="24"/>
-        </w:rPr>
-        <w:t>${title}</w:t>
-      </w:r>
-    </w:p>
-    <w:p>
-      <w:pPr>
-        <w:jc w:val="center"/>
-        <w:spacing w:before="0" w:after="180" w:line="220"/>
-      </w:pPr>
-      <w:r>
-        <w:rPr>
-          <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
-          <w:sz w:val="16"/><w:szCs w:val="16"/>
-        </w:rPr>
-        <w:t>สร้างไฟล์ Word เมื่อ ${printDate}</w:t>
-      </w:r>
-    </w:p>
     ${bodyXml}
     <w:sectPr>
       <w:pgSz w:w="11906" w:h="16838"/>
