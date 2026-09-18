@@ -2391,11 +2391,17 @@ function wordTableRow(cells, header=false) {
 }
 
 function printOrderPDF() {
-  if (!orderRows.length) return alert('ยังไม่มีรายการ ORDER');
+  if (!orderRows.length) {
+    alert('ยังไม่มีรายการ ORDER');
+    return;
+  }
   if (!orderPivotRows.length) {
-    // เผื่อกรณีข้อมูลมีแล้วแต่ Pivot ยังไม่ได้สร้าง
-    buildOrderPivot();
-    if (!orderPivotRows.length) return alert('ยังไม่มีข้อมูลสำหรับพิมพ์ ORDER');
+    // สร้าง Pivot ใหม่จากข้อมูลปัจจุบัน เผื่อผู้ใช้กดพิมพ์ก่อน build เสร็จ
+    try { buildOrderPivot(); } catch (e) { console.error(e); }
+  }
+  if (!orderPivotRows.length) {
+    alert('ยังไม่มีข้อมูลสำหรับพิมพ์ PDF');
+    return;
   }
 
   const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
@@ -2405,7 +2411,7 @@ function printOrderPDF() {
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;')
+      .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
 
@@ -2413,129 +2419,124 @@ function printOrderPDF() {
   let itemsHtml = '';
 
   sortedPivotRows.forEach((r) => {
-    const group = normalizeOrderGroupName(r.groupName);
-
+    const group = normalizeOrderGroupName(r?.groupName);
     if (previousGroup !== null && group !== previousGroup) {
       itemsHtml += '<div class="group-spacer" aria-hidden="true"></div>';
     }
-
     itemsHtml += `
       <div class="order-item">
-        <span class="sku">${escHtml(r.sku)}</span>
-        <span class="qty">${escHtml(formatPivotNumber(r.qty))}</span>
+        <span class="sku">${escHtml(r?.sku)}</span>
+        <span class="qty">${escHtml(formatPivotNumber(r?.qty ?? 0))}</span>
       </div>`;
-
     previousGroup = group;
   });
 
-  const printDate = new Date().toLocaleString('th-TH');
+  // พิมพ์ในหน้าปัจจุบันโดยตรง ไม่เปิด popup/new tab
+  // วิธีนี้ไม่ถูก Popup Blocker ของ Chrome บล็อก และยังใช้ dialog พิมพ์ของระบบตามปกติ
+  const printRoot = document.createElement('div');
+  printRoot.id = '__orderPrintRoot';
+  printRoot.innerHTML = `
+    <div class="order-print-sheet">
+      <div class="print-head">
+        <strong>ใบรายการสินค้า (Order Picking)</strong>
+        <span>พิมพ์เมื่อ ${escHtml(new Date().toLocaleString('th-TH'))}</span>
+      </div>
+      <div class="print-grid">${itemsHtml}</div>
+    </div>`;
 
-  // ใช้ iframe แทน window.open เพื่อไม่ให้เบราว์เซอร์บล็อกหน้าต่างพิมพ์ (Popup Blocker)
-  // การพิมพ์จึงทำงานจากปุ่มที่ผู้ใช้กดโดยตรง และไม่เปิดแท็บใหม่
-  const oldFrame = document.getElementById('orderPrintFrame');
-  if (oldFrame) oldFrame.remove();
-
-  const printFrame = document.createElement('iframe');
-  printFrame.id = 'orderPrintFrame';
-  printFrame.setAttribute('aria-hidden', 'true');
-  printFrame.style.position = 'fixed';
-  printFrame.style.right = '0';
-  printFrame.style.bottom = '0';
-  printFrame.style.width = '0';
-  printFrame.style.height = '0';
-  printFrame.style.border = '0';
-  printFrame.style.opacity = '0';
-  document.body.appendChild(printFrame);
-
-  const printDoc = printFrame.contentDocument || printFrame.contentWindow.document;
-  printDoc.open();
-  printDoc.write(`<!doctype html>
-<html lang="th">
-<head>
-<meta charset="utf-8">
-<title>พิมพ์ ORDER_${new Date().toISOString().slice(0,10)}</title>
-<style>
-  @page { size: A4 portrait; margin: 14mm; }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #fff;
-    color: #111;
-    font-family: Tahoma, "Noto Sans Thai", sans-serif;
-  }
-  body { font-size: 10pt; line-height: 1.35; }
-  .print-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin: 0 0 5mm;
-    padding-bottom: 2mm;
-    border-bottom: 1px solid #bbb;
-    font-size: 9pt;
-  }
-  .print-head strong { font-size: 12pt; }
-  .print-grid {
-    column-count: 2;
-    column-gap: 10mm;
-    column-fill: auto;
-  }
-  .order-item {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: 5mm;
-    align-items: baseline;
-    width: 100%;
-    min-height: 5.2mm;
-    padding: 0.7mm 0;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  .sku { overflow-wrap: anywhere; word-break: break-word; }
-  .qty {
-    min-width: 14mm;
-    text-align: right;
-    white-space: nowrap;
-  }
-  .group-spacer {
-    height: 7mm;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-</style>
-</head>
-<body>
-  <div class="print-head">
-    <strong>ใบรายการสินค้า (Order Picking)</strong>
-    <span>พิมพ์เมื่อ ${escHtml(printDate)}</span>
-  </div>
-  <div class="print-grid">${itemsHtml}</div>
-</body>
-</html>`);
-  printDoc.close();
-
-  const doPrint = () => {
-    try {
-      printFrame.contentWindow.focus();
-      printFrame.contentWindow.print();
-    } finally {
-      // เก็บ iframe ไว้ชั่วครู่เพื่อให้ Chrome เปิด Print dialog ได้สมบูรณ์
-      setTimeout(() => printFrame.remove(), 2000);
+  const printStyle = document.createElement('style');
+  printStyle.id = '__orderPrintStyle';
+  printStyle.textContent = `
+    @media print {
+      @page { size: A4 portrait; margin: 14mm; }
+      html, body { background: #fff !important; }
+      body > *:not(#__orderPrintRoot) { display: none !important; }
+      #__orderPrintRoot {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #111 !important;
+        font-family: Tahoma, "Noto Sans Thai", sans-serif !important;
+        font-size: 10pt !important;
+        line-height: 1.35 !important;
+      }
+      #__orderPrintRoot .order-print-sheet { width: 100%; }
+      #__orderPrintRoot .print-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin: 0 0 4mm;
+        padding-bottom: 2mm;
+        border-bottom: 1px solid #bbb;
+        font-size: 9pt;
+      }
+      #__orderPrintRoot .print-head strong { font-size: 12pt; }
+      #__orderPrintRoot .print-grid {
+        column-count: 2;
+        column-gap: 10mm;
+        column-fill: auto;
+      }
+      #__orderPrintRoot .order-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 5mm;
+        align-items: baseline;
+        width: 100%;
+        min-height: 5.2mm;
+        padding: 0.7mm 0;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      #__orderPrintRoot .sku { overflow-wrap: anywhere; word-break: break-word; }
+      #__orderPrintRoot .qty {
+        min-width: 14mm;
+        text-align: right;
+        white-space: nowrap;
+      }
+      #__orderPrintRoot .group-spacer {
+        height: 7mm;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
     }
+    @media screen {
+      #__orderPrintRoot { display: none; }
+    }
+  `;
+
+  document.head.appendChild(printStyle);
+  document.body.appendChild(printRoot);
+
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    try { printRoot.remove(); } catch (_) {}
+    try { printStyle.remove(); } catch (_) {}
+    window.removeEventListener('afterprint', cleanup);
   };
 
-  if (printFrame.contentDocument.readyState === 'complete') {
-    setTimeout(doPrint, 100);
-  } else {
-    printFrame.onload = () => setTimeout(doPrint, 100);
-  }
+  window.addEventListener('afterprint', cleanup, { once: true });
+
+  // รอให้ browser วาดเนื้อหาพิมพ์ก่อน แล้วจึงเรียก print
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try {
+        window.focus();
+        window.print();
+      } catch (e) {
+        console.error('ORDER print error:', e);
+        cleanup();
+        alert('ไม่สามารถเปิดหน้าต่างพิมพ์ได้ กรุณาลองใหม่อีกครั้ง');
+      }
+    });
+  });
 
   if (typeof window.workHistoryLog === 'function') {
-    window.workHistoryLog(
-      'download',
-      'orderTool',
-      'พิมพ์ข้อมูล Pivot ผ่านหน้าต่าง Print'
-    );
+    window.workHistoryLog('download', 'orderTool', 'พิมพ์ข้อมูล Pivot ผ่านหน้าต่าง Print');
   }
 }
 
