@@ -6,6 +6,7 @@
 <title>ORDER V1</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 *{box-sizing:border-box}
 body {
@@ -590,7 +591,7 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
         <div class="beta-status" id="orderStatus">ยังไม่ได้เลือกไฟล์ ORDER</div>
 
         <div class="beta-actions">
-          <button class="pdf-print-btn" id="orderDownload" disabled>🖨️ พิมพ์ ORDER (Pivot)</button>
+          <button class="pdf-print-btn" id="orderDownload" disabled>📄 ดาวน์โหลด PDF (ORDER Pivot)</button>
           <button class="excel-pivot-export-btn" id="orderPivotExcelDownload" disabled>📊 ดาวน์โหลด Excel (ตามตัวอย่าง)</button>
           <button class="beta-danger" id="orderClear">ล้างข้อมูล</button>
         </div>
@@ -2395,12 +2396,17 @@ function printOrderPDF() {
     alert('ยังไม่มีรายการ ORDER');
     return;
   }
+
   if (!orderPivotRows.length) {
-    // สร้าง Pivot ใหม่จากข้อมูลปัจจุบัน เผื่อผู้ใช้กดพิมพ์ก่อน build เสร็จ
     try { buildOrderPivot(); } catch (e) { console.error(e); }
   }
   if (!orderPivotRows.length) {
-    alert('ยังไม่มีข้อมูลสำหรับพิมพ์ PDF');
+    alert('ยังไม่มีข้อมูลสำหรับสร้าง PDF');
+    return;
+  }
+
+  if (typeof window.html2pdf !== 'function') {
+    alert('ไม่พบไลบรารีสร้าง PDF กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
     return;
   }
 
@@ -2431,113 +2437,129 @@ function printOrderPDF() {
     previousGroup = group;
   });
 
-  // พิมพ์ในหน้าปัจจุบันโดยตรง ไม่เปิด popup/new tab
-  // วิธีนี้ไม่ถูก Popup Blocker ของ Chrome บล็อก และยังใช้ dialog พิมพ์ของระบบตามปกติ
-  const printRoot = document.createElement('div');
-  printRoot.id = '__orderPrintRoot';
-  printRoot.innerHTML = `
-    <div class="order-print-sheet">
+  // สร้างพื้นที่สำหรับ PDF โดยเฉพาะ ไม่เปิด Popup และไม่เรียก window.print()
+  const pdfRoot = document.createElement('div');
+  pdfRoot.id = '__orderPdfRoot';
+  pdfRoot.innerHTML = `
+    <div class="order-pdf-sheet">
       <div class="print-head">
         <strong>ใบรายการสินค้า (Order Picking)</strong>
-        <span>พิมพ์เมื่อ ${escHtml(new Date().toLocaleString('th-TH'))}</span>
+        <span>สร้าง PDF เมื่อ ${escHtml(new Date().toLocaleString('th-TH'))}</span>
       </div>
       <div class="print-grid">${itemsHtml}</div>
     </div>`;
 
-  const printStyle = document.createElement('style');
-  printStyle.id = '__orderPrintStyle';
-  printStyle.textContent = `
-    @media print {
-      @page { size: A4 portrait; margin: 14mm; }
-      html, body { background: #fff !important; }
-      body > *:not(#__orderPrintRoot) { display: none !important; }
-      #__orderPrintRoot {
-        display: block !important;
-        position: static !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #fff !important;
-        color: #111 !important;
-        font-family: Tahoma, "Noto Sans Thai", sans-serif !important;
-        font-size: 10pt !important;
-        line-height: 1.35 !important;
-      }
-      #__orderPrintRoot .order-print-sheet { width: 100%; }
-      #__orderPrintRoot .print-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        margin: 0 0 4mm;
-        padding-bottom: 2mm;
-        border-bottom: 1px solid #bbb;
-        font-size: 9pt;
-      }
-      #__orderPrintRoot .print-head strong { font-size: 12pt; }
-      #__orderPrintRoot .print-grid {
-        column-count: 2;
-        column-gap: 10mm;
-        column-fill: auto;
-      }
-      #__orderPrintRoot .order-item {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        column-gap: 5mm;
-        align-items: baseline;
-        width: 100%;
-        min-height: 5.2mm;
-        padding: 0.7mm 0;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-      #__orderPrintRoot .sku { overflow-wrap: anywhere; word-break: break-word; }
-      #__orderPrintRoot .qty {
-        min-width: 14mm;
-        text-align: right;
-        white-space: nowrap;
-      }
-      #__orderPrintRoot .group-spacer {
-        height: 7mm;
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
+  const pdfStyle = document.createElement('style');
+  pdfStyle.id = '__orderPdfStyle';
+  pdfStyle.textContent = `
+    #__orderPdfRoot {
+      position: fixed;
+      left: -100000px;
+      top: 0;
+      width: 210mm;
+      background: #fff;
+      color: #111;
+      z-index: -1;
+      font-family: Tahoma, "Noto Sans Thai", sans-serif;
+      font-size: 10pt;
+      line-height: 1.35;
     }
-    @media screen {
-      #__orderPrintRoot { display: none; }
+    #__orderPdfRoot .order-pdf-sheet {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 14mm;
+      background: #fff;
+    }
+    #__orderPdfRoot .print-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0 0 4mm;
+      padding-bottom: 2mm;
+      border-bottom: 1px solid #bbb;
+      font-size: 9pt;
+    }
+    #__orderPdfRoot .print-head strong { font-size: 12pt; }
+    #__orderPdfRoot .print-grid {
+      column-count: 2;
+      column-gap: 10mm;
+      column-fill: auto;
+    }
+    #__orderPdfRoot .order-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 5mm;
+      align-items: baseline;
+      width: 100%;
+      min-height: 5.2mm;
+      padding: 0.7mm 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    #__orderPdfRoot .sku {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    #__orderPdfRoot .qty {
+      min-width: 14mm;
+      text-align: right;
+      white-space: nowrap;
+    }
+    #__orderPdfRoot .group-spacer {
+      height: 7mm;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
   `;
 
-  document.head.appendChild(printStyle);
-  document.body.appendChild(printRoot);
+  document.head.appendChild(pdfStyle);
+  document.body.appendChild(pdfRoot);
 
-  let cleaned = false;
-  const cleanup = () => {
-    if (cleaned) return;
-    cleaned = true;
-    try { printRoot.remove(); } catch (_) {}
-    try { printStyle.remove(); } catch (_) {}
-    window.removeEventListener('afterprint', cleanup);
+  // รอให้ฟอนต์/DOM พร้อมก่อนแปลงเป็น PDF
+  const filename = `ORDER_Pivot_${new Date().toISOString().slice(0,10)}.pdf`;
+  const options = {
+    margin: 0,
+    filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: true
+    },
+    pagebreak: {
+      mode: ['css', 'legacy']
+    }
   };
 
-  window.addEventListener('afterprint', cleanup, { once: true });
+  orderDownloadBtn.disabled = true;
+  const oldText = orderDownloadBtn.textContent;
+  orderDownloadBtn.textContent = '⏳ กำลังสร้าง PDF...';
 
-  // รอให้ browser วาดเนื้อหาพิมพ์ก่อน แล้วจึงเรียก print
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      try {
-        window.focus();
-        window.print();
-      } catch (e) {
-        console.error('ORDER print error:', e);
-        cleanup();
-        alert('ไม่สามารถเปิดหน้าต่างพิมพ์ได้ กรุณาลองใหม่อีกครั้ง');
+  Promise.resolve(document.fonts?.ready)
+    .then(() => new Promise(resolve => setTimeout(resolve, 150)))
+    .then(() => html2pdf().set(options).from(pdfRoot).save())
+    .then(() => {
+      if (typeof window.workHistoryLog === 'function') {
+        window.workHistoryLog('download', 'orderTool', 'ดาวน์โหลด PDF ข้อมูล Pivot');
       }
+    })
+    .catch((e) => {
+      console.error('ORDER PDF error:', e);
+      alert('สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    })
+    .finally(() => {
+      try { pdfRoot.remove(); } catch (_) {}
+      try { pdfStyle.remove(); } catch (_) {}
+      orderDownloadBtn.disabled = false;
+      orderDownloadBtn.textContent = oldText;
     });
-  });
-
-  if (typeof window.workHistoryLog === 'function') {
-    window.workHistoryLog('download', 'orderTool', 'พิมพ์ข้อมูล Pivot ผ่านหน้าต่าง Print');
-  }
 }
 
 orderDownloadBtn.onclick = printOrderPDF;
