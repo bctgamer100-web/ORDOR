@@ -3748,6 +3748,384 @@ function toggleOrderFilters(){
 }
 </style>
 
+
+<style id="pro-dashboard-css">
+/* ===== PRO DASHBOARD - isolated UI, does not replace existing functions ===== */
+#proDashBtn{
+  position:fixed;right:20px;bottom:58px;z-index:9000;
+  border:1px solid rgba(56,217,255,.28);border-radius:999px;
+  background:rgba(6,19,31,.88);color:#dff7ff;padding:10px 14px;
+  font:600 11px/1 system-ui,sans-serif;cursor:pointer;
+  backdrop-filter:blur(12px);box-shadow:0 10px 30px rgba(0,0,0,.25),0 0 24px rgba(56,217,255,.06);
+  transition:.2s ease;display:flex;align-items:center;gap:7px;
+}
+#proDashBtn:hover{transform:translateY(-2px);border-color:rgba(56,217,255,.55);box-shadow:0 14px 35px rgba(0,0,0,.32),0 0 28px rgba(56,217,255,.12)}
+#proDashBtn .pd-led{width:6px;height:6px;border-radius:50%;background:#42f5a7;box-shadow:0 0 10px #42f5a7}
+#proDashOverlay{
+  position:fixed;inset:0;z-index:8999;background:rgba(0,5,12,.58);
+  backdrop-filter:blur(7px);display:none;
+}
+#proDashOverlay.open{display:block;animation:pdFade .18s ease}
+#proDashPanel{
+  position:absolute;right:18px;top:18px;bottom:18px;width:min(470px,calc(100vw - 36px));
+  overflow:auto;border:1px solid rgba(56,217,255,.2);border-radius:20px;
+  background:linear-gradient(145deg,rgba(7,20,33,.98),rgba(8,29,45,.97));
+  box-shadow:0 30px 100px rgba(0,0,0,.55),0 0 50px rgba(56,217,255,.07);
+  padding:18px;
+}
+#proDashPanel::-webkit-scrollbar{width:7px}
+#proDashPanel::-webkit-scrollbar-thumb{background:#31576a;border-radius:99px}
+.pd-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.pd-title{font-size:17px;font-weight:800;color:#effbff}
+.pd-sub{font-size:10px;color:#7893a1;margin-top:3px}
+.pd-close{width:34px;height:34px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.04);color:#bcd1db;cursor:pointer;font-size:17px}
+.pd-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+.pd-card{padding:13px;border-radius:13px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.035)}
+.pd-label{font-size:10px;color:#7793a1;margin-bottom:6px}.pd-value{font-size:23px;font-weight:800;color:#eaf9ff}
+.pd-section{margin-top:14px;padding:14px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.025)}
+.pd-section-title{font-size:11px;font-weight:800;color:#bfe8f5;margin-bottom:11px}
+.pd-bars{display:flex;align-items:flex-end;gap:7px;height:125px;padding-top:8px}
+.pd-bar-wrap{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;min-width:0}
+.pd-bar{width:100%;max-width:34px;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#38d9ff,#5d7bff);min-height:3px;box-shadow:0 0 14px rgba(56,217,255,.08)}
+.pd-bar-label{font-size:9px;color:#728d9b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52px}
+.pd-bar-num{font-size:9px;color:#a9c6d2}
+.pd-log{display:flex;flex-direction:column;gap:7px;max-height:230px;overflow:auto}
+.pd-log-row{display:flex;gap:9px;align-items:flex-start;padding:9px;border-radius:10px;background:rgba(255,255,255,.028)}
+.pd-log-icon{width:23px;height:23px;display:grid;place-items:center;border-radius:7px;background:rgba(56,217,255,.08);font-size:12px;flex:none}
+.pd-log-main{min-width:0}.pd-log-text{font-size:11px;color:#cfe2ea;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pd-log-time{font-size:9px;color:#657e8b;margin-top:3px}
+.pd-actions{display:flex;gap:8px;margin-top:12px}
+.pd-action{flex:1;padding:9px;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);color:#b9d3dd;font-size:10px;cursor:pointer}
+.pd-action:hover{background:rgba(56,217,255,.07);border-color:rgba(56,217,255,.2)}
+@keyframes pdFade{from{opacity:0}to{opacity:1}}
+@media(max-width:600px){
+  #proDashBtn{right:12px;bottom:52px}
+  #proDashPanel{right:8px;top:8px;bottom:8px;width:calc(100vw - 16px)}
+}
+</style>
+
+<script id="pro-dashboard-js">
+(() => {
+  'use strict';
+  // Everything in this block is namespaced with pd/fx and only adds UI.
+  const STORAGE='order_pro_activity_v1';
+  const q=(s,r=document)=>r.querySelector(s);
+  const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const now=()=>new Date();
+  const fmt=d=>d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  let logs=[];
+  try{logs=JSON.parse(localStorage.getItem(STORAGE)||'[]');if(!Array.isArray(logs))logs=[];}catch(_){logs=[];}
+  const save=()=>{try{localStorage.setItem(STORAGE,JSON.stringify(logs.slice(-40)));}catch(_){}};
+  function log(icon,text){
+    logs.push({icon,text,time:now().toISOString()});logs=logs.slice(-40);save();
+    renderLog();
+  }
+
+  const btn=document.createElement('button');
+  btn.id='proDashBtn';
+  btn.type='button';
+  btn.innerHTML='<span class="pd-led"></span> 📊 Dashboard';
+  document.body.appendChild(btn);
+
+  const overlay=document.createElement('div');
+  overlay.id='proDashOverlay';
+  overlay.innerHTML=`
+    <aside id="proDashPanel" aria-label="Dashboard">
+      <div class="pd-head">
+        <div><div class="pd-title">📊 ORDER Command Center</div><div class="pd-sub">ภาพรวมการทำงาน • ข้อมูลคำนวณจากหน้าเว็บปัจจุบัน</div></div>
+        <button class="pd-close" type="button" aria-label="ปิด">×</button>
+      </div>
+      <div class="pd-grid">
+        <div class="pd-card"><div class="pd-label">ตารางข้อมูล</div><div class="pd-value" id="pdTables">0</div></div>
+        <div class="pd-card"><div class="pd-label">แถวข้อมูล</div><div class="pd-value" id="pdRows">0</div></div>
+        <div class="pd-card"><div class="pd-label">SKU ไม่ซ้ำ</div><div class="pd-value" id="pdSku">—</div></div>
+        <div class="pd-card"><div class="pd-label">แท็บที่เปิด</div><div class="pd-value" id="pdTab">—</div></div>
+      </div>
+      <div class="pd-section">
+        <div class="pd-section-title">📈 จำนวนแถวตามแท็บ</div>
+        <div class="pd-bars" id="pdBars"></div>
+      </div>
+      <div class="pd-section">
+        <div class="pd-section-title">🕘 ประวัติการใช้งาน</div>
+        <div class="pd-log" id="pdLog"></div>
+        <div class="pd-actions">
+          <button class="pd-action" id="pdRefresh" type="button">↻ รีเฟรชข้อมูล</button>
+          <button class="pd-action" id="pdClear" type="button">ล้างประวัติ</button>
+        </div>
+      </div>
+    </aside>`;
+  document.body.appendChild(overlay);
+
+  const tabName=t=>{
+    const x=(t?.textContent||'').replace(/\s+/g,' ').trim();
+    return x || 'ไม่ทราบชื่อ';
+  };
+
+  function tableStats(root){
+    const tables=qa('table',root);
+    let rows=0, skuSet=new Set();
+    tables.forEach(t=>{
+      const trs=qa('tbody tr',t);
+      rows+=trs.length;
+      const heads=qa('thead th',t).map(x=>x.textContent.trim().toLowerCase());
+      const si=heads.findIndex(x=>/sku|รหัสสินค้า/.test(x));
+      if(si>=0) trs.forEach(tr=>{const cells=qa('td',tr);const v=(cells[si]?.textContent||'').trim();if(v)skuSet.add(v);});
+    });
+    return {tables:tables.length,rows,sku:skuSet.size};
+  }
+
+  function allTabStats(){
+    return qa('.tab[data-tool]').map(t=>{
+      const id=t.getAttribute('data-tool');
+      const root=document.getElementById(id);
+      const st=root?tableStats(root):{rows:0,tables:0,sku:0};
+      return {id,name:tabName(t),rows:st.rows};
+    });
+  }
+
+  function activeTab(){
+    const t=qa('.tab[data-tool]').find(x=>x.classList.contains('active') || x.getAttribute('aria-selected')==='true');
+    return t?tabName(t):'—';
+  }
+
+  function renderBars(){
+    const host=q('#pdBars'); if(!host)return;
+    const data=allTabStats(); const max=Math.max(1,...data.map(x=>x.rows));
+    host.innerHTML=data.map(x=>{
+      const h=Math.max(4,Math.round((x.rows/max)*105));
+      return `<div class="pd-bar-wrap" title="${esc(x.name)}: ${x.rows.toLocaleString()} แถว">
+        <div class="pd-bar-num">${x.rows.toLocaleString()}</div>
+        <div class="pd-bar" style="height:${h}px"></div>
+        <div class="pd-bar-label">${esc(x.name)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function refresh(){
+    const active=qa('.tab[data-tool]').find(t=>t.classList.contains('active') || t.getAttribute('aria-selected')==='true');
+    const root=active?document.getElementById(active.dataset.tool):document.body;
+    const st=tableStats(root||document.body);
+    q('#pdTables').textContent=st.tables.toLocaleString();
+    q('#pdRows').textContent=st.rows.toLocaleString();
+    q('#pdSku').textContent=st.sku?st.sku.toLocaleString():'—';
+    q('#pdTab').textContent=active?tabName(active):'—';
+    renderBars();renderLog();
+  }
+
+  function renderLog(){
+    const host=q('#pdLog');if(!host)return;
+    if(!logs.length){host.innerHTML='<div class="pd-log-row"><div class="pd-log-icon">💡</div><div class="pd-log-main"><div class="pd-log-text">ยังไม่มีประวัติการใช้งาน</div><div class="pd-log-time">กิจกรรมจะถูกบันทึกเมื่อเริ่มใช้งาน</div></div></div>';return;}
+    host.innerHTML=logs.slice().reverse().slice(0,15).map(x=>{
+      let d;try{d=new Date(x.time)}catch(_){d=now()}
+      return `<div class="pd-log-row"><div class="pd-log-icon">${esc(x.icon||'•')}</div><div class="pd-log-main"><div class="pd-log-text">${esc(x.text)}</div><div class="pd-log-time">${fmt(d)}</div></div></div>`;
+    }).join('');
+  }
+
+  function open(){refresh();overlay.classList.add('open');}
+  function close(){overlay.classList.remove('open');}
+
+  btn.addEventListener('click',open);
+  q('.pd-close',overlay).addEventListener('click',close);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open'))close();});
+
+  q('#pdRefresh',overlay).addEventListener('click',()=>{refresh();if(window.fxToast)window.fxToast('รีเฟรช Dashboard แล้ว','success');});
+  q('#pdClear',overlay).addEventListener('click',()=>{
+    logs=[];save();renderLog();
+    if(window.fxToast)window.fxToast('ล้างประวัติการใช้งานแล้ว','success');
+  });
+
+  // Observe tab changes and common user actions without replacing existing handlers.
+  qa('.tab[data-tool]').forEach(t=>{
+    t.addEventListener('click',()=>{
+      log('📂','เปิด '+tabName(t));
+      setTimeout(refresh,80);
+    },{passive:true});
+  });
+
+  document.addEventListener('change',e=>{
+    const el=e.target;
+    if(el && (el.matches('input[type=file]') || el.matches('select'))){
+      const name=el.files?.[0]?.name || el.getAttribute('aria-label') || 'ตัวเลือกข้อมูล';
+      log('📥','มีการเปลี่ยนข้อมูล: '+name);
+    }
+    setTimeout(refresh,100);
+  },{passive:true});
+
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('button');
+    if(!b || b===btn || b.closest('#proDashPanel'))return;
+    const text=(b.textContent||'').replace(/\s+/g,' ').trim();
+    if(!text)return;
+    if(/ดาวน์โหลด|download|export/i.test(text)) log('⬇️','กด '+text.slice(0,60));
+    else if(/รวมไฟล์|ตรวจ|รับorder|รับ order|สรุป/i.test(text)) log('⚡','กด '+text.slice(0,60));
+    setTimeout(refresh,120);
+  },{passive:true});
+
+  // Keep stats current without observing the Dashboard's own DOM.
+  // This avoids a MutationObserver -> refresh -> DOM change -> MutationObserver loop.
+  let pdTimer=null;
+  function startPdRefresh(){
+    if(pdTimer) clearInterval(pdTimer);
+    pdTimer=setInterval(()=>{if(overlay.classList.contains('open'))refresh();},1200);
+  }
+  startPdRefresh();
+  setTimeout(refresh,250);
+})();
+</script>
+
+
+
+<style id="productivity-pack-css">
+/* ===== PRODUCTIVITY PACK — isolated additions ===== */
+:root[data-prod-theme="midnight"]{
+  --pp-bg:#030712;--pp-panel:rgba(4,12,24,.92);--pp-line:rgba(82,170,255,.18);--pp-text:#e8f5ff;--pp-input:#020814;
+}
+:root[data-prod-theme="light"]{
+  --pp-bg:#eef4f7;--pp-panel:rgba(255,255,255,.96);--pp-line:rgba(20,90,110,.18);--pp-text:#17333f;--pp-input:#fff;
+}
+html[data-prod-theme="midnight"] body{background-image:linear-gradient(135deg,rgba(0,3,12,.94),rgba(2,13,28,.92)),url("bank.jpg")!important}
+html[data-prod-theme="light"] body{background-image:linear-gradient(135deg,rgba(235,245,249,.94),rgba(248,252,253,.92)),url("bank.jpg")!important;color:#17333f!important}
+html[data-prod-theme="light"] .top{background:rgba(255,255,255,.86)!important;color:#17333f!important}
+html[data-prod-theme="light"] .top h1,html[data-prod-theme="light"] .top p{color:#17333f!important}
+html[data-prod-theme="light"] .tab{color:#315462!important}html[data-prod-theme="light"] .tab.active{color:#087f8c!important;background:rgba(255,255,255,.8)!important}
+html[data-prod-theme="light"] .tool{background:rgba(255,255,255,.78)!important;color:#17333f!important}
+html[data-prod-theme="light"] .beta-card,html[data-prod-theme="light"] .card,html[data-prod-theme="light"] .panel,html[data-prod-theme="light"] .preview{color:#17333f!important}
+html[data-prod-theme="light"] input,html[data-prod-theme="light"] select,html[data-prod-theme="light"] textarea{background:#fff!important;color:#17333f!important;border-color:#acd5da!important}
+html[data-prod-theme="light"] .order-filter-wrap,html[data-prod-theme="light"] .beta-options,html[data-prod-theme="light"] .order-pivot-wrap,html[data-prod-theme="light"] .compare-tools-extra,html[data-prod-theme="light"] .order-summary-extra{background:rgba(255,255,255,.9)!important;color:#17333f!important}
+html[data-prod-theme="light"] .order-filter-card,html[data-prod-theme="light"] .value-list,html[data-prod-theme="light"] .col,html[data-prod-theme="light"] .beta-cols label{background:#fff!important;color:#17333f!important}
+
+#ppToolbar{position:fixed;right:20px;bottom:18px;z-index:9010;display:flex;gap:7px;align-items:center}
+.pp-float{border:1px solid rgba(56,217,255,.25);border-radius:999px;background:rgba(5,17,29,.9);color:#dff7ff;padding:9px 12px;font:700 11px/1 system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(12px);box-shadow:0 10px 28px rgba(0,0,0,.25);transition:.2s}
+.pp-float:hover{transform:translateY(-2px);border-color:rgba(56,217,255,.6)}
+#ppThemeBtn{min-width:38px;padding:9px 10px}
+html[data-prod-theme="light"] .pp-float{background:rgba(255,255,255,.94);color:#17333f;border-color:rgba(20,90,110,.2)}
+.pp-copy-btn{display:inline-flex;align-items:center;justify-content:center;margin-left:7px;width:23px;height:23px;padding:0!important;border-radius:7px!important;background:rgba(56,217,255,.10)!important;color:#9deaff!important;border:1px solid rgba(56,217,255,.22)!important;font-size:12px!important;vertical-align:middle;opacity:.7;transition:.15s}
+.pp-copy-btn:hover{opacity:1;transform:translateY(-1px);background:rgba(56,217,255,.18)!important}
+.pp-copy-active{outline:2px solid rgba(66,245,167,.45);outline-offset:1px}
+#ppShortcutsOverlay{position:fixed;inset:0;z-index:10020;display:none;background:rgba(0,5,12,.62);backdrop-filter:blur(7px)}
+#ppShortcutsOverlay.open{display:flex;align-items:center;justify-content:center;animation:ppFade .16s ease}
+@keyframes ppFade{from{opacity:0}to{opacity:1}}
+#ppShortcutsModal{width:min(520px,calc(100vw - 30px));border:1px solid rgba(56,217,255,.22);border-radius:20px;background:linear-gradient(145deg,rgba(7,20,33,.98),rgba(8,29,45,.97));color:#eaf7ff;box-shadow:0 30px 100px rgba(0,0,0,.55);padding:20px}
+.pp-short-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}.pp-short-title{font-size:18px;font-weight:800}.pp-short-close{width:34px;height:34px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.04);color:#bcd1db;cursor:pointer;font-size:17px}
+.pp-short-row{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:13px}.pp-short-row:last-child{border-bottom:0}.pp-key{display:inline-block;min-width:74px;text-align:center;padding:4px 7px;border-radius:7px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);font:700 11px/1.1 Consolas,monospace;color:#dff8ff}
+html[data-prod-theme="light"] #ppShortcutsModal{background:#fff;color:#17333f;border-color:rgba(20,90,110,.2)}
+html[data-prod-theme="light"] .pp-short-row{border-color:rgba(20,90,110,.12)}html[data-prod-theme="light"] .pp-key{background:#eef6f8;color:#17333f;border-color:#c8dfe5}
+#ppThemeMenu{position:fixed;right:20px;bottom:62px;z-index:9011;display:none;width:170px;padding:8px;border:1px solid rgba(56,217,255,.2);border-radius:14px;background:rgba(7,20,33,.96);box-shadow:0 18px 45px rgba(0,0,0,.4);backdrop-filter:blur(14px)}
+#ppThemeMenu.open{display:block;animation:ppFade .12s ease}.pp-theme-item{width:100%;text-align:left;border:0;border-radius:9px;background:transparent;color:#dff7ff;padding:9px 10px;font:700 11px/1.2 system-ui;cursor:pointer}.pp-theme-item:hover{background:rgba(56,217,255,.10)}
+html[data-prod-theme="light"] #ppThemeMenu{background:#fff;border-color:#c8dfe5}html[data-prod-theme="light"] .pp-theme-item{color:#17333f}
+</style>
+
+
+<script id="productivity-pack-js">
+/* ===== PRODUCTIVITY PACK — safe, isolated, no MutationObserver ===== */
+(function(){
+  'use strict';
+  const THEME_KEY='order_ui_theme_v1';
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  let lastSku='';
+  let lastSkuCell=null;
+
+  function toast(msg,type='success'){
+    if(window.fxToast){ window.fxToast(msg,type); return; }
+    let w=$('#ppToastWrap');
+    if(!w){w=document.createElement('div');w.id='ppToastWrap';w.style='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10030;display:flex;flex-direction:column;gap:7px;pointer-events:none';document.body.appendChild(w);}
+    const x=document.createElement('div');x.textContent=msg;x.style='padding:10px 15px;border-radius:10px;background:rgba(7,20,33,.96);color:#eaf7ff;border:1px solid rgba(56,217,255,.25);font:700 12px system-ui;box-shadow:0 12px 30px rgba(0,0,0,.35)';w.appendChild(x);setTimeout(()=>x.remove(),1800);
+  }
+  function copyText(text){
+    text=String(text||'').trim(); if(!text)return Promise.reject();
+    if(navigator.clipboard&&window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise((resolve,reject)=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');resolve()}catch(e){reject(e)}ta.remove();});
+  }
+  function themeName(t){return t==='light'?'☀️ Light':t==='midnight'?'🌌 Midnight':'🌙 Dark'}
+  function applyTheme(t){
+    t=['dark','midnight','light'].includes(t)?t:'dark';
+    document.documentElement.setAttribute('data-prod-theme',t);
+    localStorage.setItem(THEME_KEY,t);
+    const b=$('#ppThemeBtn'); if(b)b.textContent=t==='light'?'☀️':t==='midnight'?'🌌':'🌙';
+  }
+  function isTyping(e){const t=e.target;return t && (t.matches('input,textarea,select,[contenteditable="true"]') || t.isContentEditable);}
+
+  function findSkuColumns(table){
+    const head=table.tHead?.rows?.[0] || table.querySelector('thead tr');
+    if(!head)return [];
+    return Array.from(head.cells).map((c,i)=>({i,text:(c.textContent||'').trim()})).filter(x=>/\bsku\b|รหัสสินค้า|รหัส\s*sku/i.test(x.text));
+  }
+  function scanSkuButtons(){
+    $$('table').forEach(table=>{
+      if(table.closest('#proDashPanel'))return;
+      const cols=findSkuColumns(table); if(!cols.length)return;
+      const rows=$$('tbody tr',table);
+      rows.forEach(row=>cols.forEach(col=>{
+        const cell=row.cells[col.i]; if(!cell||cell.querySelector('.pp-copy-btn'))return;
+        const raw=(cell.textContent||'').trim(); if(!raw||raw==='-')return;
+        const btn=document.createElement('button');btn.type='button';btn.className='pp-copy-btn';btn.title='คัดลอก SKU';btn.setAttribute('aria-label','คัดลอก SKU');btn.textContent='⧉';btn.dataset.sku=raw;
+        cell.appendChild(btn);
+      }));
+    });
+  }
+
+  function injectUi(){
+    if(!$('#ppToolbar')){
+      const bar=document.createElement('div');bar.id='ppToolbar';bar.innerHTML='<button class="pp-float" id="ppThemeBtn" title="เปลี่ยน Theme">🌙</button><button class="pp-float" id="ppHelpBtn" title="แป้นพิมพ์ลัด">⌨️ ?</button>';
+      document.body.appendChild(bar);
+      const menu=document.createElement('div');menu.id='ppThemeMenu';menu.innerHTML='<button class="pp-theme-item" data-theme="dark">🌙 Dark</button><button class="pp-theme-item" data-theme="midnight">🌌 Midnight</button><button class="pp-theme-item" data-theme="light">☀️ Light</button>';document.body.appendChild(menu);
+      const ov=document.createElement('div');ov.id='ppShortcutsOverlay';ov.innerHTML='<div id="ppShortcutsModal"><div class="pp-short-head"><div class="pp-short-title">⌨️ Keyboard Shortcuts</div><button class="pp-short-close" type="button">×</button></div><div class="pp-short-row"><span>ค้นหา / Command</span><span class="pp-key">Ctrl + K</span></div><div class="pp-short-row"><span>คัดลอก SKU ที่เลือก</span><span class="pp-key">Ctrl + C</span></div><div class="pp-short-row"><span>ไปหน้า รวมไฟล์ ZIP</span><span class="pp-key">Alt + 1</span></div><div class="pp-short-row"><span>ไปหน้า ตรวจ ORDER กับ Stock</span><span class="pp-key">Alt + 2</span></div><div class="pp-short-row"><span>ไปหน้า รับORDER</span><span class="pp-key">Alt + 3</span></div><div class="pp-short-row"><span>ไปหน้า สรุปงาน</span><span class="pp-key">Alt + 4</span></div><div class="pp-short-row"><span>เปิดหน้าต่างคีย์ลัด</span><span class="pp-key">?</span></div><div class="pp-short-row"><span>ปิดหน้าต่าง / เมนู</span><span class="pp-key">Esc</span></div></div>';document.body.appendChild(ov);
+    }
+    applyTheme(localStorage.getItem(THEME_KEY)||'dark');
+  }
+
+  function openShortcuts(){$('#ppShortcutsOverlay')?.classList.add('open')}
+  function closeOverlays(){$('#ppShortcutsOverlay')?.classList.remove('open');$('#ppThemeMenu')?.classList.remove('open')}
+  function goTab(n){const tab=$(`.tab[data-tool="${n}"]`);if(tab){tab.click();toast('เปิด '+(tab.textContent||'แท็บ').trim(),'success')}}
+
+  document.addEventListener('click',e=>{
+    const copy=e.target.closest('.pp-copy-btn');
+    if(copy){
+      e.preventDefault();e.stopPropagation();lastSku=copy.dataset.sku||'';lastSkuCell=copy.closest('td');
+      $$('.pp-copy-active').forEach(x=>x.classList.remove('pp-copy-active'));lastSkuCell?.classList.add('pp-copy-active');
+      copyText(lastSku).then(()=>toast('คัดลอก SKU แล้ว: '+lastSku,'success')).catch(()=>toast('ไม่สามารถคัดลอก SKU ได้','error'));return;
+    }
+    const cell=e.target.closest('table td');
+    if(cell){
+      const table=cell.closest('table'),cols=table?findSkuColumns(table):[];
+      const idx=cell.cellIndex;
+      if(cols.some(c=>c.i===idx)){
+        const v=(cell.textContent||'').replace(/⧉/g,'').trim();
+        if(v){lastSku=v;lastSkuCell=cell;$$('.pp-copy-active').forEach(x=>x.classList.remove('pp-copy-active'));cell.classList.add('pp-copy-active');}
+      }
+    }
+    const themeBtn=e.target.closest('#ppThemeBtn');
+    if(themeBtn){e.stopPropagation();$('#ppThemeMenu')?.classList.toggle('open');return;}
+    const themeItem=e.target.closest('.pp-theme-item');
+    if(themeItem){applyTheme(themeItem.dataset.theme);$('#ppThemeMenu')?.classList.remove('open');toast('เปลี่ยน Theme เป็น '+themeName(themeItem.dataset.theme),'success');return;}
+    if(e.target.closest('#ppHelpBtn')){openShortcuts();return;}
+    if(e.target.closest('.pp-short-close')||e.target=== $('#ppShortcutsOverlay')){closeOverlays();}
+  },true);
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){closeOverlays();return;}
+    if(isTyping(e))return;
+    if(e.key==='?' && !e.ctrlKey&&!e.altKey&&!e.metaKey){e.preventDefault();openShortcuts();return;}
+    if(e.altKey&&!e.ctrlKey&&!e.metaKey){
+      const map={'1':'mergeTool','2':'compareTool','3':'orderTool','4':'summaryTool'};
+      if(map[e.key]){e.preventDefault();goTab(map[e.key]);return;}
+    }
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='c' && lastSku && !window.getSelection()?.toString()){
+      e.preventDefault();copyText(lastSku).then(()=>toast('คัดลอก SKU แล้ว: '+lastSku,'success')).catch(()=>{});
+    }
+  },true);
+
+  // Do not replace the existing Ctrl+K command palette; only add the other shortcuts here.
+  injectUi();
+  scanSkuButtons();
+  setInterval(scanSkuButtons,1400);
+  document.addEventListener('click',e=>{if(!e.target.closest('#ppThemeMenu,#ppThemeBtn'))$('#ppThemeMenu')?.classList.remove('open')},{passive:true});
+})();
+</script>
+
 </html>
 
 <style>
