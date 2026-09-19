@@ -468,6 +468,254 @@ table{color:#dbeaf2!important}th{background:rgba(56,217,255,.08)!important;color
 </style>
 </style>
 </style>
+
+<style>
+/* ===== STOCK CHECK — DARK FUTURISTIC THEME ===== */
+#orderTool .order-stock-check{
+  margin-top:14px!important;
+  max-height:420px!important;
+  overflow:auto!important;
+  padding:0!important;
+  border:1px solid rgba(66,245,167,.16)!important;
+  border-radius:14px!important;
+  background:rgba(1,8,16,.72)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.03),0 12px 30px rgba(0,0,0,.18)!important;
+}
+
+#orderTool .order-stock-check > div:first-child{
+  padding:12px 14px!important;
+  margin:0!important;
+  color:#8fa9b8!important;
+  background:rgba(255,255,255,.025)!important;
+  border-bottom:1px solid rgba(255,255,255,.08)!important;
+}
+
+#orderTool .order-stock-check table{
+  width:100%!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+  background:transparent!important;
+  color:#dcecf5!important;
+}
+
+#orderTool .order-stock-check th{
+  position:sticky!important;
+  top:0!important;
+  z-index:6!important;
+  padding:10px 12px!important;
+  background:linear-gradient(135deg,#123b46,#0e2b38)!important;
+  color:#e9fbff!important;
+  font-weight:800!important;
+  border-bottom:1px solid rgba(56,217,255,.25)!important;
+  box-shadow:0 3px 12px rgba(0,0,0,.25)!important;
+}
+
+#orderTool .order-stock-check td{
+  padding:10px 12px!important;
+  color:#cfe0e8!important;
+  background:rgba(7,20,32,.62)!important;
+  border-bottom:1px solid rgba(255,255,255,.055)!important;
+  transition:.18s ease!important;
+}
+
+#orderTool .order-stock-check tbody tr:nth-child(even) td{
+  background:rgba(10,28,43,.68)!important;
+}
+
+/* มี Stock */
+#orderTool .order-stock-check tbody tr.stock-ok td{
+  background:rgba(66,245,167,.055)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-ok td:first-child{
+  box-shadow:inset 3px 0 0 rgba(66,245,167,.75)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-ok td:nth-child(4){
+  color:#69f3b2!important;
+  font-weight:800!important;
+}
+
+/* Stock ไม่พอ */
+#orderTool .order-stock-check tbody tr.stock-short td{
+  background:rgba(255,174,66,.065)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-short td:first-child{
+  box-shadow:inset 3px 0 0 rgba(255,174,66,.9)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-short td:nth-child(4){
+  color:#ffc15f!important;
+  font-weight:800!important;
+}
+
+/* ไม่มี Stock */
+#orderTool .order-stock-check tbody tr.stock-none td{
+  background:rgba(255,107,138,.065)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-none td:first-child{
+  box-shadow:inset 3px 0 0 rgba(255,107,138,.9)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-none td:nth-child(4){
+  color:#ff7895!important;
+  font-weight:800!important;
+}
+
+/* Hover */
+#orderTool .order-stock-check tbody tr:hover td{
+  background:rgba(56,217,255,.075)!important;
+  color:#f1fbff!important;
+}
+
+/* สถานะให้อ่านง่าย */
+#orderTool .order-stock-check tbody td:nth-child(4){
+  white-space:nowrap!important;
+}
+
+/* scrollbar */
+#orderTool .order-stock-check::-webkit-scrollbar{
+  width:8px!important;
+  height:8px!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.025)!important;
+  border-radius:10px!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,rgba(56,217,255,.65),rgba(66,245,167,.55))!important;
+  border-radius:10px!important;
+}
+
+/* ปุ่มตรวจ Stock ให้เข้าธีม */
+#orderTool #orderStockCheckBtn{
+  background:linear-gradient(135deg,#087f8c,#18b979)!important;
+  color:#effff9!important;
+  border:1px solid rgba(66,245,167,.22)!important;
+  box-shadow:0 8px 22px rgba(24,185,121,.12)!important;
+}
+#orderTool #orderStockCheckBtn:hover{
+  filter:brightness(1.12)!important;
+  transform:translateY(-1px);
+}
+
+@media(max-width:650px){
+  #orderTool .order-stock-check th,
+  #orderTool .order-stock-check td{
+    padding:8px 9px!important;
+    font-size:11px!important;
+  }
+}
+</style>
+
+
+<style>
+/* ===== ตรวจ Stock ให้หน้าตาเหมือน PivotTable ด้านล่าง ===== */
+#orderTool .order-stock-check{
+  margin-top:8px!important;
+  max-height:420px!important;
+  overflow:auto!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:8px!important;
+  background:rgba(0,0,0,.20)!important;
+  box-shadow:none!important;
+  padding:0!important;
+}
+
+#orderTool .order-stock-check > div:first-child{
+  padding:0!important;
+  margin:0!important;
+  background:transparent!important;
+  border:0!important;
+  color:#8fa9b8!important;
+}
+
+#orderTool .order-stock-check table{
+  width:100%!important;
+  border-collapse:collapse!important;
+  border-spacing:0!important;
+  background:transparent!important;
+  color:#dcecf5!important;
+  font-size:12px!important;
+}
+
+#orderTool .order-stock-check th{
+  position:sticky!important;
+  top:0!important;
+  z-index:6!important;
+  padding:6px 9px!important;
+  background:#087f8c!important;
+  color:#fff!important;
+  font-size:12px!important;
+  font-weight:800!important;
+  text-align:left!important;
+  border:0!important;
+  border-bottom:1px solid rgba(255,255,255,.10)!important;
+  box-shadow:none!important;
+}
+
+#orderTool .order-stock-check td{
+  padding:6px 9px!important;
+  color:#d7e5ec!important;
+  background:transparent!important;
+  font-size:12px!important;
+  border:0!important;
+  border-bottom:1px solid rgba(255,255,255,.07)!important;
+  transition:background .15s ease!important;
+}
+
+/* ยกเลิกพื้นหลังเขียว/เหลือง/แดงแบบเดิม */
+#orderTool .order-stock-check tbody tr.stock-ok td,
+#orderTool .order-stock-check tbody tr.stock-short td,
+#orderTool .order-stock-check tbody tr.stock-none td,
+#orderTool .order-stock-check tbody tr:nth-child(even) td{
+  background:transparent!important;
+}
+
+#orderTool .order-stock-check tbody tr:hover td{
+  background:rgba(255,255,255,.035)!important;
+  color:#f1fbff!important;
+}
+
+/* ให้เฉพาะ "สถานะ" มีสี เพื่อดูง่าย แต่พื้นตารางยังเหมือน Pivot */
+#orderTool .order-stock-check tbody tr.stock-ok td:nth-child(4){
+  color:#62e4a5!important;
+  font-weight:700!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-short td:nth-child(4){
+  color:#ffbf69!important;
+  font-weight:700!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-none td:nth-child(4){
+  color:#ff6f91!important;
+  font-weight:700!important;
+}
+
+#orderTool .order-stock-check tbody td:nth-child(4){
+  white-space:nowrap!important;
+}
+
+/* scrollbar ให้เหมือนตาราง Pivot */
+#orderTool .order-stock-check::-webkit-scrollbar{
+  width:8px!important;
+  height:8px!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.02)!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.20)!important;
+  border-radius:8px!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-thumb:hover{
+  background:rgba(255,255,255,.30)!important;
+}
+</style>
+
 </head>
 <body>
 <div class="shell">
@@ -2612,10 +2860,9 @@ function downloadOrderPivotExcel() {
   });
 
   const wb = XLSX.utils.book_new();
-  // Sheet หลัก: ข้อมูล ORDER ตามตัวอย่างข้อมูลด้านล่าง (หลังกรอง)
-  XLSX.utils.book_append_sheet(wb, ws, 'ORDER');
 
-  // Sheet Pivot: ใช้ข้อมูล Pivot เดียวกับที่แสดงในหน้ารับORDER
+  // ส่งออกเฉพาะ Sheet Pivot เท่านั้น
+  // ไม่ใส่ Sheet ORDER เพื่อให้ไฟล์ที่ดาวน์โหลดเหลือแค่ Pivot
   const pivotHeader = [
     orderHeaders[skuIndex] || 'SKU Merchant',
     orderHeaders[qtyIndex] || 'จำนวน'
@@ -2634,7 +2881,7 @@ function downloadOrderPivotExcel() {
   ];
   XLSX.utils.book_append_sheet(wb, pivotWs, 'Pivot');
 
-  XLSX.writeFile(wb, 'ORDER_ตามตัวอย่าง.xlsx');
+  XLSX.writeFile(wb, 'ORDER_Pivot.xlsx');
 }
 
 orderPivotExcelDownloadBtn.onclick = downloadOrderPivotExcel;
@@ -3147,6 +3394,145 @@ function toggleOrderFilters(){
 }
 </script>
 </body>
+
+<style>
+/* ===== แก้เฉพาะ "สี" ตารางตรวจ Stock — ไม่เปลี่ยนขนาด/ตำแหน่ง/โครงสร้าง ===== */
+#orderTool .order-stock-check{
+  background:#0b1824!important;
+  border-color:rgba(117,196,255,.18)!important;
+}
+
+#orderTool .order-stock-check > div:first-child{
+  background:#0b1824!important;
+  color:#94adbd!important;
+  border-bottom-color:rgba(117,196,255,.12)!important;
+}
+
+#orderTool .order-stock-check th{
+  background:#103846!important;
+  color:#eaf7ff!important;
+  border-bottom-color:rgba(56,217,255,.20)!important;
+}
+
+/* พื้นแถวให้เป็นโทนเข้มเดียวกับเว็บ ไม่ใช้ขาว/เหลือง */
+#orderTool .order-stock-check tbody tr.stock-ok td{
+  background:rgba(66,245,167,.055)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-short td{
+  background:rgba(255,174,66,.065)!important;
+}
+
+#orderTool .order-stock-check tbody tr.stock-none td{
+  background:rgba(255,107,138,.065)!important;
+}
+
+/* สลับเฉดเล็กน้อยโดยยังคงโทนมืด */
+#orderTool .order-stock-check tbody tr:nth-child(even) td{
+  filter:brightness(.96)!important;
+}
+
+#orderTool .order-stock-check tbody td{
+  color:#cfe0e8!important;
+  border-bottom-color:rgba(255,255,255,.055)!important;
+}
+
+/* สีสถานะ */
+#orderTool .order-stock-check tbody tr.stock-ok td:nth-child(4){
+  color:#42f5a7!important;
+}
+#orderTool .order-stock-check tbody tr.stock-short td:nth-child(4){
+  color:#ffb24d!important;
+}
+#orderTool .order-stock-check tbody tr.stock-none td:nth-child(4){
+  color:#ff6b8a!important;
+}
+
+/* Hover ใช้สีเดียวกับธีม */
+#orderTool .order-stock-check tbody tr:hover td{
+  background:rgba(56,217,255,.075)!important;
+  color:#eef9ff!important;
+}
+
+/* scrollbar */
+#orderTool .order-stock-check::-webkit-scrollbar-track{
+  background:#08131e!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-thumb{
+  background:#34596d!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-thumb:hover{
+  background:#4b788e!important;
+}
+</style>
+
+
+<style>
+/* ===== STOCK CHECK: ทำสีให้เหมือนตารางภาพแรกเท่านั้น ===== */
+#orderTool .order-stock-check,
+#orderTool .order-stock-check > div:first-child{
+  background:#111b2a!important;
+  color:#c8d6df!important;
+  box-shadow:none!important;
+}
+
+#orderTool .order-stock-check{
+  border-color:rgba(255,255,255,.10)!important;
+}
+
+/* หัวตารางเข้มแบบภาพแรก */
+#orderTool .order-stock-check th{
+  background:#0d2633!important;
+  color:#edf7fb!important;
+  border-bottom:1px solid rgba(100,190,220,.18)!important;
+  box-shadow:none!important;
+}
+
+/* ทุกแถวใช้สีเดียวกันแบบภาพแรก — ไม่มีพื้นเขียว/เหลือง/ขาว */
+#orderTool .order-stock-check tbody tr td,
+#orderTool .order-stock-check tbody tr.stock-ok td,
+#orderTool .order-stock-check tbody tr.stock-short td,
+#orderTool .order-stock-check tbody tr.stock-none td,
+#orderTool .order-stock-check tbody tr:nth-child(even) td,
+#orderTool .order-stock-check tbody tr:nth-child(odd) td{
+  background:#111b2a!important;
+  color:#d2dee5!important;
+  border-bottom:1px solid rgba(255,255,255,.065)!important;
+  filter:none!important;
+}
+
+/* สีเฉพาะข้อความสถานะ ไม่ลงสีพื้นทั้งแถว */
+#orderTool .order-stock-check tbody tr.stock-ok td:nth-child(4){
+  color:#55e69f!important;
+  font-weight:700!important;
+}
+#orderTool .order-stock-check tbody tr.stock-short td:nth-child(4){
+  color:#ffbd62!important;
+  font-weight:700!important;
+}
+#orderTool .order-stock-check tbody tr.stock-none td:nth-child(4){
+  color:#ff5b86!important;
+  font-weight:700!important;
+}
+
+/* hover เบาๆ เหมือนภาพแรก */
+#orderTool .order-stock-check tbody tr:hover td{
+  background:#172536!important;
+  color:#e8f4f9!important;
+}
+
+/* scrollbar */
+#orderTool .order-stock-check::-webkit-scrollbar-track{
+  background:#0b1520!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-thumb{
+  background:#365669!important;
+}
+#orderTool .order-stock-check::-webkit-scrollbar-thumb:hover{
+  background:#4a7084!important;
+}
+</style>
+
 </html>
 
 <style>
