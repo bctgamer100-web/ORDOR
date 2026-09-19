@@ -3393,6 +3393,221 @@ function toggleOrderFilters(){
   if(b)b.textContent=panel.classList.contains('collapsed')?'เปิดตัวกรอง ▼':'พับเก็บ ▲';
 }
 </script>
+
+<style id="enhanced-ui-css">
+/* ===== ENHANCED UI / MICRO-INTERACTIONS ===== */
+:root{
+  --fx-cyan:#38d9ff;
+  --fx-violet:#9b7bff;
+  --fx-green:#42f5a7;
+}
+#fxParticles{
+  position:fixed; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:-1; opacity:.65;
+}
+.fx-system{
+  position:absolute; right:22px; top:22px; z-index:3;
+  display:flex; align-items:center; gap:10px;
+  padding:8px 12px; border:1px solid rgba(255,255,255,.12);
+  border-radius:999px; background:rgba(2,12,22,.48);
+  backdrop-filter:blur(12px); color:#cfe6ef; font-size:11px;
+  box-shadow:0 8px 25px rgba(0,0,0,.16);
+}
+.fx-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--fx-green);
+  box-shadow:0 0 12px var(--fx-green); animation:fxPulse 1.8s infinite;
+}
+.fx-clock{font-variant-numeric:tabular-nums;color:#8faebe}
+@keyframes fxPulse{50%{opacity:.35;transform:scale(.72)}}
+.fx-command{
+  position:fixed; inset:0; display:none; align-items:flex-start; justify-content:center;
+  padding-top:13vh; z-index:9999; background:rgba(0,5,12,.62);
+  backdrop-filter:blur(8px);
+}
+.fx-command.open{display:flex;animation:fxFade .16s ease}
+.fx-command-box{
+  width:min(620px,calc(100vw - 28px)); overflow:hidden;
+  border:1px solid rgba(56,217,255,.28); border-radius:18px;
+  background:linear-gradient(145deg,rgba(7,19,32,.98),rgba(10,29,46,.96));
+  box-shadow:0 30px 90px rgba(0,0,0,.55),0 0 45px rgba(56,217,255,.08);
+}
+.fx-command-head{padding:14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.fx-command-head input{
+  width:100%; min-height:44px; border-radius:11px!important;
+  background:rgba(255,255,255,.055)!important;
+}
+.fx-command-list{padding:8px;max-height:52vh;overflow:auto}
+.fx-command-item{
+  width:100%;display:flex;justify-content:space-between;align-items:center;
+  padding:12px 13px;margin:3px 0;border-radius:10px;
+  background:transparent;color:#dcecf5;text-align:left;
+  border:1px solid transparent;cursor:pointer;
+}
+.fx-command-item:hover{background:rgba(56,217,255,.08);border-color:rgba(56,217,255,.16)}
+.fx-key{font-size:10px;color:#7892a1}
+.fx-toast-wrap{
+  position:fixed;right:18px;bottom:18px;z-index:10000;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;
+}
+.fx-toast{
+  min-width:240px;max-width:360px;padding:11px 14px;border-radius:12px;
+  color:#eaf7ff;background:rgba(7,20,32,.94);
+  border:1px solid rgba(56,217,255,.2);box-shadow:0 15px 35px rgba(0,0,0,.3);
+  backdrop-filter:blur(12px);animation:fxToastIn .25s ease;
+  font-size:12px;
+}
+.fx-toast.success{border-color:rgba(66,245,167,.3)}
+.fx-toast.warn{border-color:rgba(255,189,98,.3)}
+@keyframes fxToastIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes fxFade{from{opacity:0}to{opacity:1}}
+.fx-ripple{
+  position:absolute;border-radius:50%;pointer-events:none;transform:scale(0);
+  background:rgba(255,255,255,.25);animation:fxRipple .55s ease-out;
+}
+@keyframes fxRipple{to{transform:scale(4);opacity:0}}
+.fx-tab-enter{animation:fxTabIn .28s ease}
+@keyframes fxTabIn{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:none}}
+.fx-hotkey{
+  position:fixed;left:16px;bottom:16px;z-index:20;
+  padding:6px 9px;border-radius:8px;font-size:10px;color:#7893a1;
+  background:rgba(3,13,22,.55);border:1px solid rgba(255,255,255,.08);
+  backdrop-filter:blur(8px)
+}
+@media(max-width:700px){
+  .fx-system{right:12px;top:12px}
+  .fx-system .fx-clock{display:none}
+  .fx-hotkey{display:none}
+}
+</style>
+
+<script id="enhanced-ui-js">
+(() => {
+  const $ = (s, r=document) => r.querySelector(s);
+
+  // Ambient particle layer
+  const canvas = document.createElement('canvas');
+  canvas.id = 'fxParticles';
+  document.body.prepend(canvas);
+  const ctx = canvas.getContext('2d');
+  let dots = [];
+  function resizeFX(){
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = innerWidth*dpr; canvas.height = innerHeight*dpr;
+    canvas.style.width = innerWidth+'px'; canvas.style.height = innerHeight+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const count = Math.min(75, Math.max(28, Math.floor(innerWidth/20)));
+    dots = Array.from({length:count},()=>({
+      x:Math.random()*innerWidth,y:Math.random()*innerHeight,
+      r:Math.random()*1.5+.4,vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18,
+      a:Math.random()*.45+.12
+    }));
+  }
+  function drawFX(){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    for(const p of dots){
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=innerWidth;if(p.x>innerWidth)p.x=0;
+      if(p.y<0)p.y=innerHeight;if(p.y>innerHeight)p.y=0;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(56,217,255,${p.a})`;ctx.fill();
+    }
+    requestAnimationFrame(drawFX);
+  }
+  addEventListener('resize',resizeFX,{passive:true}); resizeFX(); drawFX();
+
+  // Header status + clock
+  const top = $('.top');
+  if(top && !$('.fx-system')){
+    const box=document.createElement('div');
+    box.className='fx-system';
+    box.innerHTML='<span class="fx-dot"></span><b>SYSTEM READY</b><span class="fx-clock"></span>';
+    top.appendChild(box);
+  }
+  const clock=$('.fx-clock');
+  function tick(){
+    if(clock) clock.textContent=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  tick(); setInterval(tick,1000);
+
+  // Toast helper
+  const wrap=document.createElement('div'); wrap.className='fx-toast-wrap'; document.body.appendChild(wrap);
+  window.fxToast=(message,type='')=>{
+    const el=document.createElement('div'); el.className='fx-toast '+type; el.textContent=message;
+    wrap.appendChild(el); setTimeout(()=>el.remove(),3000);
+  };
+
+  // Button ripple
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest('button');
+    if(!btn || btn.disabled) return;
+    btn.style.position=btn.style.position==='static'?'relative':(btn.style.position||'relative');
+    const r=document.createElement('span'); r.className='fx-ripple';
+    const rect=btn.getBoundingClientRect(), size=Math.max(rect.width,rect.height);
+    r.style.width=r.style.height=size+'px';
+    r.style.left=(e.clientX-rect.left-size/2)+'px';
+    r.style.top=(e.clientY-rect.top-size/2)+'px';
+    btn.appendChild(r); setTimeout(()=>r.remove(),600);
+  });
+
+  // Smooth tab entrance + toast
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      setTimeout(()=>{
+        const target=document.getElementById(tab.dataset.tool);
+        if(target){target.classList.remove('fx-tab-enter');void target.offsetWidth;target.classList.add('fx-tab-enter');}
+      },10);
+      const name=(tab.textContent||'').trim();
+      window.fxToast('เปิด '+name,'success');
+    });
+  });
+
+  // Command palette: Ctrl/Cmd + K
+  const modal=document.createElement('div');
+  modal.className='fx-command';
+  modal.innerHTML=`
+    <div class="fx-command-box">
+      <div class="fx-command-head">
+        <input id="fxCommandInput" type="search" placeholder="🔎 ค้นหาคำสั่ง เช่น รับORDER, รวมไฟล์, ตรวจ Stock">
+      </div>
+      <div class="fx-command-list" id="fxCommandList"></div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const commands=[
+    ['📦 รวมไฟล์ ZIP','mergeTool'],
+    ['🔎 ตรวจ ORDER กับ Stock','compareTool'],
+    ['📥 รับORDER','orderTool'],
+    ['📋 สรุปงาน','summaryTool']
+  ];
+  const list=$('#fxCommandList',modal), input=$('#fxCommandInput',modal);
+  function renderCommands(q=''){
+    list.innerHTML='';
+    commands.filter(x=>x[0].toLowerCase().includes(q.toLowerCase())).forEach(([label,id])=>{
+      const b=document.createElement('button');b.className='fx-command-item';
+      b.innerHTML=`<span>${label}</span><span class="fx-key">ENTER</span>`;
+      b.onclick=()=>{const t=document.querySelector(`.tab[data-tool="${id}"]`);if(t)t.click();closePalette();};
+      list.appendChild(b);
+    });
+  }
+  function openPalette(){modal.classList.add('open');renderCommands();setTimeout(()=>input.focus(),30)}
+  function closePalette(){modal.classList.remove('open')}
+  input.addEventListener('input',()=>renderCommands(input.value));
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape')closePalette();
+    if(e.key==='Enter'){const first=list.querySelector('button');if(first)first.click();}
+  });
+  modal.addEventListener('click',e=>{if(e.target===modal)closePalette()});
+  document.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();}
+    if(e.key==='Escape')closePalette();
+  });
+
+  const hot=document.createElement('div');
+  hot.className='fx-hotkey'; hot.textContent='Ctrl + K  •  เมนูคำสั่ง';
+  document.body.appendChild(hot);
+})();
+</script>
+
 </body>
 
 <style>
