@@ -1,0 +1,355 @@
+/* ===== Sunshine + เลย์เอาต์ 3 คอลัมน์ (แท็บซ้าย | เนื้อหา | แท็บขวา) =====
+   ใช้ตัวแปรสีของเว็บหลัก (--border, --foreground, --accent ...) จึงเปลี่ยนตามโหมดสว่าง/มืดอัตโนมัติ
+   ทุก class ของ Sunshine ขึ้นต้นด้วย "sun-" และอยู่ใต้ #sunTool ไม่ชนกับสไตล์เดิม */
+
+/* ---------- เลย์เอาต์ 3 คอลัมน์ ---------- */
+body{--lw:252px;--rw:252px}
+body .shell{grid-template-columns:var(--lw) minmax(0,1fr) var(--rw)!important}
+/* ระบุคอลัมน์ให้ชัด ไม่งั้นเมื่อซ่อนแถบ เนื้อหาจะไหลไปอยู่คอลัมน์กว้าง 0 */
+body .shell>.top:not(.side-right){grid-column:1;grid-row:1}
+body .shell>.panel-wrap{grid-column:2;grid-row:1}
+body .shell>.side-right{grid-column:3;grid-row:1}
+@media(min-width:761px){
+/* ย่อแถบเมนู: เหลือแต่ไอคอน (ซ้ายและขวาย่อแยกกันได้) */
+body.collapse-left{--lw:68px}
+body.collapse-right{--rw:68px}
+body.collapse-left .top:not(.side-right),
+body.collapse-right .side-right.top{width:68px!important;padding:18px 8px!important}
+body.collapse-left .top:not(.side-right) .brand-copy,
+body.collapse-right .side-right .brand-copy,
+body.collapse-left .top:not(.side-right) .tab>span:not(.nav-ico),
+body.collapse-right .side-right .tab>span:not(.nav-ico),
+body.collapse-right .side-right .sun-nav-btn>span:not(.nav-ico),
+body.collapse-left .top:not(.side-right) .side-collapse .side-collapse-text,
+body.collapse-right .side-right .side-collapse .side-collapse-text,
+body.collapse-left .top:not(.side-right) .theme-switch,
+body.collapse-left .top:not(.side-right) .fx-system{display:none!important}
+body.collapse-left .top:not(.side-right) h1,
+body.collapse-right .side-right h1{justify-content:center;padding:5px 0 16px!important}
+body.collapse-left .top:not(.side-right) .tab,
+body.collapse-right .side-right .tab,
+body.collapse-right .side-right .sun-nav-btn,
+body.collapse-left .top:not(.side-right) .side-collapse,
+body.collapse-right .side-right .side-collapse{justify-content:center;padding-left:0!important;padding-right:0!important}
+}
+
+@media(max-width:760px){.side-collapse{display:none!important}}
+/* ปุ่มย่อ/ขยายในแถบเมนู */
+.side-collapse{
+  width:100%;min-height:36px;display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:0 12px;
+  border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--muted);
+  font-size:12.5px;text-align:left;transition:background .15s,color .15s,border-color .15s;
+}
+.side-collapse svg{width:16px;height:16px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.side-collapse:hover{background:var(--accent-soft);color:var(--foreground);border-color:var(--accent)}
+.side-collapse .ic-open{display:none}
+body.collapse-left .top:not(.side-right) .side-collapse .ic-close,
+body.collapse-right .side-right .side-collapse .ic-close{display:none}
+body.collapse-left .top:not(.side-right) .side-collapse .ic-open,
+body.collapse-right .side-right .side-collapse .ic-open{display:block}
+/* แท็บด้านขวา: หน้าตาเดียวกับแถบซ้าย แต่เส้นขอบอยู่ด้านซ้าย */
+.side-right.top{
+  width:252px!important;
+  border-right:0!important;
+  border-left:1px solid var(--border)!important;
+  box-shadow:none!important;
+}
+html[data-prod-theme="light"] .side-right.top{
+  border-right:0!important;
+  border-left:1px solid var(--border)!important;
+}
+
+/* ปุ่มนำเข้าข้อมูล (ไม่ใช่แท็บ ไม่สลับหน้า) */
+.side-right .sun-nav-btn{
+  width:100%;min-height:48px;display:flex;align-items:center;gap:10px;
+  padding:10px 12px;margin-top:10px;
+  border:1px dashed var(--border);border-radius:10px;
+  background:transparent;color:var(--muted);
+  font-size:13px;font-weight:500;text-align:left;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.side-right .sun-nav-btn:hover{background:var(--accent-soft);color:var(--foreground);border-color:var(--accent)}
+.side-right .sun-nav-btn .nav-ico{display:grid;place-items:center}
+.side-right .nav-ico svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+@media(max-width:1050px){
+  body{--lw:220px;--rw:220px}
+  .side-right.top{width:220px!important}
+}
+@media(max-width:760px){
+  body .shell{display:block!important}
+  .side-right.top{width:100%!important;border-left:0!important;border-top:1px solid var(--border)!important}
+  .side-right .tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* ---------- Sunshine ---------- */
+#sunTool .sun-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px}
+#sunTool .sun-search{
+  display:flex;align-items:center;gap:8px;flex:1 1 240px;max-width:380px;
+  padding:0 12px;border:1px solid var(--border);border-radius:9px;background:transparent;
+}
+#sunTool .sun-search svg{width:16px;height:16px;flex:0 0 auto;color:var(--muted-2)}
+#sunTool .sun-search input{flex:1;min-width:0;border:0!important;background:transparent!important;outline:none;box-shadow:none!important;padding:9px 0;color:var(--foreground);font-size:14px}
+#sunTool .sun-actions{display:flex;gap:6px}
+.sun-icon-btn{
+  width:36px;height:36px;display:inline-grid;place-items:center;padding:0;
+  border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);
+  transition:background .15s,color .15s,border-color .15s;
+}
+.sun-icon-btn svg{width:17px;height:17px}
+.sun-icon-btn:hover{background:var(--accent-soft);color:var(--foreground);border-color:var(--accent)}
+
+#sunTool .sun-status{margin:12px 0 4px;font-size:12.5px;color:var(--muted-2)}
+#sunTool .sun-hint{color:var(--muted);font-size:14px;padding:6px 0;margin:0}
+#sunTool .sun-err{
+  padding:14px 16px;border-radius:10px;border:1px solid var(--danger);
+  border-left-width:4px;color:var(--danger);
+}
+
+/* การ์ดสรุป */
+#sunTool .sun-summary{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0}
+#sunTool .sun-card{
+  min-width:150px;padding:12px 16px;border:1px solid var(--border);border-top:3px solid var(--muted-2);
+  border-radius:10px;background:transparent;
+}
+#sunTool .sun-card-label{font-size:12.5px;color:var(--muted)}
+#sunTool .sun-card-value{font-size:24px;font-weight:700;margin-top:2px}
+#sunTool .sun-card.danger{border-top-color:var(--danger)}
+#sunTool .sun-card.danger .sun-card-value{color:var(--danger)}
+#sunTool .sun-card.ok{border-top-color:var(--success)}
+#sunTool .sun-card.ok .sun-card-value{color:var(--success)}
+
+/* ตาราง */
+#sunTool .sun-tablewrap{
+  margin-top:10px;max-height:68vh;overflow:auto;
+  border:1px solid var(--border);border-radius:10px;
+}
+#sunTool .sun-table{border-collapse:collapse;width:100%;font-size:13.5px}
+#sunTool .sun-table th,#sunTool .sun-table td{
+  padding:9px 12px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border-soft);
+}
+#sunTool .sun-table thead th{
+  position:sticky;top:0;z-index:2;background:var(--surface-2);color:var(--foreground);
+  font-weight:600;font-size:13px;
+}
+#sunTool .sun-table tbody tr:hover{background:var(--accent-soft)}
+#sunTool .sun-sortable{cursor:pointer;user-select:none}
+#sunTool .sun-sortable:hover{color:var(--accent)}
+#sunTool .sun-sort-ic{display:inline-block;width:10px;font-size:10px;color:var(--accent)}
+#sunTool .sun-num{text-align:right;font-variant-numeric:tabular-nums}
+#sunTool .sun-loc{font-weight:700}
+#sunTool .sun-row-warn{background:rgba(220,60,60,.10)}
+#sunTool .sun-good{color:var(--success);font-weight:600}
+#sunTool .sun-warn{color:var(--danger);font-weight:700}
+#sunTool .sun-gA{background:rgba(47,158,99,.16);color:var(--success);font-weight:700;text-align:center}
+#sunTool .sun-gB{background:rgba(227,160,8,.14);color:#c48a06;text-align:center}
+#sunTool .sun-gC{background:var(--surface-2);color:var(--muted);text-align:center}
+#sunTool .sun-rec-none{color:var(--muted);font-weight:600}
+#sunTool .sun-rec-good{color:var(--success);font-weight:700}
+#sunTool .sun-rec-stock{color:#c48a06;font-weight:700}
+
+/* แถบเกณฑ์/ตัวกรอง */
+#sunTool .sun-thresh-bar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:14px;padding:12px 14px;
+  border:1px solid var(--border);border-radius:10px;font-size:13.5px;
+}
+#sunTool .sun-thresh-bar label{display:flex;align-items:center;gap:8px}
+#sunTool .sun-thresh-bar input[type=number]{width:76px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--foreground)}
+#sunTool .sun-thresh-apply{
+  min-height:34px;padding:0 16px;border:1px solid var(--accent);border-radius:8px;
+  background:var(--accent);color:var(--accent-fg);font-weight:600;
+}
+
+/* dropdown ติ๊กเลือกหลายตัว */
+#sunTool .sun-ms{position:relative}
+#sunTool .sun-ms-btn{
+  display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;
+  border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--foreground);
+  font-size:13.5px;white-space:nowrap;
+}
+#sunTool .sun-ms-btn:hover{border-color:var(--accent)}
+#sunTool .sun-ms-caret{font-size:10px;color:var(--muted-2)}
+#sunTool .sun-ms-panel{
+  display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:30;
+  min-width:190px;max-height:240px;overflow-y:auto;padding:6px;
+  border:1px solid var(--border);border-radius:9px;background:var(--surface-2);
+  box-shadow:0 14px 30px rgba(0,0,0,.28);
+}
+#sunTool .sun-ms-panel.open{display:block}
+#sunTool .sun-ms-option{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:13.5px;cursor:pointer}
+#sunTool .sun-ms-option:hover{background:var(--accent-soft)}
+#sunTool .sun-ms-option input{margin:0}
+
+/* ---------- แผงนำเข้าข้อมูล ---------- */
+.sun-overlay{
+  position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.45);
+  opacity:0;pointer-events:none;transition:opacity .18s;
+}
+.sun-overlay.show{opacity:1;pointer-events:auto}
+.sun-upload-panel{
+  position:fixed;top:0;bottom:0;right:0;z-index:80;width:400px;max-width:92vw;
+  padding:18px 18px 30px;overflow-y:auto;
+  background:var(--sidebar);color:var(--foreground);border-left:1px solid var(--border);
+  box-shadow:-10px 0 30px rgba(0,0,0,.3);
+  transform:translateX(100%);transition:transform .2s ease;
+}
+.sun-upload-panel.open{transform:translateX(0)}
+.sun-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sun-panel-head h2{margin:0;font-size:17px}
+.sun-uploader{margin-bottom:14px;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)}
+.sun-uploader h3{margin:0 0 4px;font-size:15px}
+.sun-uploader-tag{display:inline-block;margin-bottom:8px;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-soft)}
+.sun-uploader-desc{margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.sun-uprow{margin-bottom:10px}
+.sun-uprow label{display:block;margin-bottom:5px;font-size:13px}
+.sun-uprow input[type=file]{width:100%;font-size:12.5px}
+.sun-uprow input[type=password]{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--foreground)}
+.sun-hint-inline{font-size:12px;font-weight:400;color:var(--muted-2)}
+.sun-primary{
+  width:100%;min-height:40px;padding:10px 14px;border:1px solid var(--accent);border-radius:8px;
+  background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:14px;
+}
+.sun-primary:hover{filter:brightness(1.08)}
+.sun-uplog{margin-top:10px;font-size:13px;color:var(--muted);word-break:break-word}
+.sun-uplog .sun-good{color:var(--success);font-weight:600}
+.sun-uplog .sun-warn{color:var(--danger);font-weight:700}
+
+#sunTool .sun-more{margin-top:8px;font-size:12.5px;color:var(--muted-2)}
+
+/* แถบเลื่อนของตารางใหญ่ขึ้น ใช้ง่ายขึ้น */
+#sunTool .sun-tablewrap{scrollbar-width:auto;scrollbar-color:var(--muted-2) var(--surface-2)}
+#sunTool .sun-tablewrap::-webkit-scrollbar{width:18px;height:18px;background:var(--surface-2)}
+#sunTool .sun-tablewrap::-webkit-scrollbar-track{background:var(--surface-2);border-left:1px solid var(--border-soft)}
+#sunTool .sun-tablewrap::-webkit-scrollbar-thumb{
+  min-height:56px;min-width:56px;border-radius:10px;
+  background:var(--muted-2);border:4px solid var(--surface-2);
+}
+#sunTool .sun-tablewrap::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+#sunTool .sun-tablewrap::-webkit-scrollbar-button:single-button{display:block;height:18px;width:18px;background:var(--surface-2)}
+#sunTool .sun-tablewrap::-webkit-scrollbar-corner{background:var(--surface-2)}
+/* ปิดเอฟเฟกต์ยุบตัวตอนคลิก (สเกลย่อองค์ประกอบที่ถูกกด) */
+.global-click-pressed{animation:none!important;transform:none!important}
+
+/* ปิดคลื่นวงแหวน/แสงวาบตอนคลิก */
+.wave-ring,.global-click-flash,.global-click-ripple{display:none!important}
+
+#sunTool .sun-selcell,#sunTool .sun-selhead{width:38px;text-align:center}
+#sunTool .sun-selcell input,#sunTool .sun-selhead input{width:16px;height:16px;cursor:pointer;accent-color:var(--accent)}
+#sunTool .sun-selected{background:var(--accent-soft)}
+#sunTool .sun-linkbtn{margin-left:6px;padding:0;border:0;background:transparent;color:var(--accent);text-decoration:underline;font-size:inherit;cursor:pointer}
+
+/* ===== หน้า "รวมไฟล์ ZIP": แบ่งครึ่ง ซ้าย = เตรียม/อัปโหลดข้อมูล Sunshine (มีตัวอย่าง) | ขวา = รวมไฟล์ ZIP เดิม ===== */
+.merge-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:1100px){.merge-split{grid-template-columns:1fr}}
+#mergeTool .sun-import{padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 20px 55px rgba(0,0,0,.12)}
+#mergeTool .sun-import-eyebrow{margin-bottom:8px;font-size:11px;letter-spacing:.14em;font-weight:600;color:var(--muted-2)}
+#mergeTool .sun-import h2{order:0!important;margin:0 0 6px!important;font-size:22px!important;line-height:1.25!important;color:var(--foreground)!important}
+#mergeTool .sun-import p{order:0!important;margin:0 0 16px!important;font-size:13px!important;color:var(--muted)!important}
+#mergeTool .sun-import h3{order:0!important;margin:0 0 4px!important;padding:0!important;border-top:0!important;font-size:15px!important;color:var(--foreground)!important}
+.sun-prep{margin-top:14px;padding:12px 14px;border:1px solid var(--border);border-radius:10px}
+.sun-prep[hidden]{display:none!important}
+.sun-prep-head{font-size:14px;font-weight:600;margin-bottom:4px}
+.sun-prep-note{margin:4px 0;font-size:12.5px;color:var(--muted)}
+.sun-prep-tablewrap{margin-top:8px;max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+.sun-prep .sun-table{border-collapse:collapse;width:100%;font-size:12.5px}
+.sun-prep .sun-table th,.sun-prep .sun-table td{padding:7px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border-soft)}
+.sun-prep .sun-table thead th{position:sticky;top:0;background:var(--surface-2);color:var(--foreground);font-weight:600}
+.sun-prep .sun-err{margin-top:6px;padding:10px 12px;border:1px solid var(--danger);border-left-width:4px;border-radius:8px;color:var(--danger);font-size:13px}
+/* ฝั่งขวา (รวมไฟล์ ZIP เดิม) เมื่อแบ่งครึ่งหน้า: เรียงเป็นคอลัมน์เดียวให้พอดีความกว้าง */
+#mergeTool .merge-right .beta-card{grid-template-columns:1fr!important;grid-template-areas:none!important}
+#mergeTool .merge-right .beta-card>*{grid-area:auto!important}
+#mergeTool .merge-right .beta-stats{max-width:none!important}
+#mergeTool .merge-right h2{font-size:24px!important}
+#mergeTool .merge-right .beta-card>*{grid-column:1 / -1!important;grid-row:auto!important;min-width:0}
+#mergeTool .merge-right .beta-card{display:flex!important;flex-direction:column!important}
+
+/* การ์ด SI (ซ้าย) ใช้หน้าตาเดียวกับการ์ดรวมไฟล์ ZIP (ขวา) */
+#mergeTool .merge-left .beta-card{grid-template-columns:1fr!important;grid-template-areas:none!important}
+#mergeTool .merge-left .beta-card>*{grid-area:auto!important;grid-column:1 / -1!important;grid-row:auto!important;min-width:0}
+#mergeTool .merge-left .beta-card{display:flex!important;flex-direction:column!important}
+#mergeTool .merge-left .beta-stats{max-width:none!important}
+#mergeTool .merge-left h2{font-size:24px!important}
+#mergeTool .sun-si-card:before{content:'02  /  STOCK MOVEMENT'!important}
+#mergeTool .sun-si-card .beta-drop:before{content:'SI'!important}
+/* การ์ด SI: แสดงส่วนสถานะ/ปุ่ม/ตัวอย่างเมื่อมีไฟล์ (กฎซ่อนของหน้านี้ผูกกับ ZIP ฝั่งขวา จึงต้อง override) */
+#mergeTool .sun-si-card.has-file .beta-progress,
+#mergeTool .sun-si-card.has-file .beta-status,
+#mergeTool .sun-si-card.has-file h3{display:block!important}
+#mergeTool .sun-si-card.has-file .beta-actions{display:flex!important}
+
+#mergeTool .sun-si-card:not(.has-file) .beta-table{display:none!important}
+
+/* ไฟล์ที่ 3 (SI) ใต้ไฟล์ Stock ในหน้าตรวจ ORDER กับ Stock */
+#compareTool .compare-si-title{margin-top:18px}
+#compareTool .compare-si-drop{position:relative;cursor:pointer}
+#compareTool .compare-si-drop.has-file{border-style:solid;border-color:var(--accent)}
+#compareTool .compare-si-clear{
+  margin-top:10px;min-height:30px;padding:0 12px;border:1px solid var(--border);border-radius:8px;
+  background:transparent;color:var(--muted);font-size:12px;cursor:pointer;
+}
+#compareTool .compare-si-clear[hidden]{display:none}
+#compareTool .compare-si-clear:hover{color:var(--danger);border-color:var(--danger)}
+/* ===== หน้า นำเข้าข้อมูล Sunshine ===== */
+#sunImportTool .sun-imp-head{margin:0 0 18px}
+#sunImportTool .sun-imp-head h2{margin:0 0 6px;font-size:24px;color:var(--foreground)}
+#sunImportTool .sun-imp-head p{margin:0;font-size:13.5px;color:var(--muted)}
+#sunImportTool .sun-imp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px;align-items:start}
+#sunImportTool .sun-imp-card{display:flex;flex-direction:column;padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 20px 55px rgba(0,0,0,.12)}
+#sunImportTool .sun-imp-eyebrow{margin-bottom:8px;font-size:11px;letter-spacing:.14em;font-weight:600;color:var(--muted-2)}
+#sunImportTool .sun-imp-card h2{margin:0 0 6px;font-size:22px;line-height:1.25;color:var(--foreground)}
+#sunImportTool .sun-imp-card p{margin:0 0 16px;font-size:13px;color:var(--muted)}
+#sunImportTool .sun-imp-card h3{margin:18px 0 8px;font-size:14px;color:var(--foreground)}
+#sunImportTool .sun-imp-drop{
+  position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:30px 16px;text-align:center;cursor:pointer;
+  border:1px dashed var(--border);border-radius:14px;background:transparent;transition:background .15s,border-color .15s;
+}
+#sunImportTool .sun-imp-drop:hover,#sunImportTool .sun-imp-drop.drag-ready{background:var(--accent-soft);border-color:var(--accent)}
+#sunImportTool .sun-imp-drop strong{font-size:15px;color:var(--foreground)}
+#sunImportTool .sun-imp-drop span{font-size:12.5px;color:var(--muted)}
+#sunImportTool .sun-imp-drop input{display:none}
+#sunImportTool .sun-imp-badge{display:grid;place-items:center;width:46px;height:46px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);font-size:12px;font-weight:700;color:var(--muted)}
+#sunImportTool .sun-imp-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+#sunImportTool .sun-imp-stats>div{padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+#sunImportTool .sun-imp-stats span{display:block;font-size:12.5px;color:var(--muted)}
+#sunImportTool .sun-imp-stats b{display:block;margin-top:2px;font-size:24px;color:var(--foreground)}
+#sunImportTool .sun-imp-progress{margin-top:14px;height:7px;overflow:hidden;border:1px solid var(--border);border-radius:99px;background:var(--surface-2)}
+#sunImportTool .sun-imp-progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+#sunImportTool .sun-imp-status{margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--muted);word-break:break-word}
+#sunImportTool .sun-imp-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#sunImportTool .sun-imp-actions .sun-primary{flex:1 1 220px;width:auto}
+#sunImportTool .sun-imp-actions .sun-primary:disabled{opacity:.45;cursor:not-allowed}
+#sunImportTool .sun-imp-danger{min-height:40px;padding:0 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:13px}
+#sunImportTool .sun-imp-danger:hover{color:var(--danger);border-color:var(--danger)}
+#sunImportTool .sun-imp-table{max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--muted)}
+#sunImportTool .sun-imp-table table{border-collapse:collapse;width:100%;font-size:12.5px;color:var(--foreground)}
+#sunImportTool .sun-imp-table th,#sunImportTool .sun-imp-table td{padding:7px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border-soft)}
+#sunImportTool .sun-imp-table thead th{position:sticky;top:0;background:var(--surface-2);font-weight:600}
+/* ซ่อนสถานะ/ปุ่ม/ตัวอย่างไว้จนกว่าจะเลือกไฟล์ */
+#sunImportTool .sun-imp-card:not(.has-file) .sun-imp-progress,
+#sunImportTool .sun-imp-card:not(.has-file) .sun-imp-status,
+#sunImportTool .sun-imp-card:not(.has-file) .sun-imp-actions,
+#sunImportTool .sun-imp-card:not(.has-file) h3,
+#sunImportTool .sun-imp-card:not(.has-file) .sun-imp-table{display:none}
+/* กล่องหักลบกับไฟล์ที่ 3 (SI) ในหน้าตรวจ ORDER กับ Stock */
+#compareTool .compare-si-deduct{margin-top:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:13px}
+#compareTool .compare-si-deduct[hidden]{display:none!important}
+#compareTool .compare-si-deduct-note{margin:4px 0 8px;font-size:12.5px;color:var(--muted)}
+#compareTool .compare-si-deduct-wrap{max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+#compareTool .compare-si-deduct table{width:100%;border-collapse:collapse;font-size:12.5px}
+#compareTool .compare-si-deduct th,#compareTool .compare-si-deduct td{padding:6px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border-soft)}
+#compareTool .compare-si-deduct td.num{text-align:right;font-variant-numeric:tabular-nums}
+#compareTool .compare-si-deduct thead th{position:sticky;top:0;background:var(--surface-2);font-weight:600}
+/* ตารางหักลบ SI: หัวคอลัมน์ตัวเลขชิดขวาให้ตรงกับตัวเลข และให้คอลัมน์ไม่ห่างกันเกินไป */
+#compareTool .compare-si-deduct table{width:auto!important;min-width:min(100%,560px)}
+#compareTool .compare-si-deduct th.num,#compareTool .compare-si-deduct td.num{text-align:right!important}
+#compareTool .compare-si-deduct th,#compareTool .compare-si-deduct td{padding:6px 16px!important}
+/* ปุ่มอัปโหลดรวมปุ่มเดียวบนสุดของหน้า นำเข้าข้อมูล */
+#sunImportTool .sun-imp-bar{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 18px;
+  margin:0 0 18px;padding:14px 18px;border:1px solid var(--border);border-radius:14px;background:var(--surface);
+}
+#sunImportTool .sun-imp-bar-text{flex:1 1 320px;min-width:0}
+#sunImportTool .sun-imp-bar-text b{font-size:14px;color:var(--foreground)}
+#sunImportTool .sun-imp-bar-status{margin-top:4px;font-size:13px;color:var(--muted);word-break:break-word}
+#sunImportTool .sun-imp-bar .sun-primary{flex:0 0 auto;width:auto;min-width:260px;padding:0 22px}
+#sunImportTool .sun-imp-bar .sun-primary:disabled{opacity:.45;cursor:not-allowed}

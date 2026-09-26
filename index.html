@@ -1,0 +1,579 @@
+
+
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script>try{document.documentElement.setAttribute('data-prod-theme',localStorage.getItem('order_ui_theme_v1')==='light'?'light':'dark');}catch(e){}</script>
+<link rel="stylesheet" href="css/style.css?v=20261052">
+<link rel="stylesheet" href="css/theme-light.css?v=20261052">
+<link rel="stylesheet" href="css/sunshine.css?v=20261052">
+<title>ORDER Workspace — จัดการออเดอร์และสต็อก</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=1">
+<link rel="alternate icon" href="favicon.svg?v=1">
+<script src="js/vendor/xlsx.full.min.js"></script>
+<script src="js/vendor/jszip.min.js"></script>
+<script src="js/vendor/html2pdf.bundle.min.js"></script>
+<style>
+/* ซ่อนกล่องกติกาในหน้าเปรียบเทียบ แต่คงกติกาการตรวจสอบใน JavaScript ตามเดิม */
+.rules { display: none !important; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="top">
+    <h1><span class="brand-mark">⌘</span><span class="brand-copy"><b>ORDER Workspace</b><small>จัดการออเดอร์และสต็อก</small></span></h1>
+    <button type="button" class="side-collapse" id="sideCollapseLeft" data-side="left" title="ย่อเมนู" aria-label="ย่อหรือขยายเมนูด้านซ้าย" aria-pressed="false">
+      <svg class="ic-close" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+      <svg class="ic-open" viewBox="0 0 24 24" aria-hidden="true"><path d="m13 17 5-5-5-5"/><path d="m6 17 5-5-5-5"/></svg>
+      <span class="side-collapse-text">ย่อเมนู</span>
+    </button>
+    <div class="tabs">
+      <button class="tab active" data-tool="mergeTool"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg></span><span>รวมไฟล์ ZIP</span></button>
+      <button class="tab" data-tool="compareTool"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span><span>ตรวจ ORDER กับ Stock</span></button>
+      <button class="tab" data-tool="orderTool"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span><span>รับORDER</span></button>
+      <button class="tab" data-tool="beforeOrderTool"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg></span><span>ก่อนสั่ง</span></button>
+      <button class="tab" data-tool="scanTool"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg></span><span>ตรวจใบปริ้น</span></button>
+      <button class="tab" data-tool="summaryTool"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span><span>สรุปงาน</span></button>
+    </div>
+    <div class="theme-switch" role="group" aria-label="โหมดสี">
+      <button type="button" class="theme-opt" data-theme-choice="light" aria-pressed="false">☀️ สว่าง</button>
+      <button type="button" class="theme-opt" data-theme-choice="dark" aria-pressed="true">🌙 มืด</button>
+    </div>
+  </div>
+
+  <div class="panel-wrap">
+    <div class="page-heading"><h1 id="scCurrentPage">รวมไฟล์ ZIP</h1></div>
+    <section id="mergeTool" class="tool active">
+    <div class="merge-split">
+    <div class="merge-left">
+      <div class="beta-card sun-si-card" id="sunMCard_si">
+        <h2 style="margin-top:0">🗂️ ประวัติเคลื่อนไหวสต๊อก → SI</h2>
+        <p>เลือกไฟล์ SI (Excel/CSV หรือ ZIP หลายไฟล์ได้) ระบบแตกไฟล์ รวม ตัดแถวตามเงื่อนไข และเปลี่ยนหัวคอลัมน์ SKU + เคลื่อนไหว เป็น SKU Merchant + จำนวน ให้ แล้วแสดงตัวอย่างด้านล่าง ไฟล์เดียวกันจะขึ้นที่ช่อง SI ของหน้า นำเข้าข้อมูล และหน้า ตรวจ ORDER กับ Stock ให้อัตโนมัติ (หน้านี้ไม่อัปโหลดขึ้นฐานข้อมูล)</p>
+        <div class="beta-drop" id="sunMDrop_si">
+          <strong>📁 คลิกเพื่อเลือกไฟล์ SI</strong><br>
+          หรือลากไฟล์ Excel / CSV / ZIP มาวางที่นี่
+          <input id="sunMIn_si" type="file" accept=".xlsx,.xls,.csv,.zip" multiple>
+        </div>
+        <div class="beta-stats">
+          <div class="beta-stat">ไฟล์ที่อ่าน<div class="sv" id="sunMFiles_si">0</div></div>
+          <div class="beta-stat">แถวที่ผ่านเงื่อนไข<div class="sv" id="sunMRows_si">0</div></div>
+        </div>
+        <div class="beta-progress"><div class="beta-bar" id="sunMBar_si"></div></div>
+        <div class="beta-status" id="sunMStatus_si">ยังไม่ได้เลือกไฟล์</div>
+        <div class="beta-actions">
+          <button type="button" class="beta-danger" id="sunMClr_si">ล้างข้อมูล</button>
+        </div>
+        <h3>ตัวอย่างข้อมูล</h3>
+        <div class="beta-table" id="sunMPrep_si">ยังไม่มีข้อมูล</div>
+      </div>
+    </div>
+    <div class="merge-right">
+    <div class="beta-card">
+        <h2 style="margin-top:0">📦 รวมไฟล์ Excel จาก ZIP</h2>
+        <p>อัปโหลด ZIP ที่มีไฟล์ Excel หลายไฟล์ แล้วรวมข้อมูลต่อกันลงในชีตเดียว</p>
+        <div class="beta-drop" id="drop">
+          <strong>📁 คลิกเพื่อเลือกไฟล์ ZIP</strong><br>
+          หรือลากไฟล์ ZIP มาวางที่นี่
+          <input id="file" type="file" accept=".zip">
+        </div>
+        <div class="auto-merge-hint">⚡ <b>รวมอัตโนมัติ</b> — เมื่อเลือก ZIP แล้วระบบจะเริ่มรวมไฟล์ Excel ให้ทันที</div>
+        <div class="beta-stats">
+          <div class="beta-stat">ไฟล์ Excel<div class="sv" id="fileCount">0</div></div>
+          <div class="beta-stat">จำนวนแถว<div class="sv" id="rowCount">0</div></div>
+        </div>
+        <div class="beta-progress"><div class="beta-bar" id="bar"></div></div>
+        <div class="beta-status" id="status">ยังไม่ได้เลือกไฟล์</div>
+        <div class="beta-actions">
+          <button class="beta-primary" id="process" disabled style="display:none">🔄 รวมไฟล์</button>
+          <button class="beta-secondary" id="download" disabled>⬇️ ดาวน์โหลด Excel</button>
+          <button class="beta-danger" id="clear">ล้างข้อมูล</button>
+        </div>
+        <h3>ตัวอย่างข้อมูล</h3>
+        <div class="beta-table" id="preview">ยังไม่มีข้อมูล</div>
+      </div>
+    </div>
+    </div>
+    </section>
+
+    <section id="compareTool" class="tool">
+      <div class="app" style="max-width:none;background:transparent;border:0;box-shadow:none">
+        <header style="display:none"></header>
+        <main>
+          <div class="grid">
+            <div class="card">
+              <h2>📥 ไฟล์ที่ 1 — ORDER</h2>
+              <label class="drop">
+                <input id="file1" type="file" accept=".xlsx,.xls,.csv">
+                <div class="icon">📥</div>
+                <div class="name" id="name1">คลิกเพื่อเลือกไฟล์ ORDER</div>
+                <div class="info" id="info1">รองรับ Excel / CSV</div>
+              </label>
+
+              <div class="compare-text-box">
+                <div class="compare-text-head">⌨️ หรือวางข้อความ ORDER <span>ระบบจะเทียบอัตโนมัติ</span></div>
+                <textarea id="orderTextInput" spellcheck="false" placeholder="วางข้อมูล ORDER จาก Excel หรือ CSV ที่นี่  •  ตัวอย่าง: ABC-001    5    |    ABC-002    3"></textarea>
+                <div class="compare-text-hint">⚡ พิมพ์หรือวางข้อมูลแล้ว ระบบจะตรวจ ORDER กับ Stock ให้อัตโนมัติทันที</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>📦 ไฟล์ที่ 2 — Stock</h2>
+              <label class="drop">
+                <input id="file2" type="file" accept=".xlsx,.xls,.csv">
+                <div class="icon">📦</div>
+                <div class="name" id="name2">คลิกเพื่อเลือกไฟล์ Stock</div>
+                <div class="info" id="info2">รองรับ Excel / CSV</div>
+              </label>
+              <h2 class="compare-si-title">🗂️ ไฟล์ที่ 3 — ประวัติเคลื่อนไหว (SI)</h2>
+              <div class="drop compare-si-drop" id="siDropCompare" role="button" tabindex="0" title="ไปที่หน้า นำเข้าข้อมูล เพื่อเลือกไฟล์ SI">
+                <div class="icon">🗂️</div>
+                <div class="name" id="name3">รอไฟล์ SI จากหน้า นำเข้าข้อมูล</div>
+                <div class="info" id="info3">ใส่ให้อัตโนมัติเมื่อเลือกไฟล์ SI (ผ่านเงื่อนไขของหน้านั้นแล้ว)</div>
+                <button type="button" class="compare-si-clear" id="siCompareClear" hidden>✕ เอาออก</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div id="autoCompareInfo" class="auto-compare-info">
+              <b>⚡ ตรวจ ORDER กับ Stock อัตโนมัติ</b>
+              <div id="autoCompareDetail">
+                เลือกไฟล์ ORDER และ Stock แล้วระบบจะตรวจจับหัวคอลัมน์จากแถวบนสุดให้อัตโนมัติ
+              </div>
+            </div>
+            <div id="siDeductBox" class="compare-si-deduct" hidden></div>
+
+            <div class="rules">
+              <b>📌 กติกา:</b><br>
+              • Stock SKU เดียวกันหลายแถว → รวมจำนวน Stock ทุกแถว<br>
+              • ORDER SKU เดียวกันหลายแถว → รวมจำนวน ORDER ทุกแถว<br>
+              • Stock ≥ ORDER → <b>✅ พอ</b><br>
+              • Stock &lt; ORDER → <b>⚠️ ขาด X</b><br>
+              • ไม่พบ SKU ใน Stock หรือ Stock เป็น 0 → <b>❌ ไม่มี Stock</b><br>
+              • ตำแหน่งที่มีรูปแบบ เช่น KT-001-01 จะแสดงเฉพาะ KT และรวมตำแหน่งที่ไม่ซ้ำกัน
+            </div>
+
+            <div class="actions">
+              <button class="red" id="clear2">🗑 ล้างข้อมูล</button>
+            </div>
+          </div>
+
+          <div class="progress" id="progress"><div class="bar" id="compareBar"></div></div>
+          <div class="status" id="compareStatus">● กรุณาเลือกไฟล์ Stock และ ORDER</div>
+
+          <div class="download-box" id="downloadBox" style="display:none">
+            <div>
+              <b>✅ ตรวจสอบเสร็จแล้ว</b>
+              <div class="download-note">เลือกหัวข้อเพื่อดูข้อมูลบนเว็บได้ทันที โดยไม่ต้องดาวน์โหลดไฟล์</div>
+            </div>
+            <div class="compare-download-actions">
+              <button class="green" id="download2">▾ ทั้งหมด</button>
+              <button class="compare-export-short" id="downloadShort">⚠️ เฉพาะที่ขาด</button>
+              <button class="compare-export-none" id="downloadNone">❌ เฉพาะไม่มี Stock</button>
+            </div>
+          </div>
+
+          <div class="compare-web-preview" id="compareWebPreview" style="display:none">
+            <div class="compare-web-preview-head">
+              <div>
+                <strong id="compareWebPreviewTitle">📋 ผลลัพธ์บนเว็บ</strong>
+                <div class="download-note">ข้อมูลชุดเดียวกับไฟล์ Excel ที่ระบบเตรียมไว้</div>
+              </div>
+              <button class="compare-web-download" id="downloadWebExcel">⬇ ดาวน์โหลด Excel</button>
+            </div>
+            <div id="compareWebPreviewBody"></div>
+          </div>
+
+          <!-- แถบสรุปสถานะขนาดกะทัดรัด: ใช้ข้อมูลเดิมจาก compareResults โดยไม่เปลี่ยนกติกาการตรวจ -->
+          <div class="compare-quick-status" id="compareQuickStatus" aria-label="สรุปสถานะการตรวจ">
+            <div class="quick-status-item"><span>ทั้งหมด</span><b id="compareQuickTotal">0</b></div>
+            <div class="quick-status-item quick-ok"><span>✅ พอ</span><b id="compareQuickOk">0</b></div>
+            <div class="quick-status-item quick-short"><span>⚠️ ขาด</span><b id="compareQuickShort">0</b></div>
+            <div class="quick-status-item quick-none"><span>❌ ไม่มี Stock</span><b id="compareQuickNone">0</b></div>
+          </div>
+
+          <div class="stats" aria-hidden="true">
+            <div class="stat"><div>📥 SKU ORDER</div><div class="sv" id="total">0</div></div>
+            <div class="stat"><div>⚠️ SKU ที่ขาด</div><div class="sv" id="affected">0</div></div>
+            <div class="stat"><div>✅ SKU ที่พอ</div><div class="sv" id="remaining">0</div></div>
+          </div>
+
+          <div class="compare-tools-extra" id="compareExtra" style="display:none">
+            <div class="extra-head">
+              <strong>🔍 ค้นหา SKU และกรองสถานะ</strong>
+              <span id="compareExtraNote"></span>
+            </div>
+            <div class="extra-controls">
+              <input id="compareSearch" aria-label="ค้นหา SKU" type="text" placeholder="🔍 ค้นหา SKU...">
+              <select id="compareStatusFilter">
+                <option value="all">ทุกสถานะ</option>
+                <option value="ok">พอ</option>
+                <option value="short">ขาด</option>
+                <option value="none">ไม่มี Stock</option>
+              </select>
+            </div>
+            <div class="compare-mini-stats">
+              <span>SKU ทั้งหมด <b id="remainingSku">0</b></span>
+              <span>พอ <b id="partialSku">0</b></span>
+              <span>ขาด <b id="deletedSku">0</b></span>
+              <span>ไม่มี Stock <b id="remainingQty">0</b></span>
+            </div>
+          </div>
+
+          <div class="preview" id="resultBox" style="display:none">
+            <div class="extra-head" style="margin-bottom:10px">
+              <strong>📋 ตัวอย่างผลตรวจ ORDER กับ Stock</strong>
+              <span id="resultHeaderNote"></span>
+            </div>
+            <div class="table" id="resultPreview">
+              <div class="empty">ยังไม่มีผลลัพธ์</div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- ===== ORDER TAB ===== -->
+    <section id="orderTool" class="tool">
+      <div class="beta-card">
+        <h2 style="margin-top:0">📥 รับORDER</h2>
+        <p>อัปโหลด Excel แล้วเลือกกรองข้อมูลแต่ละหัวข้อได้เอง เหมือนตัวกรองใน Excel</p>
+
+        <div class="beta-drop" id="orderDrop">
+          <strong>📁 คลิกเพื่อเลือกไฟล์ ORDER</strong><br>
+          <span class="drop-hint">↕ ลากไฟล์ Excel / CSV มาวางที่นี่ได้เลย</span>
+          <input id="orderFile" type="file" accept=".xlsx,.xls,.csv">
+          <div class="name" id="orderFileName"></div>
+        </div>
+        <div class="saved-files" id="savedFiles" hidden>
+          <div class="saved-files-head">
+            <strong>📂 ไฟล์ที่เคยใช้</strong>
+            <span>เก็บไว้ในเบราว์เซอร์เครื่องนี้ (ล่าสุด 10 ไฟล์)</span>
+            <button type="button" class="saved-files-clear" id="savedFilesClear">ลบทั้งหมด</button>
+          </div>
+          <div class="saved-files-list" id="savedFilesList"></div>
+        </div>
+
+        <div class="beta-stats">
+          <div class="beta-stat">ไฟล์ ORDER<div class="sv" id="orderFileCount">0</div></div>
+          <div class="beta-stat">รายการทั้งหมด<div class="sv" id="orderRowCount">0</div></div>
+        </div>
+
+        <div class="order-filter-wrap" id="orderFilterPanel">
+          <div class="order-filter-title" onclick="toggleOrderFilters()">
+            <strong>🔎 กรองข้อมูลตามหัวข้อ</strong>
+            <div class="order-filter-actions">
+              <button type="button" id="orderSelectAll" onclick="event.stopPropagation()">☑ เลือกทั้งหมด</button>
+              <button type="button" id="orderClearFilters" onclick="event.stopPropagation()">↺ ล้างตัวกรอง</button>
+              <button type="button" class="order-filter-toggle" id="orderFilterToggle" onclick="event.stopPropagation();toggleOrderFilters()">พับเก็บ ▲</button>
+            </div>
+          </div>
+          <div class="order-filter-body order-filter-grid" id="orderFilters">
+            <div class="empty">กรุณาเลือกไฟล์ ORDER ก่อน</div>
+          </div>
+          <div class="order-summary" id="orderFilterSummary">ยังไม่มีข้อมูล</div>
+<div id="orderTrackingCopy">
+            <div class="tracking-copy-head">
+              <div class="tracking-copy-title">
+                <strong>📋 เลข Tracking ตามชื่อ SKU Merchant ที่เลือก</strong>
+                <span class="tracking-copy-note" id="trackingCopyNote">เลือกชื่อในคอลัมน์ “ชื่อ SKU Merchant” เพื่อแสดงเลข Tracking</span>
+              </div>
+              <details class="order-brand-picker" id="trackingBrandPicker">
+                <summary>🏷️ เลือกยี่ห้อ <span class="order-brand-count" id="trackingBrandCount">ทั้งหมด</span></summary>
+                <div class="order-brand-body">
+                  <div class="order-brand-actions">
+                    <button type="button" id="trackingBrandAll">เลือกทั้งหมด</button>
+                    <button type="button" id="trackingBrandNone">ล้างตัวเลือก</button>
+                  </div>
+                  <div class="order-brand-options" id="trackingBrandOptions"></div>
+                </div>
+              </details>
+            </div>
+            <div id="orderTrackingPreview"><span class="tracking-empty">ยังไม่ได้เลือก SKU Merchant</span></div>
+          </div>
+        </div>
+
+        <div class="beta-progress"><div class="beta-bar" id="orderBar"></div></div>
+        <div class="beta-status" id="orderStatus">ยังไม่ได้เลือกไฟล์ ORDER</div>
+
+        <div class="beta-actions">
+          <button class="pdf-print-btn" id="orderDownload" disabled>🖨️ ปริ้น ORDER (Pivot)</button>
+          <button class="excel-pivot-export-btn" id="orderPivotExcelDownload" disabled>📊 ดาวน์โหลด Excel (ตามตัวอย่าง)</button>
+          <button class="beta-danger" id="orderClear">ล้างข้อมูล</button>
+        </div>
+
+        <div class="order-summary-extra" id="orderSummaryExtra" style="display:none">
+          <div class="order-summary-grid">
+            <div><span>📋 ORDER หลังกรอง</span><b id="orderSummaryRows">0</b></div>
+            <div><span>🏷️ SKU ไม่ซ้ำ</span><b id="orderSummarySku">0</b></div>
+            <div><span>🔢 จำนวนรวม</span><b id="orderSummaryQty">0</b></div>
+            <div><span>⚠️ SKU ที่ไม่มี Stock</span><b id="orderSummaryMissing">0</b></div>
+          </div>
+          <div class="order-stock-actions">
+            <button type="button" class="excel-pivot-export-btn" id="orderStockCheckBtn">🔎 ตรวจ ORDER กับ Stock</button>
+          </div>
+          <div id="orderStockCheck" class="order-stock-check" style="display:none"></div>
+        </div>
+
+        <div class="order-pivot-wrap" id="orderPivotWrap" style="display:none">
+          <div class="order-pivot-head">
+            <div class="order-pivot-title-wrap">
+              <strong>📊 PivotTable ก่อนปริ้น</strong>
+              <span class="order-pivot-note" id="orderPivotNote">รวม SKU ที่ซ้ำกันและรวมจำนวน</span>
+            </div>
+            <div class="order-pivot-actions">
+              <details class="order-brand-picker" id="orderBrandPicker">
+                <summary>🏷️ เลือกยี่ห้อ <span class="order-brand-count" id="orderBrandCount">ทั้งหมด</span></summary>
+                <div class="order-brand-body">
+                  <div class="order-brand-actions">
+                    <button type="button" id="orderBrandAll">เลือกทั้งหมด</button>
+                    <button type="button" id="orderBrandNone">ล้างตัวเลือก</button>
+                  </div>
+                  <div class="order-brand-options" id="orderBrandOptions"></div>
+                </div>
+              </details>
+              <button type="button" class="order-pivot-copy-btn" id="orderPivotCopyAllBtn">📋 คัดลอกทั้งหมด</button>
+            </div>
+          </div>
+          <div class="order-pivot-table" id="orderPivotPreview"></div>
+        </div>
+
+        <div class="order-preview-head">
+          <h3 style="margin:0">ตัวอย่างข้อมูล</h3>
+          <div class="order-preview-note">แสดงสูงสุด 1,000 รายการที่ผ่านตัวกรอง</div>
+        </div>
+        <div class="beta-preview">
+          <div class="beta-table" id="orderPreview">ยังไม่มีข้อมูล</div>
+        </div>
+      </div>
+    </section>
+
+  <section id="beforeOrderTool" class="tool">
+    <div class="saved-files" id="beforeOrderRef" hidden>
+      <div class="saved-files-head">
+        <strong>📂 ใบปริ้นที่เคยปริ้น</strong>
+        <span>เก็บไว้ในเบราว์เซอร์เครื่องนี้ (ล่าสุด 10 ใบ) เลือกใบที่ใช้เป็นรายการก่อนสั่ง</span>
+        <button type="button" class="saved-files-clear" id="beforeOrderRefClear">ลบทั้งหมด</button>
+      </div>
+      <div class="saved-files-list" id="beforeOrderRefList"></div>
+    </div>
+    <div class="beta-card before-order-card">
+      <div class="before-order-head">
+        <div>
+          <h2 style="margin-top:0">🛒 ก่อนสั่ง</h2>
+          <p style="margin-bottom:0">
+            ดึงข้อมูล <b>Pivot</b> จากหน้า <b>📥 รับORDER</b> มาใช้ต่อได้ทันที โดยไม่ต้องดาวน์โหลดไฟล์ก่อน
+          </p>
+        </div>
+        <div class="before-order-actions">
+          <button type="button" class="beta-secondary" id="beforeOrderSelectAll">☑ เลือกทั้งหมด</button>
+          <button type="button" class="beta-secondary" id="beforeOrderClearAll">☐ ยกเลิกทั้งหมด</button>
+          <button type="button" class="excel-pivot-export-btn" id="beforeOrderCreate" disabled>✅ ยืนยัน</button>
+        </div>
+      </div>
+
+      <div class="before-order-stats">
+        <div class="beta-stat">รายการที่แสดง<div class="sv" id="beforeOrderRowCount">0</div></div>
+        <div class="beta-stat">เลือกไว้<div class="sv" id="beforeOrderSelectedCount">0</div></div>
+      </div>
+
+      <div class="before-order-note" id="beforeOrderStatus">
+        กรุณาเลือกไฟล์ที่หน้า 📥 รับORDER ก่อน เพื่อสร้าง Pivot
+      </div>
+
+      <div class="before-order-table-wrap">
+        <div class="beta-table" id="beforeOrderPreview">
+          <div class="empty">ยังไม่มีข้อมูล Pivot จากหน้า รับORDER</div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="scanTool" class="tool">
+    <div class="beta-card scan-card">
+      <h2 style="margin-top:0">🧾 ตรวจใบปริ้น</h2>
+      <p>ถ่ายรูปใบปริ้น (ORDER Pivot) ที่ทำเครื่องหมายด้วยมือ ระบบจะหารายการที่มี <b>กากบาท ✗</b> ต่อท้ายตัวเลข แล้วส่งไปตรวจกับ Stock ได้</p>
+
+      <div class="scan-need" id="scanNeed">⚠️ ยังไม่มีรายการ Pivot กรุณาเลือกไฟล์ ORDER ที่หน้า <b>📥 รับORDER</b> ก่อน (ใช้รายการเดียวกับที่ปริ้นออกไป)</div>
+
+      <div class="saved-files" id="scanRef" hidden>
+        <div class="saved-files-head">
+          <strong>📂 ใบปริ้นที่เคยปริ้น</strong>
+          <span>เก็บไว้ในเบราว์เซอร์เครื่องนี้ (ล่าสุด 10 ใบ) เลือกใบที่ใช้อ้างอิงรายการ</span>
+          <button type="button" class="saved-files-clear" id="scanRefClear">ลบทั้งหมด</button>
+        </div>
+        <div class="saved-files-list" id="scanRefList"></div>
+      </div>
+
+<div class="beta-drop" id="scanDrop">
+        <strong>📷 คลิกเพื่อเลือกรูปใบปริ้น (เลือกได้หลายรูป)</strong><br>
+        <span class="drop-hint">ลากรูป JPG / PNG / WEBP มาวางที่นี่ได้เลย เรียงตามชื่อไฟล์ให้อัตโนมัติ</span>
+        <input id="scanFile" type="file" accept="image/*" multiple>
+        <div class="name" id="scanFileName"></div>
+      </div>
+
+      <div class="scan-status" id="scanStatus" style="display:none"></div>
+
+      <div class="scan-result" id="scanResult">
+        <div class="scan-pages" id="scanPages"></div>
+        <div class="scan-toolbar">
+          <div class="scan-stats">
+            <div><span>บรรทัดที่พบ</span><b id="scanStatRows">0</b></div>
+            <div class="st-cross"><span>มี ✗</span><b id="scanStatCross">0</b></div>
+            <div class="st-ring"><span>มี ○</span><b id="scanStatRing">0</b></div>
+            <div class="st-check"><span>ควรตรวจ</span><b id="scanStatCheck">0</b></div>
+          </div>
+          <div class="scan-tools">
+            <button type="button" class="beta-secondary" id="scanRotL" title="หมุนรูปทวนเข็มนาฬิกา">↺ หมุนซ้าย</button>
+            <button type="button" class="beta-secondary" id="scanRotR" title="หมุนรูปตามเข็มนาฬิกา">↻ หมุนขวา</button>
+            <button type="button" class="beta-secondary" id="scanUndo" title="ย้อนกลับ (Ctrl+Z)" disabled>↶ ย้อนกลับ</button>
+            <button type="button" class="beta-secondary" id="scanRedo" title="ทำซ้ำ (Ctrl+Y)" disabled>↷ ทำซ้ำ</button>
+            <label class="scan-start">เริ่มที่รายการ # <input id="scanStart" type="number" min="1" value="1"></label>
+          </div>
+        </div>
+
+        <div class="scan-warn" id="scanWarn" style="display:none"></div>
+
+        <div class="scan-grid">
+          <div class="scan-photo"><canvas id="scanCanvas"></canvas><div class="scan-photo-hint">✗ = กรอบสีแดง | ○ = กรอบสีน้ำเงิน | คลิกที่รูปเพื่อดูบรรทัดในตาราง</div></div>
+          <div class="scan-list">
+<div class="scan-list-head">
+              <strong>ตรวจแก้ผล</strong>
+              <select id="scanFilter" aria-label="ตัวกรองรายการ">
+                <option value="all">แสดงทั้งหมด</option>
+                <option value="cross">เฉพาะที่มี ✗</option>
+                <option value="check">เฉพาะที่ควรตรวจ</option>
+              </select>
+            </div>
+            <div class="scan-rows" id="scanRows"></div>
+          </div>
+        </div>
+
+        <div class="scan-footer">
+          <div class="scan-summary" id="scanCrossSummary">ยังไม่มีรายการที่มี ✗</div>
+          <div class="scan-actions">
+            <button type="button" class="excel-pivot-export-btn" id="scanSend" disabled>🔎 ส่งไปตรวจกับ Stock</button>
+            <button type="button" class="beta-secondary" id="scanCopy" disabled>📋 คัดลอกรายการ ✗</button>
+            <button type="button" class="beta-danger" id="scanClear">ล้างข้อมูล</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="summaryTool" class="tool">
+  <div class="beta-card summary-card">
+    <div class="summary-head">
+      <div>
+        <h2 style="margin-top:0">📋 สรุปงาน</h2>
+        <p style="margin-bottom:0">ประวัติการทำงานของทุกแท็บจะบันทึกไว้ในเครื่อง และยังคงอยู่แม้ปิดเว็บหรือรีเฟรชหน้า</p>
+      </div>
+      <div class="summary-actions">
+        <button class="beta-secondary" id="summaryTodayBtn">📅 วันนี้</button>
+        <button class="beta-secondary" id="summaryAllBtn">🗂 ทั้งหมด</button>
+        <label class="summary-date-picker">📆 เลือกวันที่ <input id="summaryDate" type="date" aria-label="เลือกวันที่ดูประวัติ"></label>
+      </div>
+    </div>
+    <div class="summary-stats">
+      <div class="beta-stat">กิจกรรมทั้งหมด<div class="sv" id="summaryCount">0</div></div>
+      <div class="beta-stat">วันนี้<div class="sv" id="summaryTodayCount">0</div></div>
+      <div class="beta-stat">ไฟล์ที่ทำงาน<div class="sv" id="summaryFileCount">0</div></div>
+      <div class="beta-stat">แท็บที่ใช้งาน<div class="sv" id="summaryTabCount">0</div></div>
+    </div>
+    <div id="summaryList" class="summary-list"><div class="empty">ยังไม่มีประวัติการทำงาน</div></div>
+  </div>
+</section>
+
+  <!-- ===== Sunshine — ระบบจัดออเดอร์และโลเคชั่น (ข้อมูลจาก Supabase) ===== -->
+  <section id="sunTool" class="tool">
+    <div class="beta-card sun-card-wrap">
+      <div class="sun-toolbar">
+        <div class="sun-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="search" id="sunSearch" placeholder="ค้นหา SKU... (กด Enter)" aria-label="ค้นหา SKU">
+        </div>
+        <div class="sun-actions">
+          <button type="button" class="sun-icon-btn" id="sunRefresh" title="รีเฟรชข้อมูล" aria-label="รีเฟรชข้อมูล">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11A8 8 0 1 0 6.3 17.7"/><path d="M20 5v6h-6"/></svg>
+          </button>
+          <button type="button" class="sun-icon-btn" id="sunXlsx" title="ดาวน์โหลด Excel (.xlsx)" aria-label="ดาวน์โหลด Excel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h18M3 15h18"/></svg>
+          </button>
+          <button type="button" class="sun-icon-btn" id="sunPrint" title="พิมพ์" aria-label="พิมพ์">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="6" y="13" width="12" height="8"/><path d="M4 9h16a1 1 0 0 1 1 1v6h-4M3 16v-6a1 1 0 0 1 1-1"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sun-status" id="sunStatus">เลือกหน้าจากแท็บ Sunshine ด้านขวาเพื่อโหลดข้อมูล</div>
+      <div id="sunOutput"><p class="sun-hint">เลือก "ใบสั่งซื้อล่วงหน้า", "สินค้าขายดี ABC" หรือ "ประวัติเคลื่อนไหวสต๊อก" จากแท็บด้านขวา</p></div>
+    </div>
+  </section>
+
+  <!-- ===== หน้า นำเข้าข้อมูล Sunshine (อัปโหลดทับ 3M / ST / SI ไปฐานข้อมูล) แยกจากหน้ารวมไฟล์ ZIP ===== -->
+  <section id="sunImportTool" class="tool">
+    <div class="sun-imp-head">
+      <h2>🚀 นำเข้าข้อมูล Sunshine</h2>
+      <p>เลือกไฟล์แต่ละชนิด ระบบแตก ZIP รวมไฟล์ และตัดแถวตามกติกาให้ก่อน แล้วแสดงตัวอย่างที่จะอัปโหลดทับฐานข้อมูล ตรวจแล้วกดปุ่มอัปโหลดด้านล่างปุ่มเดียว ระบบเขียนทับให้ทีละชนิด (ต้องใส่รหัสอัปโหลด)</p>
+    </div>
+    <div class="sun-imp-bar">
+      <div class="sun-imp-bar-text">
+        <b id="sunAllSummary">ยังไม่มีไฟล์ที่พร้อมอัปโหลด</b>
+        <div class="sun-imp-bar-status" id="sunAllStatus"></div>
+      </div>
+      <button type="button" class="sun-primary" id="sunGoAll" disabled>⬆️ อัปโหลดและเขียนทับทั้งหมด</button>
+    </div>
+    <div class="sun-imp-grid" id="sunImportGrid"></div>
+  </section>
+  </div>
+
+  <!-- แท็บ Sunshine ด้านขวา -->
+  <aside class="top side-right" id="sideRight" aria-label="เมนู Sunshine">
+    <h1><span class="brand-mark">☀</span><span class="brand-copy"><b>Sunshine</b><small>คลังสินค้า</small></span></h1>
+    <button type="button" class="side-collapse" id="sideCollapseRight" data-side="right" title="ย่อเมนู" aria-label="ย่อหรือขยายเมนูด้านขวา" aria-pressed="false">
+      <svg class="ic-close" viewBox="0 0 24 24" aria-hidden="true"><path d="m13 17 5-5-5-5"/><path d="m6 17 5-5-5-5"/></svg>
+      <svg class="ic-open" viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg>
+      <span class="side-collapse-text">ย่อเมนู</span>
+    </button>
+    <div class="tabs">
+      <button class="tab" data-tool="sunTool" data-sun-mode="purchase"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L21 8H6"/></svg></span><span>ใบสั่งซื้อล่วงหน้า</span></button>
+      <button class="tab" data-tool="sunTool" data-sun-mode="best"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 6-8"/><path d="M14 6h5v5"/></svg></span><span>สินค้าขายดี ABC</span></button>
+      <button class="tab" data-tool="sunTool" data-sun-mode="stockin"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span><span>ประวัติเคลื่อนไหวสต๊อก</span></button>
+      <button class="tab" data-tool="sunImportTool"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span><span>นำเข้าข้อมูล</span></button>
+    </div>
+  </aside>
+</div>
+
+
+
+<script>
+(function(){
+  const names={mergeTool:'รวมไฟล์ ZIP',compareTool:'ตรวจ ORDER กับ Stock',orderTool:'รับORDER',beforeOrderTool:'ก่อนสั่ง',scanTool:'ตรวจใบปริ้น',summaryTool:'สรุปงาน'};
+  // หัวข้อใหญ่ตามหน้าที่แสดงอยู่จริง (.tool.active) ไม่ว่าจะเข้าหน้านั้นด้วยการกดแท็บ หรือถูกสลับจากโค้ด (เช่นปุ่มยืนยันที่หน้าก่อนสั่ง)
+  names.sunImportTool='นำเข้าข้อมูล';
+  function sync(){
+    const tool=document.querySelector('.tool.active');
+    const el=document.getElementById('scCurrentPage');
+    if(!tool||!el) return;
+    let name=names[tool.id];
+    if(!name){
+      const t=document.querySelector('.tab.active[data-tool="'+tool.id+'"]')||document.querySelector('.tab[data-tool="'+tool.id+'"]');
+      name=t?t.textContent.trim():'';
+    }
+    if(name&&el.textContent!==name) el.textContent=name;
+  }
+  document.querySelectorAll('.tab[data-tool]').forEach(t=>t.addEventListener('click',()=>setTimeout(sync,0)));
+  const wrap=document.querySelector('.panel-wrap');
+  if(wrap) new MutationObserver(sync).observe(wrap,{subtree:true,attributes:true,attributeFilter:['class']});  document.addEventListener('DOMContentLoaded',sync);
+  setTimeout(sync,50);
+})();
+</script>
+<script src="js/app.js?v=20261052"></script>
+<script src="js/scan-sheet.js?v=20261052"></script>
+<script src="js/saved-files.js?v=20261052"></script>
+<script src="js/layout.js?v=20261052"></script>
+<!-- Sunshine: ต้องต่ออินเทอร์เน็ตเพื่อโหลดไลบรารี Supabase (ส่วนอื่นของเว็บใช้ออฟไลน์ได้ตามเดิม) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/sunshine.js?v=20261052"></script>
+</body>
+
+</html>

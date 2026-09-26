@@ -1,0 +1,3106 @@
+/* thai */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(fonts/prompt-thai-300.woff2) format('woff2');
+  unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(fonts/prompt-latin-ext-300.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(fonts/prompt-latin-300.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* thai */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/prompt-thai-400.woff2) format('woff2');
+  unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/prompt-latin-ext-400.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/prompt-latin-400.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* thai */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fonts/prompt-thai-500.woff2) format('woff2');
+  unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fonts/prompt-latin-ext-500.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fonts/prompt-latin-500.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* thai */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fonts/prompt-thai-600.woff2) format('woff2');
+  unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fonts/prompt-latin-ext-600.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fonts/prompt-latin-600.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* thai */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/prompt-thai-700.woff2) format('woff2');
+  unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/prompt-latin-ext-700.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Prompt';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/prompt-latin-700.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+
+:root{
+  --background:#09090b;
+  --sidebar:#0c0c0f;
+  --surface:#111114;
+  --surface-2:#151519;
+  --surface-3:#1b1b20;
+  --border:#27272a;
+  --border-soft:#1f1f23;
+  --foreground:#fafafa;
+  --muted:#a1a1aa;
+  --muted-2:#71717a;
+  --primary:#f4f4f5;
+  --primary-fg:#18181b;
+  --accent:#27272a;
+  --success:#a7f3d0;
+  --danger:#fda4af;
+  --radius:10px;
+  --shadow:0 10px 30px rgba(0,0,0,.18);
+}
+
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:#3f3f46 transparent}
+html{min-height:100%;background:var(--background)}
+body{
+  margin:0;
+  min-height:100vh;
+  background:var(--background)!important;
+  color:var(--foreground)!important;
+  font-family:"Prompt",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
+  letter-spacing:-.012em;
+}
+
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+
+/* ===== APP SHELL / SHADCN-STYLE SIDEBAR ===== */
+.shell{
+  width:100%;
+  max-width:none!important;
+  min-height:100vh;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  grid-template-columns:248px minmax(0,1fr)!important;
+  background:var(--background)!important;
+}
+.top{
+  position:sticky!important;
+  top:0;
+  z-index:50;
+  width:248px!important;
+  height:100vh;
+  padding:18px 12px!important;
+  display:flex!important;
+  flex-direction:column;
+  align-self:start;
+  overflow:hidden;
+  background:var(--sidebar)!important;
+  border:0!important;
+  border-right:1px solid var(--border)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+}
+
+.top h1{
+  display:flex!important;
+  align-items:center;
+  gap:10px;
+  min-height:52px;
+  margin:0!important;
+  padding:0 10px!important;
+  color:var(--foreground)!important;
+  font-size:15px!important;
+  line-height:1.15;
+  letter-spacing:-.02em!important;
+  text-shadow:none!important;
+  border-bottom:0!important;
+}
+.brand-mark{
+  width:30px;height:30px;display:grid;place-items:center;
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-2);color:#d4d4d8;font-size:16px;
+}
+.brand-copy{display:flex;flex-direction:column;gap:3px}
+.brand-copy b{font-size:14px;font-weight:600}
+.brand-copy small{font-size:11px;color:var(--muted-2);font-weight:400}
+.tabs{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:3px!important;
+  margin:18px 0 0!important;
+  padding:0!important;
+  border:0!important;
+  overflow:auto;
+}
+.tab{
+  width:100%;
+  min-height:40px!important;
+  height:40px!important;
+  display:flex!important;
+  align-items:center;
+  gap:10px;
+  padding:0 11px!important;
+  border:1px solid transparent!important;
+  border-radius:7px!important;
+  background:transparent!important;
+  color:#a1a1aa!important;
+  font-size:13px!important;
+  font-weight:500!important;
+  text-align:left;
+  box-shadow:none!important;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.tab:hover{background:#18181b!important;color:#f4f4f5!important;border-color:#232326!important}
+.tab.active{background:#1f1f23!important;color:#fafafa!important;border-color:#2f2f34!important;font-weight:600!important}
+.nav-ico{width:18px;text-align:center;color:#71717a!important;font-size:14px!important}
+
+/* ===== MAIN PAGE ===== */
+
+.page-heading h1{
+  margin:0!important;
+  color:var(--foreground)!important;
+  font-size:28px!important;
+  line-height:1.2;
+  font-weight:700!important;
+  letter-spacing:-.035em!important;
+  text-shadow:none!important;
+}
+
+/* ===== SURFACES ===== */
+.beta-card,.card,.panel,.preview,.download-box,.compare-web-preview,.compare-quick-status,
+.compare-tools-extra,.order-filter-wrap,.order-pivot-wrap,.before-order-card,.before-order-note,
+.summary-card,.summary-list,.order-stock-check{
+  background:var(--surface)!important;
+  border:1px solid var(--border)!important;
+  border-radius:var(--radius)!important;
+  box-shadow:none!important;
+}
+
+.beta-card h2,.card h2,.before-order-head h2,.summary-head h2{
+  color:var(--foreground)!important;
+  font-weight:600!important;
+  letter-spacing:-.025em!important;
+  text-shadow:none!important;
+}
+.beta-card p,.card p,.download-note,.order-preview-note,.order-pivot-note,
+.compare-text-hint,.before-order-note,.summary-card p{color:var(--muted)!important}
+
+/* No legacy neon page colors: one neutral system everywhere. */
+
+/* ===== UPLOAD / DROP AREAS ===== */
+.beta-drop,.drop,.upload-area{
+  min-height:140px!important;
+  padding:24px!important;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  border:1px dashed #3f3f46!important;
+  border-radius:9px!important;
+  background:#0d0d10!important;
+  color:var(--foreground)!important;
+  box-shadow:none!important;
+  transition:border-color .15s,background .15s;
+}
+.beta-drop:hover,.drop:hover,.upload-area:hover{background:#121216!important;border-color:#71717a!important;transform:none!important;box-shadow:none!important}
+.beta-drop strong,.drop .name{color:#f4f4f5!important;font-weight:600!important}
+
+/* ===== STATS ===== */
+.beta-stats,.stats,.before-order-stats,.summary-stats,.order-summary-grid{
+  display:grid!important;
+  gap:12px!important;
+  margin:16px 0!important;
+}
+
+.stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+.beta-stat,.stat,.quick-status-item,.order-summary-grid>div{
+  min-height:78px!important;
+  padding:16px!important;
+  background:var(--surface)!important;
+  border:1px solid var(--border)!important;
+  border-radius:9px!important;
+  color:var(--muted)!important;
+  box-shadow:none!important;
+}
+.beta-stat .sv,.stat .sv,.quick-status-item b,.order-summary-grid b{
+  margin-top:7px;
+  color:var(--foreground)!important;
+  font-size:23px!important;
+  font-weight:700!important;
+}
+
+/* ===== FORM CONTROLS ===== */
+input,select,textarea{
+  min-height:38px;
+  background:#0d0d10!important;
+  color:var(--foreground)!important;
+  border:1px solid var(--border)!important;
+  border-radius:7px!important;
+  box-shadow:none!important;
+}
+
+input::placeholder,textarea::placeholder{color:#52525b!important}
+input:focus,select:focus,textarea:focus{
+  outline:none!important;
+  border-color:#71717a!important;
+  box-shadow:0 0 0 2px rgba(161,161,170,.10)!important;
+}
+option{background:#111113;color:#fafafa}
+
+/* ===== BUTTONS ===== */
+button{font-family:"Prompt",system-ui,sans-serif!important}
+.beta-primary,.green,.excel-pivot-export-btn,.pdf-print-btn,.compare-web-download{
+  min-height:36px!important;
+  padding:0 14px!important;
+  border-radius:7px!important;
+  background:var(--primary)!important;
+  color:var(--primary-fg)!important;
+  border:1px solid var(--primary)!important;
+  box-shadow:none!important;
+  font-weight:600!important;
+}
+.beta-primary:hover,.green:hover,.excel-pivot-export-btn:hover,.pdf-print-btn:hover,.compare-web-download:hover{background:#e4e4e7!important;filter:none!important;transform:none!important}
+.beta-secondary,.secondary,.btn-secondary,.compare-export-short,.compare-export-none{
+  min-height:36px!important;
+  padding:0 14px!important;
+  border-radius:7px!important;
+  background:transparent!important;
+  color:#d4d4d8!important;
+  border:1px solid var(--border)!important;
+  box-shadow:none!important;
+}
+.beta-secondary:hover,.secondary:hover,.btn-secondary:hover,.compare-export-short:hover,.compare-export-none:hover{background:#18181b!important;border-color:#3f3f46!important;transform:none!important}
+.beta-danger,.red{
+  min-height:36px!important;
+  padding:0 14px!important;
+  border-radius:7px!important;
+  background:transparent!important;
+  color:var(--danger)!important;
+  border:1px solid #3f242b!important;
+}
+.beta-danger:hover,.red:hover{background:#1b1013!important;border-color:#63323d!important}
+.beta-actions,.actions,.before-order-actions,.summary-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ===== PROGRESS / STATUS ===== */
+.beta-progress,.progress{height:8px!important;margin:12px 0!important;background:#18181b!important;border-radius:999px!important;overflow:hidden;border:0!important}
+.beta-bar,.progress .bar,.progress-bar{height:100%!important;background:#a1a1aa!important;box-shadow:none!important;border-radius:999px!important}
+.beta-status,.status{padding:11px 13px!important;color:var(--muted)!important;background:#0d0d10!important;border:1px solid var(--border)!important;border-radius:7px!important}
+
+/* ===== TABLES / PREVIEWS ===== */
+.beta-table,.table,.order-pivot-table,.before-order-table-wrap,.compare-preview-table-wrap{
+  background:#0d0d10!important;
+  color:#d4d4d8!important;
+  border:1px solid var(--border)!important;
+  border-radius:8px!important;
+  overflow:auto;
+}
+
+th{
+  position:sticky;top:0;z-index:2;
+  background:#18181b!important;
+  color:#f4f4f5!important;
+  border-bottom:1px solid #3f3f46!important;
+  font-weight:600!important;
+}
+td{background:#0d0d10!important;color:#d4d4d8!important;border-bottom:1px solid #202024!important}
+tr:hover td{background:#151519!important}
+
+/* ===== COMPARE PAGE ===== */
+
+.compare-text-head,.extra-head,.order-preview-head,.order-pivot-head,.before-order-head,.summary-head{color:var(--foreground)!important}
+.compare-text-head span,.extra-head span{color:var(--muted-2)!important}
+
+/* ===== ORDER PAGE ===== */
+
+.order-filter-toggle{background:#18181b!important;color:#d4d4d8!important;border:1px solid var(--border)!important;border-radius:7px!important}
+
+.order-stock-check th,.order-stock-check td{padding:8px!important}
+.stock-ok,.stock-short,.stock-none{background:#0d0d10!important}
+
+/* ===== BEFORE ORDER ===== */
+
+.before-order-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+
+/* ===== SUMMARY ===== */
+.summary-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+
+.summary-date-picker{display:inline-flex;align-items:center;gap:8px;padding:5px 7px 5px 10px;background:#111114!important;border:1px solid var(--border)!important;border-radius:7px!important;color:var(--muted)!important}
+.summary-date-picker input{min-height:30px!important;padding:4px 8px!important;background:#18181b!important;border:0!important}
+
+.summary-day-title{padding:12px 15px;background:#151519;border-bottom:1px solid var(--border);color:#e4e4e7;font-weight:600}
+.summary-row{display:grid;grid-template-columns:110px 210px minmax(0,1fr);gap:18px;padding:14px 16px;border-bottom:1px solid var(--border-soft);align-items:start}
+.summary-time{color:#d4d4d8;font-variant-numeric:tabular-nums}
+.summary-tab{color:#a1a1aa}
+.summary-action{display:flex;flex-direction:column;gap:3px;color:#d4d4d8}.summary-action span,.summary-action small{color:#71717a}
+
+/* ===== SYSTEM CLOCK / DASHBOARD / TWO UTILITY BUTTONS ===== */
+.fx-system{
+  position:fixed!important;
+  left:16px!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:122px!important;
+  min-height:28px!important;
+  padding:0 10px!important;
+  display:flex!important;
+  align-items:center;
+  gap:7px;
+  border:1px solid var(--border)!important;
+  border-radius:7px!important;
+  background:#111114!important;
+  color:#a1a1aa!important;
+  box-shadow:var(--shadow)!important;
+  font:500 10px/1 "Prompt",sans-serif!important;
+  z-index:10001!important;
+}
+.fx-system b{color:#e4e4e7!important;font-weight:600!important}.fx-system .fx-dot{width:6px!important;height:6px!important;background:#d4d4d8!important;box-shadow:none!important}.fx-system .fx-clock{color:#71717a!important}
+#proDashBtn{
+  left:16px!important;right:auto!important;bottom:72px!important;
+  min-width:116px!important;min-height:36px!important;
+  padding:0 12px!important;
+  border:1px solid var(--border)!important;border-radius:7px!important;
+  background:#111114!important;color:#e4e4e7!important;
+  box-shadow:var(--shadow)!important;font-size:12px!important;z-index:10001!important;
+}
+#proDashBtn:hover{background:#18181b!important;border-color:#3f3f46!important}
+#proDashBtn .pd-led{background:#d4d4d8!important;box-shadow:none!important}
+
+.pp-float{
+  width:36px!important;min-width:36px!important;height:36px!important;padding:0!important;
+  display:grid!important;place-items:center;
+  border:1px solid var(--border)!important;border-radius:7px!important;
+  background:#111114!important;color:#d4d4d8!important;box-shadow:var(--shadow)!important;
+}
+.pp-float:hover{background:#18181b!important;border-color:#3f3f46!important;transform:none!important}
+
+.pp-theme-item{display:block;width:100%;padding:8px 10px!important;background:transparent!important;border:0!important;color:#d4d4d8!important;border-radius:6px!important;text-align:left}
+.pp-theme-item:hover{background:#18181b!important}
+
+.pp-short-row{border-color:var(--border)!important;color:#d4d4d8!important}.pp-key{background:#18181b!important;border:1px solid var(--border)!important;color:#e4e4e7!important}
+.fx-toast{background:#111114!important;border:1px solid var(--border)!important;color:#e4e4e7!important;border-radius:7px!important;box-shadow:0 14px 35px rgba(0,0,0,.35)!important}
+
+/* Dashboard panel */
+
+.pd-title,.pd-value{color:#f4f4f5!important}.pd-sub,.pd-label{color:#71717a!important}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:1050px){
+  .shell{grid-template-columns:220px minmax(0,1fr)!important}
+  .top{width:220px!important}
+  .panel-wrap{padding-left:24px!important;padding-right:24px!important}
+  .summary-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .shell{display:block!important}
+  .top{position:static!important;width:100%!important;height:auto!important;padding:10px!important;border-right:0!important;border-bottom:1px solid var(--border)!important}
+  .top h1{min-height:46px}
+  .tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:8px!important;max-height:none}
+  .tab{height:38px!important;min-height:38px!important}
+  .panel-wrap{padding:0 14px 90px!important}
+  .page-heading{padding:22px 0 18px!important}
+  .page-heading h1{font-size:24px!important}
+  .beta-stats,.stats,.before-order-stats,.summary-stats,.order-summary-grid{grid-template-columns:1fr!important}
+  .summary-row{grid-template-columns:1fr;gap:4px}
+  #proDashBtn{left:14px!important;bottom:64px!important}
+  #ppToolbar{left:14px!important;bottom:14px!important}
+  #ppThemeMenu{left:14px!important;bottom:58px!important}
+  .fx-system{left:14px!important;bottom:108px!important}
+}
+
+/* ===== FINAL FIX: prevent legacy visual layers from breaking the layout ===== */
+#fxParticles{
+  position:fixed!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  display:none!important;
+  pointer-events:none!important;
+  z-index:-1!important;
+}
+.shell{
+  position:relative!important;
+  z-index:1!important;
+}
+.panel-wrap{
+  position:relative!important;
+  z-index:2!important;
+}
+
+#ppThemeMenu.open{display:block!important}
+
+/* =========================================================
+   FINAL FIX — ONE TAB AT A TIME
+   Keep all existing JS/functionality; only correct visibility/layout.
+   ========================================================= */
+.tool:not(.active){
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+/* Never let hidden tool content affect page height or overlap another tab. */
+
+.tabs .tab{position:relative;z-index:2}
+
+/* Utility controls stay in the lower-left without covering the system clock. */
+
+/* Keep the main content clear of fixed controls. */
+
+@media (max-width:760px){
+  .fx-system{left:104px !important;bottom:74px !important}
+  #proDashBtn{left:12px !important;bottom:126px !important}
+  #ppToolbar{left:12px !important;bottom:16px !important}
+  #ppThemeMenu{left:12px !important;bottom:178px !important}
+}
+
+/* =========================================================
+   FINAL STRUCTURAL PATCH — injected UI layers
+   The app creates these elements dynamically in app.js.
+   They must be overlays/fixed controls, never normal document flow.
+   ========================================================= */
+.fx-command{
+  position:fixed!important;
+  inset:0!important;
+  display:none!important;
+  align-items:flex-start!important;
+  justify-content:center!important;
+  padding-top:12vh!important;
+  z-index:20000!important;
+  background:rgba(0,0,0,.62)!important;
+  backdrop-filter:blur(6px)!important;
+}
+.fx-command.open{display:flex!important}
+.fx-command-box{
+  width:min(620px,calc(100vw - 28px))!important;
+  max-height:76vh!important;
+  overflow:hidden!important;
+  border:1px solid var(--border)!important;
+  border-radius:12px!important;
+  background:#111114!important;
+  box-shadow:0 30px 90px rgba(0,0,0,.55)!important;
+}
+.fx-command-head{padding:12px!important;border-bottom:1px solid var(--border)!important}
+.fx-command-head input{width:100%!important;min-height:44px!important;background:#09090b!important;color:var(--foreground)!important;border:1px solid var(--border)!important;border-radius:8px!important}
+.fx-command-list{padding:8px!important;max-height:52vh!important;overflow:auto!important}
+.fx-command-item{width:100%!important;display:flex!important;justify-content:space-between!important;align-items:center!important;padding:11px 12px!important;margin:3px 0!important;border-radius:8px!important;background:transparent!important;color:#e4e4e7!important;text-align:left!important;border:1px solid transparent!important;cursor:pointer!important}
+.fx-command-item:hover{background:#18181b!important;border-color:#2f2f34!important}
+.fx-key{font-size:10px!important;color:#71717a!important}
+.fx-hotkey{
+  position:fixed!important;
+  left:16px!important;
+  bottom:68px!important;
+  z-index:11997!important;
+  display:block!important;
+  padding:7px 9px!important;
+  border:1px solid var(--border)!important;
+  border-radius:7px!important;
+  background:#111114!important;
+  color:#a1a1aa!important;
+  font:500 10px/1.2 "Prompt",sans-serif!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.22)!important;
+}
+.fx-toast-wrap{position:fixed!important;right:18px!important;bottom:18px!important;z-index:21000!important;display:flex!important;flex-direction:column!important;gap:8px!important;pointer-events:none!important}
+.fx-toast{min-width:240px!important;max-width:360px!important;padding:11px 14px!important;border-radius:9px!important;background:#111114!important;color:#e4e4e7!important;border:1px solid var(--border)!important;box-shadow:0 15px 35px rgba(0,0,0,.3)!important}
+
+#proDashOverlay{
+  position:fixed!important;
+  inset:0!important;
+  z-index:19000!important;
+  display:none!important;
+  background:rgba(0,0,0,.58)!important;
+  backdrop-filter:blur(6px)!important;
+}
+#proDashOverlay.open{display:block!important}
+#proDashPanel{
+  position:absolute!important;
+  left:auto!important;
+  right:18px!important;
+  top:18px!important;
+  bottom:18px!important;
+  width:min(470px,calc(100vw - 36px))!important;
+  margin:0!important;
+  overflow:auto!important;
+  padding:18px!important;
+  background:#111114!important;
+  color:var(--foreground)!important;
+  border:1px solid var(--border)!important;
+  border-radius:12px!important;
+  box-shadow:0 30px 100px rgba(0,0,0,.55)!important;
+}
+.pd-head{display:flex!important;justify-content:space-between!important;align-items:center!important;margin-bottom:14px!important}
+.pd-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:9px!important;margin-bottom:12px!important}
+.pd-card{padding:13px!important;border:1px solid var(--border)!important;border-radius:9px!important;background:#0d0d10!important}
+.pd-section{margin-top:14px!important;padding:14px!important;border:1px solid var(--border)!important;border-radius:9px!important;background:#0d0d10!important}
+.pd-log{display:flex!important;flex-direction:column!important;gap:7px!important;max-height:230px!important;overflow:auto!important}
+.pd-log-row{display:flex!important;gap:9px!important;align-items:flex-start!important;padding:9px!important;border-radius:8px!important;background:#151519!important}
+
+.pd-actions{display:flex!important;gap:8px!important;margin-top:12px!important}
+.pd-action{flex:1!important;padding:9px!important;border-radius:8px!important;border:1px solid var(--border)!important;background:#151519!important;color:#d4d4d8!important;cursor:pointer!important}
+.pd-close{width:34px!important;height:34px!important;border:1px solid var(--border)!important;border-radius:8px!important;background:#151519!important;color:#d4d4d8!important;cursor:pointer!important}
+
+#ppShortcutsOverlay{
+  position:fixed!important;
+  inset:0!important;
+  z-index:19500!important;
+  display:none!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:rgba(0,0,0,.62)!important;
+  backdrop-filter:blur(6px)!important;
+}
+#ppShortcutsOverlay.open{display:flex!important}
+#ppShortcutsModal{
+  width:min(520px,calc(100vw - 30px))!important;
+  max-height:80vh!important;
+  overflow:auto!important;
+  padding:20px!important;
+  border:1px solid var(--border)!important;
+  border-radius:12px!important;
+  background:#111114!important;
+  color:var(--foreground)!important;
+  box-shadow:0 30px 100px rgba(0,0,0,.55)!important;
+}
+.pp-short-head{display:flex!important;justify-content:space-between!important;align-items:center!important;margin-bottom:13px!important}
+.pp-short-row{display:flex!important;justify-content:space-between!important;gap:14px!important;padding:10px 0!important;border-bottom:1px solid var(--border)!important;color:#d4d4d8!important}
+
+#ppToolbar{position:fixed!important;left:16px!important;right:auto!important;bottom:16px!important;z-index:18000!important;display:flex!important;gap:7px!important;align-items:center!important}
+#ppThemeMenu{position:fixed!important;left:16px!important;right:auto!important;bottom:62px!important;z-index:18001!important;display:none!important;width:170px!important;padding:6px!important;border:1px solid var(--border)!important;border-radius:9px!important;background:#111114!important;box-shadow:0 18px 45px rgba(0,0,0,.4)!important}
+#ppThemeMenu.open{display:block!important}
+.pp-theme-item{width:100%!important;text-align:left!important;border:0!important;border-radius:7px!important;background:transparent!important;color:#d4d4d8!important;padding:9px 10px!important;cursor:pointer!important}
+.pp-theme-item:hover{background:#18181b!important}
+#proDashBtn{position:fixed!important;left:16px!important;right:auto!important;top:auto!important;bottom:72px!important;z-index:17999!important}
+.fx-system{position:fixed!important;left:112px!important;right:auto!important;top:auto!important;bottom:22px!important;z-index:17998!important}
+
+/* Hard guarantee: only the selected application section participates in layout. */
+
+@media(max-width:760px){
+  .fx-hotkey{left:12px!important;bottom:122px!important}
+  #proDashBtn{left:12px!important;bottom:72px!important}
+  #ppToolbar{left:12px!important;bottom:16px!important}
+  #ppThemeMenu{left:12px!important;bottom:62px!important}
+  .fx-system{left:104px!important;bottom:22px!important}
+  #proDashPanel{left:8px!important;right:8px!important;top:8px!important;bottom:8px!important;width:auto!important}
+}
+
+/* ================================================================
+   ORDER V1 — PAGE-BY-PAGE MINIMAL WORKSPACE REDESIGN
+   Purpose: redesign each workspace independently without touching JS
+   ================================================================ */
+
+/* ---------- GLOBAL SHELL ---------- */
+.shell{
+  grid-template-columns:252px minmax(0,1fr)!important;
+  min-height:100vh!important;
+  background:transparent!important;
+}
+.top{
+  width:252px!important;
+  padding:22px 14px!important;
+  background:rgba(9,13,18,.94)!important;
+  border-right:1px solid #1b2530!important;
+  box-shadow:10px 0 35px rgba(0,0,0,.14)!important;
+}
+.top h1{
+  padding:5px 8px 21px!important;
+  margin:0 0 16px!important;
+  border-bottom:1px solid #1b2530!important;
+}
+.brand-mark{
+  width:38px!important;height:38px!important;
+  border-radius:11px!important;
+  background:linear-gradient(145deg,#172334,#101720)!important;
+  border:1px solid #2a3b50!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.05),0 8px 20px rgba(0,0,0,.2)!important;
+}
+.brand-copy b{color:#f5f7fb!important;letter-spacing:-.02em!important}
+.brand-copy small{color:#687789!important}
+.tabs{gap:5px!important}
+.tab{
+  min-height:48px!important;
+  padding:10px 12px!important;
+  border:1px solid transparent!important;
+  border-radius:10px!important;
+  color:#9aa7b6!important;
+  background:transparent!important;
+  transition:.18s ease!important;
+}
+.tab:hover{
+  background:#101720!important;
+  color:#dce4ed!important;
+  border-color:#1c2a39!important;
+}
+
+.nav-ico{
+  width:30px!important;height:30px!important;
+  border-radius:8px!important;
+  color:#8292a5!important;
+  background:#101720!important;
+  border:1px solid #1e2b39!important;
+}
+
+.panel-wrap{
+  min-width:0!important;
+  padding:0 40px 70px!important;
+  background:transparent!important;
+}
+.page-heading{
+  position:sticky!important;
+  top:0!important;
+  z-index:20!important;
+  margin:0 -40px 28px!important;
+  padding:25px 40px 18px!important;
+  background:rgba(8,11,16,.86)!important;
+  backdrop-filter:blur(18px)!important;
+  border-bottom:1px solid #18222d!important;
+}
+
+/* ---------- COMMON WORKSPACE SURFACES ---------- */
+.tool{max-width:1360px!important;margin:0 auto!important;position:relative!important}
+
+.beta-card,.card,.panel,.compare-web-preview,.preview,.before-order-table-wrap,.summary-list{
+  background:rgba(14,19,26,.88)!important;
+  border:1px solid #202b38!important;
+  box-shadow:0 20px 55px rgba(0,0,0,.16)!important;
+}
+
+.tool p{color:#8795a5!important}
+
+.beta-drop,.drop,.upload-area{
+  background:linear-gradient(145deg,#101721,#0c1117)!important;
+  border:1px dashed #314153!important;
+  border-radius:13px!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.025)!important;
+}
+.beta-drop:hover,.drop:hover,.upload-area:hover{
+  border-color:#587da9!important;
+  background:#111a24!important;
+  transform:none!important;
+}
+.beta-stat,.stat,.quick-status-item,.order-summary-grid>div{
+  background:#0d131a!important;
+  border:1px solid #202b38!important;
+  border-radius:11px!important;
+  box-shadow:none!important;
+}
+.beta-stat .sv,.stat .sv,.quick-status-item b,.order-summary-grid b{
+  color:#f1f5f9!important;
+}
+input,select,textarea{
+  background:#0a1016!important;
+  border-color:#273443!important;
+  color:#edf2f7!important;
+  border-radius:9px!important;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:#5078a8!important;
+  box-shadow:0 0 0 3px rgba(120,169,255,.09)!important;
+}
+
+.beta-primary:hover,.green:hover,.excel-pivot-export-btn:hover,.compare-web-download:hover{background:#fff!important;transform:translateY(-1px)!important}
+
+.beta-secondary:hover,.secondary:hover,.btn-secondary:hover,.compare-export-short:hover,.compare-export-none:hover{background:#17212d!important;border-color:#3a4d61!important}
+
+.beta-danger:hover,.red:hover{background:#21151a!important;border-color:#693641!important}
+.beta-status,.status{
+  background:#0b1117!important;
+  color:#92a1b1!important;
+  border:1px solid #202b38!important;
+  border-radius:9px!important;
+}
+.beta-progress,.progress{background:#0a1016!important;border:1px solid #202b38!important;border-radius:999px!important}
+.beta-bar,.progress .bar,.progress-bar{background:linear-gradient(90deg,#668fd0,#78a9ff)!important}
+.empty{color:#6f7e8f!important}
+th{background:#111a23!important;color:#aebbc9!important;border-bottom:1px solid #2a3949!important}
+td{border-bottom:1px solid #1d2834!important;color:#d8e0e8!important}
+tr:hover td{background:#101821!important}
+
+/* ================================================================
+   01 — MERGE: compact command workflow
+   ================================================================ */
+
+#mergeTool .beta-card:before{
+  content:"01  ·  FILE PIPELINE";
+  position:absolute;
+  left:25px;
+  top:19px;
+  display:block;
+  color:#6e91ba;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.14em;
+}
+
+/* ================================================================
+   02 — COMPARE: two inputs -> status dashboard -> table
+   ================================================================ */
+#compareTool main{display:grid!important;grid-template-columns:1fr!important;gap:14px!important}
+
+#compareTool .card{
+  min-width:0!important;
+  padding:18px!important;
+  border-radius:14px!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+
+#compareTool .rules{margin-top:10px!important;background:#0a1016!important;border:1px solid #1d2834!important;border-radius:10px!important;padding:12px 14px!important;color:#778697!important;font-size:12px!important;line-height:1.7!important}
+
+#compareTool .progress,#compareTool .status{margin:0!important}
+#compareTool .download-box{
+  display:flex!important;align-items:center!important;justify-content:space-between!important;gap:18px!important;
+  padding:14px 16px!important;background:#0d1714!important;border:1px solid #244136!important;border-radius:12px!important;
+}
+#compareTool .download-box .download-note{color:#779487!important}
+#compareTool .compare-download-actions{display:flex!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-end!important}
+
+#compareTool .quick-status-item{padding:14px!important;display:flex!important;align-items:center!important;justify-content:space-between!important}
+
+#compareTool .stats{display:none!important}
+
+#compareTool .extra-head{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:10px!important;margin-bottom:11px!important}
+#compareTool .extra-head strong{color:#e2e8ef!important}
+
+#compareTool .compare-mini-stats{display:flex!important;gap:8px!important;flex-wrap:wrap!important;margin-top:10px!important}
+#compareTool .compare-mini-stats span{padding:6px 9px!important;background:#0a1016!important;border:1px solid #1d2834!important;border-radius:7px!important;color:#78889a!important}
+#compareTool .compare-mini-stats b{color:#e6edf5!important}
+
+#compareTool .resultBox .table{background:#0a1016!important;border:1px solid #202b38!important;border-radius:10px!important;overflow:auto!important}
+
+/* ================================================================
+   03 — ORDER: import / filter / pivot as a 3-stage workspace
+   ================================================================ */
+#orderTool .beta-card{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 300px!important;
+  grid-template-areas:
+    "head stats"
+    "desc stats"
+    "drop drop"
+    "filter filter"
+    "status actions"
+    "summary summary"
+    "pivot pivot"
+    "preview preview"!important;
+  gap:14px 18px!important;
+}
+#orderTool h2{grid-area:head!important;font-size:27px!important;margin:0!important}
+#orderTool p{grid-area:desc!important;margin:0!important}
+#orderTool .beta-card:before{content:"03  ·  ORDER INTAKE";position:absolute;left:25px;top:19px;color:#8b78c8;font-size:11px;font-weight:700;letter-spacing:.14em}
+#orderTool .beta-stats{grid-area:stats!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin:0!important}
+#orderTool .beta-drop{grid-area:drop!important;min-height:150px!important}
+#orderTool .order-filter-wrap{grid-area:filter!important;background:#0b1118!important;border:1px solid #222e3b!important;border-radius:13px!important;overflow:hidden!important}
+
+#orderTool .beta-progress{grid-area:status!important}
+#orderTool .beta-status{grid-area:status!important;margin-top:42px!important}
+
+#orderTool .beta-actions{grid-area:actions!important;align-self:end!important;justify-content:flex-end!important}
+#orderTool .order-summary-extra{grid-area:summary!important;background:#0b1118!important;border:1px solid #202b38!important;border-radius:13px!important;padding:14px!important}
+
+#orderTool .order-pivot-wrap{grid-area:pivot!important;background:#0b1118!important;border:1px solid #202b38!important;border-radius:13px!important;padding:14px!important}
+#orderTool .order-pivot-head{padding-bottom:11px!important;border-bottom:1px solid #202b38!important}
+#orderTool .order-preview-head{grid-area:preview!important;display:flex!important;align-items:end!important;justify-content:space-between!important;border-bottom:1px solid #202b38!important;padding:5px 0 10px!important}
+#orderTool .beta-preview{grid-area:preview!important;margin-top:44px!important;background:#0a1016!important;border:1px solid #202b38!important;border-radius:12px!important;overflow:auto!important}
+
+/* ================================================================
+   04 — BEFORE ORDER: selection-first, high clarity
+   ================================================================ */
+#beforeOrderTool .before-order-card{padding:24px!important}
+#beforeOrderTool .before-order-head{display:grid!important;grid-template-columns:1fr auto!important;gap:22px!important;align-items:end!important;padding-bottom:18px!important;border-bottom:1px solid #202b38!important}
+#beforeOrderTool .before-order-head h2{font-size:28px!important;margin:0 0 5px!important}
+#beforeOrderTool .before-order-actions{justify-content:flex-end!important;flex-wrap:wrap!important}
+#beforeOrderTool .before-order-actions button{min-height:40px!important}
+#beforeOrderTool .before-order-stats{display:grid!important;grid-template-columns:180px 180px 1fr!important;gap:10px!important;margin:15px 0!important}
+#beforeOrderTool .before-order-stats:after{content:"เลือกข้อมูลจาก Pivot แล้วกดยืนยันเพื่อไปขั้นตอนถัดไป";display:flex;align-items:center;padding:0 15px;color:#68798a;font-size:12px;border:1px dashed #253443;border-radius:10px;background:#0a1016}
+#beforeOrderTool .before-order-note{background:#0c141b!important;border:1px solid #233445!important;border-radius:10px!important;padding:11px 13px!important;color:#8998a8!important}
+#beforeOrderTool .before-order-table-wrap{margin-top:14px!important;border-radius:13px!important;overflow:hidden!important}
+#beforeOrderTool .beta-table{background:#0a1016!important}
+
+/* ================================================================
+   05 — SUMMARY: dashboard-like history, not a plain list
+   ================================================================ */
+#summaryTool .summary-card{padding:24px!important}
+#summaryTool .summary-head{display:grid!important;grid-template-columns:1fr auto!important;gap:20px!important;align-items:end!important;padding-bottom:18px!important;border-bottom:1px solid #202b38!important}
+#summaryTool .summary-head h2{font-size:28px!important;margin:0 0 5px!important}
+#summaryTool .summary-actions{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-end!important}
+#summaryTool .summary-date-picker{background:#0c131a!important;border:1px solid #293746!important;border-radius:9px!important;padding:7px 9px!important;color:#8292a3!important}
+#summaryTool .summary-date-picker input{border:0!important;padding:2px!important;background:transparent!important}
+#summaryTool .summary-stats{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:10px!important;margin:16px 0!important}
+#summaryTool .summary-stats .beta-stat{min-height:92px!important;position:relative!important;overflow:hidden!important}
+#summaryTool .summary-stats .beta-stat:after{content:"";position:absolute;right:-24px;bottom:-24px;width:70px;height:70px;border-radius:50%;background:rgba(120,169,255,.06)!important}
+#summaryTool .summary-list{padding:7px!important;border-radius:13px!important;background:#0b1118!important;max-height:620px!important;overflow:auto!important}
+#summaryTool .summary-day-title{color:#9db0c4!important;background:#101821!important;border:1px solid #202b38!important;border-radius:8px!important;padding:8px 11px!important;margin:7px 0!important}
+#summaryTool .summary-row{border-color:#1e2a36!important;background:transparent!important;padding:12px 10px!important}
+#summaryTool .summary-row:hover{background:#101821!important;border-radius:8px!important}
+#summaryTool .summary-time{color:#65778a!important}
+#summaryTool .summary-action b{color:#dfe7ef!important}
+
+/* ---------- utility layer: keep the workspace visually quiet ---------- */
+#proDashBtn{
+  left:16px!important;right:auto!important;bottom:70px!important;top:auto!important;
+  background:#111923!important;border:1px solid #29394b!important;color:#dbe6f2!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.24)!important;
+}
+#ppToolbar{left:16px!important;right:auto!important;bottom:16px!important}
+#ppThemeMenu{left:16px!important;right:auto!important;bottom:61px!important;background:#0e151d!important;border-color:#2a3948!important}
+.fx-system{left:105px!important;right:auto!important;bottom:21px!important}
+
+@media(max-width:1050px){
+  .panel-wrap{padding-left:24px!important;padding-right:24px!important}
+  .page-heading{margin-left:-24px!important;margin-right:-24px!important;padding-left:24px!important;padding-right:24px!important}
+  #mergeTool .beta-card,#orderTool .beta-card{grid-template-columns:1fr!important;grid-template-areas:none!important}
+  #mergeTool .beta-card>* ,#orderTool .beta-card>*{grid-area:auto!important}
+  #compareTool .compare-quick-status{grid-template-columns:repeat(2,1fr)!important}
+  #orderTool .order-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #orderTool .order-summary-grid,#summaryTool .summary-stats{grid-template-columns:repeat(2,1fr)!important}
+  #beforeOrderTool .before-order-stats{grid-template-columns:1fr 1fr!important}
+  #beforeOrderTool .before-order-stats:after{grid-column:1/-1;min-height:48px}
+}
+@media(max-width:760px){
+  .shell{grid-template-columns:1fr!important}
+  .top{position:relative!important;width:auto!important;height:auto!important;border-right:0!important;border-bottom:1px solid #1b2530!important}
+  .tabs{display:grid!important;grid-template-columns:repeat(2,1fr)!important}
+  .panel-wrap{padding:0 14px 90px!important}
+  .page-heading{margin-left:-14px!important;margin-right:-14px!important;padding:18px 14px 14px!important}
+  #compareTool .grid,#compareTool .extra-controls{grid-template-columns:1fr!important}
+  #compareTool .download-box{flex-direction:column!important;align-items:stretch!important}
+  #compareTool .compare-quick-status{grid-template-columns:1fr 1fr!important}
+  #orderTool .order-filter-grid{grid-template-columns:1fr!important}
+  #orderTool .order-summary-grid,#summaryTool .summary-stats{grid-template-columns:1fr 1fr!important}
+  #beforeOrderTool .before-order-head,#summaryTool .summary-head{grid-template-columns:1fr!important}
+  #beforeOrderTool .before-order-actions,#summaryTool .summary-actions{justify-content:flex-start!important}
+  #beforeOrderTool .before-order-stats{grid-template-columns:1fr!important}
+  #beforeOrderTool .before-order-stats:after{grid-column:auto}
+}
+
+/* ========================================================================
+   V7 POLISHED WORKSPACE OVERRIDES
+   Purpose: repair the three affected workspaces without changing JS logic.
+   ======================================================================== */
+:root{
+  --v7-bg:#080b10;
+  --v7-panel:#0e131a;
+  --v7-panel-2:#111821;
+  --v7-panel-3:#0b1016;
+  --v7-line:#263241;
+  --v7-line-soft:#1b2530;
+  --v7-text:#f4f7fb;
+  --v7-muted:#8796a8;
+  --v7-blue:#79a7f2;
+  --v7-teal:#62c9b1;
+  --v7-violet:#aa92ee;
+  --v7-amber:#e8b866;
+  --v7-red:#ee8999;
+}
+
+html,body{background:var(--v7-bg)!important;color:var(--v7-text)!important}
+.panel-wrap{background:var(--v7-bg)!important}
+.page-heading{border-bottom:1px solid var(--v7-line-soft)!important}
+.page-heading h1{font-size:27px!important;font-weight:750!important;letter-spacing:-.04em!important}
+
+/* --- every native file chooser is visually replaced by the workspace dropzone --- */
+.beta-drop,.drop,.upload-area{position:relative!important;overflow:hidden!important;cursor:pointer!important}
+.beta-drop input[type=file],.drop input[type=file],.upload-area input[type=file]{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  opacity:0!important;cursor:pointer!important;z-index:20!important;min-height:0!important;
+}
+.beta-drop strong,.drop .name,.upload-area strong{position:relative!important;z-index:2!important}
+.beta-drop .drop-hint,.drop .info,.upload-area .info{position:relative!important;z-index:2!important}
+.beta-drop:hover,.drop:hover,.upload-area:hover{transform:none!important}
+
+/* --- shared premium controls --- */
+input,select,textarea{
+  background:#0a0f15!important;color:#eaf0f7!important;border:1px solid #2a3746!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important;
+}
+input::placeholder,textarea::placeholder{color:#627286!important;opacity:1!important}
+input:focus,select:focus,textarea:focus{
+  border-color:#5479ac!important;box-shadow:0 0 0 3px rgba(121,167,242,.10)!important;
+}
+button{
+  min-height:38px!important;padding:0 13px!important;border-radius:9px!important;
+  border:1px solid #2a3746!important;background:#121923!important;color:#dce5ef!important;
+  box-shadow:0 5px 16px rgba(0,0,0,.14)!important;transition:.16s ease!important;
+}
+button:hover:not(:disabled){transform:translateY(-1px)!important;background:#182231!important;border-color:#3b4d62!important}
+button:disabled{opacity:.45!important;cursor:not-allowed!important;transform:none!important}
+.beta-primary,.green,.excel-pivot-export-btn,.pdf-print-btn,.compare-web-download{
+  background:#e7edf5!important;color:#0b1016!important;border-color:#edf2f8!important;font-weight:650!important;
+}
+.beta-primary:hover:not(:disabled),.green:hover:not(:disabled),.excel-pivot-export-btn:hover:not(:disabled),.pdf-print-btn:hover:not(:disabled),.compare-web-download:hover:not(:disabled){background:#fff!important;color:#080b10!important}
+.beta-secondary,.secondary,.btn-secondary,.compare-export-short,.compare-export-none{
+  background:#111923!important;color:#d9e4ef!important;border-color:#2b3948!important;
+}
+.beta-danger,.red{background:#160f14!important;color:#ee9baa!important;border-color:#4b2a34!important}
+.beta-danger:hover:not(:disabled),.red:hover:not(:disabled){background:#21131a!important;border-color:#6c3947!important}
+
+/* ========================================================================
+   MERGE — a clear 4-step pipeline
+   ======================================================================== */
+#mergeTool .beta-card{
+  display:flex!important;flex-direction:column!important;gap:0!important;
+  padding:0!important;overflow:hidden!important;background:linear-gradient(180deg,#0e141c,#0c1117)!important;
+  border:1px solid #253241!important;border-radius:18px!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.22)!important;
+}
+#mergeTool .beta-card:before{position:static!important;display:block!important;content:'01  /  FILE PIPELINE'!important;
+  order:0!important;padding:18px 22px 0!important;color:#7896bd!important;font-size:10px!important;letter-spacing:.16em!important}
+#mergeTool h2{order:1!important;margin:6px 22px 4px!important;font-size:29px!important;line-height:1.15!important;color:#f7f9fc!important}
+#mergeTool p{order:2!important;margin:0 22px 18px!important;font-size:14px!important;color:#8d9caf!important}
+#mergeTool .beta-stats{order:3!important;margin:0 22px 14px!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;max-width:480px!important}
+#mergeTool .beta-stat{min-height:76px!important;background:#111923!important;border:1px solid #273545!important;border-radius:12px!important;padding:13px 15px!important}
+#mergeTool .beta-stat .sv{font-size:24px!important;color:#f5f7fa!important}
+#mergeTool .beta-drop{order:4!important;margin:0 22px!important;min-height:210px!important;padding:34px!important;
+  border:1px dashed #405166!important;border-radius:14px!important;background:#0a1017!important;
+}
+#mergeTool .beta-drop:before{content:'ZIP';display:grid;place-items:center;width:46px;height:46px;margin-bottom:7px;border-radius:12px;
+  background:#172232;border:1px solid #304158;color:#8fb2e7;font-weight:700;font-size:13px}
+#mergeTool .beta-drop strong{font-size:16px!important;color:#f1f5fa!important}
+#mergeTool .beta-drop{font-size:13px!important;color:#718196!important}
+#mergeTool .auto-merge-hint{order:5!important;margin:14px 22px 0!important;padding:13px 15px!important;
+  background:#0c1718!important;border:1px solid #24443f!important;border-radius:11px!important;color:#86c3b5!important}
+#mergeTool .beta-progress{order:6!important;margin:16px 22px 0!important;height:7px!important;background:#111923!important;border:1px solid #263444!important}
+#mergeTool .beta-status{order:7!important;margin:10px 22px 0!important;background:#0a1016!important;border-color:#273545!important}
+#mergeTool .beta-actions{order:8!important;margin:12px 22px 0!important;justify-content:flex-end!important}
+#mergeTool h3{order:9!important;margin:20px 22px 0!important;padding:16px 0 9px!important;border-top:1px solid #202c39!important;
+  color:#cbd7e5!important;font-size:12px!important;text-transform:none!important;letter-spacing:0!important}
+#mergeTool .beta-table{order:10!important;margin:0 22px 22px!important;min-height:170px!important;width:calc(100% - 44px)!important;
+  background:#090e14!important;border:1px solid #273545!important;border-radius:11px!important}
+
+/* ========================================================================
+   COMPARE — two sources + paste input + result workspace
+   ======================================================================== */
+#compareTool .app{width:100%!important}
+#compareTool main{display:flex!important;flex-direction:column!important;gap:14px!important}
+#compareTool .grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important}
+#compareTool .card{padding:20px!important;background:linear-gradient(180deg,#101720,#0d131a)!important;border:1px solid #273545!important;border-radius:15px!important;box-shadow:0 18px 45px rgba(0,0,0,.16)!important}
+
+#compareTool .card h2{margin:0 0 14px!important;font-size:18px!important;color:#f2f5f9!important}
+#compareTool .drop{min-height:150px!important;padding:25px!important;border-radius:12px!important;background:#0a1017!important}
+#compareTool .drop .icon{font-size:27px!important;opacity:.9!important;filter:none!important}
+#compareTool .drop .name{font-size:15px!important;color:#edf2f8!important}
+#compareTool .drop .info{font-size:12px!important;color:#718196!important}
+#compareTool .compare-text-box{margin-top:12px!important;padding:13px!important;background:#0a1017!important;border:1px solid #263545!important;border-radius:12px!important}
+#compareTool .compare-text-head{display:flex!important;justify-content:space-between!important;gap:10px!important;align-items:center!important;margin-bottom:9px!important;font-size:13px!important;color:#dce5ef!important}
+#compareTool .compare-text-head span{font-size:11px!important;color:#68798d!important}
+#compareTool textarea#orderTextInput{display:block!important;width:100%!important;min-height:155px!important;resize:vertical!important;padding:12px 13px!important;line-height:1.65!important;font-size:13px!important}
+#compareTool .compare-text-hint{margin-top:8px!important;color:#75869a!important;font-size:11px!important;line-height:1.5!important}
+#compareTool .panel{padding:14px!important;background:#0d141c!important;border-color:#253342!important;border-radius:14px!important}
+#compareTool .auto-compare-info{padding:14px 16px!important;background:#0b1519!important;border:1px solid #25423e!important;border-radius:11px!important;color:#8db8ae!important}
+#compareTool .auto-compare-info b{color:#7bd0bb!important}
+#compareTool .rules{margin:10px 0 0!important;padding:11px 13px!important;background:#0a1016!important;border-color:#202c38!important;color:#74859a!important}
+#compareTool .actions{margin-top:10px!important;justify-content:flex-end!important}
+#compareTool .download-box{padding:14px 16px!important;background:#0d1715!important;border-color:#29443e!important;border-radius:13px!important}
+#compareTool .compare-quick-status{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;background:transparent!important;border:0!important}
+#compareTool .quick-status-item{min-height:68px!important;padding:12px 14px!important;background:#101720!important;border:1px solid #273545!important;border-radius:11px!important}
+#compareTool .quick-ok{border-left:3px solid #58bfa5!important}
+#compareTool .compare-tools-extra{padding:14px!important;background:#0e151d!important;border-color:#253342!important;border-radius:13px!important}
+#compareTool .extra-controls{display:grid!important;grid-template-columns:minmax(0,1fr) 190px!important;gap:9px!important}
+#compareTool .preview{padding:14px!important;background:#0d141b!important;border-color:#253342!important;border-radius:14px!important}
+#compareTool .resultBox .table{background:#090f15!important;border-color:#263545!important;border-radius:10px!important}
+
+/* ========================================================================
+   ORDER — import / filters / preview, no overlapping grid areas
+   ======================================================================== */
+#orderTool .beta-card{
+  display:flex!important;flex-direction:column!important;gap:0!important;padding:0!important;overflow:hidden!important;
+  background:linear-gradient(180deg,#0e141c,#0c1117)!important;border:1px solid #253241!important;border-radius:18px!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.22)!important;
+}
+#orderTool .beta-card:before{content:'03  /  ORDER INTAKE'!important;position:static!important;display:block!important;
+  padding:18px 22px 0!important;color:#8e7fd0!important;font-size:10px!important;letter-spacing:.16em!important}
+#orderTool h2{margin:6px 22px 3px!important;font-size:29px!important;color:#f6f8fb!important}
+#orderTool p{margin:0 22px 17px!important;color:#8b9bad!important}
+#orderTool .beta-drop{margin:0 22px!important;min-height:185px!important;border-radius:14px!important;background:#0a1017!important;border-color:#405166!important}
+#orderTool .beta-drop strong{font-size:16px!important;color:#f0f4f8!important}
+#orderTool .beta-drop .drop-hint{font-size:12px!important;color:#728298!important}
+#orderTool .beta-drop .name{margin-top:7px!important;color:#79a7f2!important;font-size:12px!important}
+#orderTool .beta-stats{margin:14px 22px!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;max-width:600px!important}
+#orderTool .beta-stat{background:#111923!important;border-color:#273545!important;border-radius:12px!important}
+#orderTool .order-filter-wrap{margin:0 22px!important;padding:0!important;background:#0d141c!important;border:1px solid #263545!important;border-radius:14px!important;overflow:hidden!important}
+#orderTool .order-filter-title{padding:13px 15px!important;background:#111a23!important;border-bottom:1px solid #263545!important}
+#orderTool .order-filter-title strong{color:#e9eff6!important}
+#orderTool .order-filter-actions{display:flex!important;gap:7px!important;flex-wrap:wrap!important}
+#orderTool .order-filter-actions button{min-height:32px!important;padding:0 10px!important;background:#131d28!important;border-color:#2a3a4c!important;color:#aebdd0!important;box-shadow:none!important}
+
+#orderTool .order-filter-grid>div{background:#0a1016!important;border:1px solid #243140!important;border-radius:10px!important;padding:10px!important}
+#orderTool .order-summary{margin:10px 14px!important;padding:9px 11px!important;background:#0a1016!important;border:1px solid #202d3b!important;border-radius:9px!important;color:#7f90a4!important}
+#orderTool #orderTrackingCopy{margin:10px 14px 14px!important;padding:12px!important;background:#0b1219!important;border:1px solid #253342!important;border-radius:10px!important}
+#orderTool .beta-progress{margin:14px 22px 0!important}
+#orderTool .beta-status{margin:9px 22px 0!important}
+#orderTool .beta-actions{margin:11px 22px 0!important;justify-content:flex-end!important}
+#orderTool .order-summary-extra{margin:16px 22px 0!important;padding:14px!important;background:#0d141c!important;border:1px solid #263545!important;border-radius:14px!important}
+#orderTool .order-summary-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:9px!important;margin:0!important}
+#orderTool .order-summary-grid>div{min-height:72px!important;background:#101821!important;border-color:#273545!important}
+#orderTool .order-stock-actions{display:flex!important;justify-content:flex-end!important;margin-top:10px!important}
+#orderTool .order-pivot-wrap{margin:16px 22px 0!important;padding:14px!important;background:#0d141c!important;border:1px solid #263545!important;border-radius:14px!important}
+#orderTool .order-preview-head{margin:18px 22px 0!important;padding:14px 0 9px!important;border-top:1px solid #202d3a!important;border-bottom:1px solid #202d3a!important;display:flex!important;justify-content:space-between!important;align-items:center!important;gap:12px!important}
+#orderTool .order-preview-head h3{color:#dce5ef!important;font-size:13px!important}
+#orderTool .beta-preview{margin:0 22px 22px!important;padding:0!important;background:#090f15!important;border:1px solid #263545!important;border-radius:12px!important;overflow:auto!important}
+#orderTool .beta-preview .beta-table{margin:0!important;width:100%!important;border:0!important;border-radius:0!important;min-height:160px!important}
+
+/* --- make the remaining pages visually coherent with the same premium system --- */
+#beforeOrderTool .before-order-card,#summaryTool .summary-card{background:linear-gradient(180deg,#0e141c,#0c1117)!important;border-color:#253241!important;border-radius:18px!important}
+#beforeOrderTool .before-order-head,#summaryTool .summary-head{padding:22px!important;border-bottom:1px solid #253241!important}
+#beforeOrderTool .before-order-head h2,#summaryTool .summary-head h2{font-size:29px!important;color:#f6f8fb!important}
+#beforeOrderTool .before-order-note{background:#0b1219!important;border-color:#263545!important}
+#summaryTool .summary-stats{padding:0 22px!important}.summary-stats .beta-stat{background:#101821!important;border-color:#273545!important}
+
+/* responsive */
+@media(max-width:900px){
+  #compareTool .grid{grid-template-columns:1fr!important}
+  #compareTool .compare-quick-status{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #orderTool .order-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #orderTool .order-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:620px){
+  #mergeTool .beta-stats,#orderTool .beta-stats{grid-template-columns:1fr!important;max-width:none!important}
+  #compareTool .compare-quick-status{grid-template-columns:1fr!important}
+  #compareTool .extra-controls{grid-template-columns:1fr!important}
+  #orderTool .order-filter-grid,#orderTool .order-summary-grid{grid-template-columns:1fr!important}
+  #mergeTool .beta-drop,#mergeTool .auto-merge-hint,#mergeTool .beta-progress,#mergeTool .beta-status,#mergeTool .beta-actions,#mergeTool h3{margin-left:14px!important;margin-right:14px!important}
+  #mergeTool .beta-table{margin-left:14px!important;margin-right:14px!important;width:calc(100% - 28px)!important}
+}
+
+/* ================================================================
+   MERGE PAGE — FINAL LAYOUT FIX
+   Prevent content from shrinking to its text width and give each
+   stage a deliberate workspace width.
+   ================================================================ */
+#mergeTool .beta-card{
+  display:grid!important;
+  align-items:stretch!important;
+  grid-template-columns:minmax(0,1fr) minmax(300px,420px)!important;
+  grid-template-areas:
+    "eyebrow eyebrow"
+    "title stats"
+    "desc stats"
+    "drop drop"
+    "hint hint"
+    "progress progress"
+    "status actions"
+    "preview-title preview-title"
+    "preview preview"!important;
+  gap:0 18px!important;
+  padding:22px!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+}
+#mergeTool .beta-card:before{
+  grid-area:eyebrow!important;
+  position:static!important;
+  padding:0 0 8px!important;
+  margin:0!important;
+  color:#7ea4d8!important;
+  font-size:10px!important;
+  letter-spacing:.16em!important;
+}
+#mergeTool h2{
+  grid-area:title!important;
+  align-self:end!important;
+  margin:0 0 5px!important;
+  font-size:28px!important;
+  line-height:1.2!important;
+}
+#mergeTool p{
+  grid-area:desc!important;
+  align-self:start!important;
+  margin:0 0 18px!important;
+  max-width:680px!important;
+  font-size:14px!important;
+  line-height:1.65!important;
+}
+#mergeTool .beta-stats{
+  grid-area:stats!important;
+  align-self:start!important;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  width:100%!important;
+  max-width:none!important;
+}
+#mergeTool .beta-stat{
+  min-width:0!important;
+  min-height:82px!important;
+  box-sizing:border-box!important;
+  padding:14px 16px!important;
+}
+#mergeTool .beta-drop{
+  grid-area:drop!important;
+  width:100%!important;
+  min-height:190px!important;
+  box-sizing:border-box!important;
+  margin:0 0 14px!important;
+  padding:30px!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+#mergeTool .auto-merge-hint{
+  grid-area:hint!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  margin:0 0 14px!important;
+}
+#mergeTool .beta-progress{
+  grid-area:progress!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  margin:0 0 10px!important;
+}
+#mergeTool .beta-status{
+  grid-area:status!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  min-height:44px!important;
+  display:flex!important;
+  align-items:center!important;
+}
+#mergeTool .beta-actions{
+  grid-area:actions!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  justify-content:flex-end!important;
+  align-self:stretch!important;
+}
+#mergeTool .beta-actions button{min-height:44px!important}
+#mergeTool h3{
+  grid-area:preview-title!important;
+  margin:20px 0 8px!important;
+  padding:16px 0 0!important;
+  border-top:1px solid #24303d!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  color:#aebfd2!important;
+  letter-spacing:.08em!important;
+  text-transform:none!important;
+}
+#mergeTool .beta-table{
+  grid-area:preview!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:170px!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  overflow:auto!important;
+}
+#mergeTool .beta-table table{width:100%!important;min-width:720px!important}
+
+@media (max-width:900px){
+  #mergeTool .beta-card{
+    grid-template-columns:1fr!important;
+    grid-template-areas:
+      "eyebrow"
+      "title"
+      "desc"
+      "stats"
+      "drop"
+      "hint"
+      "progress"
+      "status"
+      "actions"
+      "preview-title"
+      "preview"!important;
+  }
+  #mergeTool .beta-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #mergeTool .beta-actions{justify-content:flex-start!important;margin-top:10px!important}
+}
+@media (max-width:560px){
+  #mergeTool .beta-card{padding:16px!important}
+  #mergeTool .beta-stats{grid-template-columns:1fr!important}
+  #mergeTool .beta-drop{min-height:165px!important;padding:20px!important}
+}
+
+/* ================================================================
+   v9 — ORDER FILTER WORKSPACE / WIDTH & DENSITY FIX
+   The filter area must use the available workspace instead of
+   collapsing into narrow text-sized columns.
+   ================================================================ */
+#orderTool,
+#orderTool .beta-card,
+#orderTool .order-filter-wrap,
+#orderTool .order-filter-body{
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+
+#orderTool .order-filter-body > div{
+  min-width:0!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  font-size:13px!important;
+  line-height:1.55!important;
+}
+
+#orderTool .order-filter-body label,
+#orderTool .order-filter-body span,
+#orderTool .order-filter-body button,
+#orderTool .order-filter-body input,
+#orderTool .order-filter-body select{
+  font-size:13px!important;
+}
+
+#orderTool .order-filter-actions{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+}
+
+/* Long SKU/date lists should scroll inside their own panel rather than
+   stretching the entire page into a very tall, cramped column. */
+#orderTool .order-filter-body > div{
+  max-height:520px!important;
+  overflow:auto!important;
+  scrollbar-width:thin!important;
+}
+
+#orderTool .order-filter-body > div::-webkit-scrollbar{width:7px!important}
+#orderTool .order-filter-body > div::-webkit-scrollbar-thumb{
+  background:#33465a!important;
+  border-radius:999px!important;
+}
+
+#orderTool .order-filter-body > .empty{
+  max-height:none!important;
+  grid-column:1 / -1!important;
+}
+
+@media(max-width:1100px){
+  #orderTool .order-filter-body{
+    grid-template-columns:repeat(2,minmax(300px,1fr))!important;
+  }
+}
+
+@media(max-width:760px){
+  #orderTool .order-filter-body{
+    grid-template-columns:1fr!important;
+  }
+  #orderTool .order-filter-body > div{
+    max-height:420px!important;
+  }
+}
+
+/* ================================================================
+   v10 — ORDER RESULTS / PREVIEW HEIGHT CONTROL
+   Keep long result areas compact and scroll inside their own panels.
+   ================================================================ */
+#orderTool #orderTrackingCopy{
+  display:block!important;
+  width:auto!important;
+  max-width:none!important;
+  overflow:hidden!important;
+}
+
+#orderTool #orderTrackingPreview{
+  max-height:190px!important;
+  min-height:54px!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  padding:8px 10px!important;
+  box-sizing:border-box!important;
+  background:#090f15!important;
+  border:1px solid #202d3b!important;
+  border-radius:9px!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#3b5066 transparent!important;
+}
+#orderTool #orderTrackingPreview .tracking-item{
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  line-height:1.65!important;
+  padding:1px 0!important;
+}
+#orderTool #orderTrackingPreview .tracking-group{
+  position:static!important;
+  display:block!important;
+  margin:8px -10px 4px!important;
+  padding:5px 10px!important;
+  background:#111a23!important;
+  border-bottom:1px solid #263545!important;
+  color:#9fc2f2!important;
+  font-weight:700!important;
+}
+#orderTool #orderTrackingPreview::-webkit-scrollbar,
+#orderTool .order-pivot-table::-webkit-scrollbar,
+#orderTool .beta-preview::-webkit-scrollbar{width:8px!important;height:8px!important}
+#orderTool #orderTrackingPreview::-webkit-scrollbar-thumb,
+#orderTool .order-pivot-table::-webkit-scrollbar-thumb,
+#orderTool .beta-preview::-webkit-scrollbar-thumb{
+  background:#33465a!important;
+  border-radius:999px!important;
+}
+
+#orderTool .order-pivot-wrap{
+  overflow:hidden!important;
+}
+#orderTool .order-pivot-table{
+  max-height:300px!important;
+  min-height:80px!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  border:1px solid #202d3b!important;
+  border-radius:9px!important;
+  background:#090f15!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#3b5066 transparent!important;
+}
+#orderTool .order-pivot-table table{
+  width:100%!important;
+  min-width:520px!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+#orderTool .order-pivot-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:3!important;
+  background:#111a23!important;
+  box-shadow:0 1px 0 #2a3949!important;
+}
+
+#orderTool .order-preview-head{
+  flex-shrink:0!important;
+}
+#orderTool .beta-preview{
+  height:360px!important;
+  max-height:360px!important;
+  min-height:0!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#3b5066 transparent!important;
+}
+#orderTool .beta-preview .beta-table{
+  min-height:0!important;
+  height:auto!important;
+  overflow:visible!important;
+}
+#orderTool .beta-preview .beta-table table{
+  width:100%!important;
+  min-width:820px!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+#orderTool .beta-preview .beta-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:4!important;
+  background:#111a23!important;
+  box-shadow:0 1px 0 #2a3949!important;
+}
+
+@media(max-width:760px){
+  #orderTool #orderTrackingPreview{max-height:160px!important}
+  #orderTool .order-pivot-table{max-height:240px!important}
+  #orderTool .beta-preview{height:300px!important;max-height:300px!important}
+}
+@media(max-width:520px){
+  #orderTool #orderTrackingPreview{max-height:140px!important}
+  #orderTool .order-pivot-table{max-height:210px!important}
+  #orderTool .beta-preview{height:260px!important;max-height:260px!important}
+}
+
+/* ================================================================
+   BEFORE ORDER — compact 10-row viewport with internal scrolling
+   Keep the page short; scroll additional Pivot rows inside the table.
+   ================================================================ */
+#beforeOrderTool .before-order-table-wrap{
+  overflow:visible!important;
+  max-height:none!important;
+}
+#beforeOrderTool #beforeOrderPreview{
+  height:450px!important;
+  max-height:450px!important;
+  min-height:0!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#334155 #0a1016!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table{
+  width:100%!important;
+  table-layout:fixed!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:5!important;
+  height:42px!important;
+  padding:8px 12px!important;
+  background:#111a24!important;
+  border-bottom:1px solid #304052!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table tbody tr{
+  height:40px!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table tbody td{
+  height:40px!important;
+  padding:7px 12px!important;
+  vertical-align:middle!important;
+  background:#0a1016!important;
+  border-bottom:1px solid #202d3a!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table tbody tr:hover td{
+  background:#101923!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table th:first-child,
+#beforeOrderTool #beforeOrderPreview .before-order-table td:first-child{
+  width:72px!important;
+  text-align:center!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table th:nth-child(2),
+#beforeOrderTool #beforeOrderPreview .before-order-table td:nth-child(2){
+  width:auto!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-table th:nth-child(3),
+#beforeOrderTool #beforeOrderPreview .before-order-table td:nth-child(3){
+  width:130px!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-qty-input{
+  width:100%!important;
+  min-width:0!important;
+  height:32px!important;
+  box-sizing:border-box!important;
+  text-align:center!important;
+  background:#0f1720!important;
+  color:#f4f7fb!important;
+  border:1px solid #2b3a4a!important;
+  border-radius:7px!important;
+}
+#beforeOrderTool #beforeOrderPreview .before-order-row-check{
+  width:16px!important;
+  height:16px!important;
+  accent-color:#7aa7ff!important;
+}
+@media(max-width:700px){
+  #beforeOrderTool #beforeOrderPreview{
+    height:410px!important;
+    max-height:410px!important;
+  }
+  #beforeOrderTool #beforeOrderPreview .before-order-table th:nth-child(3),
+  #beforeOrderTool #beforeOrderPreview .before-order-table td:nth-child(3){
+    width:105px!important;
+  }
+}
+
+/* ================================================================
+   v12 — ORDER FILTER / COLUMN LAYOUT POLISH
+   Match the compact 5-column filter workspace while preserving
+   the existing theme colors and filter logic.
+   ================================================================ */
+#orderTool .order-filter-wrap{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+}
+
+#orderTool .order-filter-title{
+  min-height:54px!important;
+  padding:11px 14px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+  flex-wrap:nowrap!important;
+}
+
+#orderTool .order-filter-title strong{
+  white-space:nowrap!important;
+  font-size:14px!important;
+}
+
+#orderTool .order-filter-actions{
+  margin-left:auto!important;
+  flex-shrink:0!important;
+}
+
+#orderTool .order-filter-body{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:8px!important;
+  align-items:stretch!important;
+  padding:10px!important;
+  width:100%!important;
+}
+
+#orderTool .order-filter-card{
+  min-width:0!important;
+  width:100%!important;
+  height:286px!important;
+  min-height:286px!important;
+  max-height:286px!important;
+  display:grid!important;
+  grid-template-rows:auto 36px auto minmax(0,1fr) auto!important;
+  gap:7px!important;
+  padding:9px!important;
+  margin:0!important;
+  background:#0a1016!important;
+  border:1px solid #243140!important;
+  border-radius:10px!important;
+  overflow:hidden!important;
+}
+
+#orderTool .order-filter-card > label{
+  min-width:0!important;
+  display:block!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:#dbe6f2!important;
+  font-size:12px!important;
+  font-weight:600!important;
+  line-height:1.2!important;
+}
+
+#orderTool .order-filter-card .filter-search{
+  width:100%!important;
+  min-width:0!important;
+  min-height:36px!important;
+  height:36px!important;
+  padding:0 10px!important;
+  background:#070d13!important;
+  border:1px solid #263545!important;
+  border-radius:8px!important;
+  color:var(--foreground)!important;
+  outline:none!important;
+}
+
+#orderTool .order-filter-card .filter-search:focus{
+  border-color:#4c6f99!important;
+  box-shadow:0 0 0 2px rgba(76,111,153,.16)!important;
+}
+
+#orderTool .order-filter-card .value-actions{
+  display:flex!important;
+  gap:5px!important;
+  min-width:0!important;
+  flex-wrap:nowrap!important;
+}
+
+#orderTool .order-filter-card .value-actions button{
+  min-width:0!important;
+  min-height:28px!important;
+  height:28px!important;
+  padding:0 9px!important;
+  border:1px solid #2a3a4c!important;
+  border-radius:7px!important;
+  background:#131d28!important;
+  color:#b9c8d8!important;
+  font-size:11px!important;
+  white-space:nowrap!important;
+}
+
+#orderTool .order-filter-card .value-actions button:hover{
+  background:#192635!important;
+  border-color:#40566e!important;
+  color:#edf4fb!important;
+}
+
+#orderTool .order-filter-card .value-list{
+  min-height:0!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:4px 4px 4px 2px!important;
+  background:#080e14!important;
+  border:1px solid #1e2b39!important;
+  border-radius:7px!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#38546b transparent!important;
+}
+
+#orderTool .order-filter-card .value-list::-webkit-scrollbar{width:6px!important}
+#orderTool .order-filter-card .value-list::-webkit-scrollbar-thumb{
+  background:#38546b!important;
+  border-radius:999px!important;
+}
+
+#orderTool .order-filter-card .value-item{
+  width:100%!important;
+  min-width:0!important;
+  min-height:28px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  padding:4px 5px!important;
+  margin:0!important;
+  border-radius:5px!important;
+  color:#b8c6d4!important;
+  font-size:12px!important;
+  line-height:1.25!important;
+  cursor:pointer!important;
+}
+
+#orderTool .order-filter-card .value-item:hover{
+  background:#111b26!important;
+  color:#f0f5fa!important;
+}
+
+#orderTool .order-filter-card .value-item input[type="checkbox"]{
+  flex:0 0 auto!important;
+  width:14px!important;
+  height:14px!important;
+  margin:0!important;
+  accent-color:#1686a0!important;
+}
+
+#orderTool .order-filter-card .value-item span{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
+#orderTool .order-filter-card .filter-count{
+  min-height:18px!important;
+  padding:0 2px!important;
+  color:#718295!important;
+  font-size:11px!important;
+  line-height:18px!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+@media(max-width:1250px){
+  #orderTool .order-filter-body{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+}
+
+@media(max-width:900px){
+  #orderTool .order-filter-body{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #orderTool .order-filter-card{
+    height:300px!important;
+    min-height:300px!important;
+    max-height:300px!important;
+  }
+}
+
+@media(max-width:600px){
+  #orderTool .order-filter-title{
+    flex-wrap:wrap!important;
+  }
+  #orderTool .order-filter-actions{
+    margin-left:0!important;
+    flex:1 1 100%!important;
+    min-width:0!important;
+  }
+  #orderTool .order-filter-body{
+    grid-template-columns:1fr!important;
+  }
+  #orderTool .order-filter-card{
+    height:280px!important;
+    min-height:280px!important;
+    max-height:280px!important;
+  }
+}
+
+/* FINAL TRACKING GROUP SCROLL BEHAVIOR
+   SKU group labels must scroll together with their Tracking numbers.
+   Do not pin group labels to the top of the Tracking preview. */
+#orderTool #orderTrackingPreview .tracking-group{
+  position:static!important;
+  top:auto!important;
+  z-index:auto!important;
+}
+
+/* ================================================================
+   v14 — STOCK CHECK RESULT WORKSPACE
+   Keep every result table inside a fixed, usable viewport.
+   Rows scroll inside the table; the page itself stays compact.
+   ================================================================ */
+#compareTool .preview,
+#compareTool .compare-web-preview,
+#compareTool .compare-tools-extra,
+#compareTool .compare-quick-status,
+#compareTool .download-box,
+#compareTool .status,
+#compareTool .progress{
+  width:100%!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+
+/* Main live comparison table */
+#compareTool #resultBox{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+#compareTool #resultPreview{
+  width:100%!important;
+  max-width:100%!important;
+  height:320px!important;
+  max-height:320px!important;
+  min-height:180px!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#38506a transparent!important;
+}
+
+/* Web preview: keep each result section compact and independently scrollable */
+#compareTool #compareWebPreview{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+#compareTool #compareWebPreviewBody{
+  min-width:0!important;
+  width:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:12px!important;
+}
+
+#compareTool .compare-preview-section > summary{
+  min-height:42px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  cursor:pointer!important;
+}
+#compareTool .compare-preview-table-wrap{
+  width:100%!important;
+  max-width:100%!important;
+  height:300px!important;
+  max-height:300px!important;
+  min-height:150px!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#38506a transparent!important;
+  border:1px solid #263545!important;
+  border-radius:10px!important;
+  background:#090f15!important;
+}
+#compareTool .compare-preview-table-wrap table{
+  width:100%!important;
+  min-width:760px!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+#compareTool .compare-preview-table-wrap thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:6!important;
+  background:#111b25!important;
+  box-shadow:0 1px 0 #263545!important;
+}
+
+/* Picker controls above the web-preview tables must not create a giant page */
+
+/* Horizontal scrolling remains inside result areas */
+#compareTool .compare-preview-table-wrap::-webkit-scrollbar,
+#compareTool #resultPreview::-webkit-scrollbar,
+#compareTool .compare-copy-picker-body::-webkit-scrollbar,
+#compareTool .compare-copy-options::-webkit-scrollbar{width:8px;height:8px!important}
+#compareTool .compare-preview-table-wrap::-webkit-scrollbar-thumb,
+#compareTool #resultPreview::-webkit-scrollbar-thumb,
+#compareTool .compare-copy-picker-body::-webkit-scrollbar-thumb,
+#compareTool .compare-copy-options::-webkit-scrollbar-thumb{
+  background:#38506a!important;
+  border-radius:999px!important;
+}
+
+@media (max-width:900px){
+  #compareTool #resultPreview{height:280px!important;max-height:280px!important}
+  #compareTool .compare-preview-table-wrap{height:270px!important;max-height:270px!important}
+}
+@media (max-width:600px){
+  #compareTool #resultPreview{height:240px!important;max-height:240px!important}
+  #compareTool .compare-preview-table-wrap{height:230px!important;max-height:230px!important}
+  #compareTool .compare-preview-table-wrap table,
+  #compareTool #resultPreview table{min-width:650px!important}
+}
+
+/* ================================================================
+   v15 — STOCK RESULT SELECTION / LAYOUT REDESIGN
+   Rebuild only the result-selection presentation. Keep existing logic.
+   ================================================================ */
+#compareTool #compareWebPreview{
+  background:#0b1118!important;
+  border:1px solid #223244!important;
+  border-radius:16px!important;
+  padding:18px!important;
+}
+#compareTool .compare-web-preview-head{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:16px!important;
+  padding:0 0 14px!important;
+  border-bottom:1px solid #1d2a38!important;
+}
+#compareTool #compareWebPreviewBody{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:14px!important;
+  margin-top:14px!important;
+  align-items:start!important;
+}
+#compareTool .compare-preview-section{
+  display:block!important;
+  min-width:0!important;
+  margin:0!important;
+  background:#0d151e!important;
+  border:1px solid #223244!important;
+  border-radius:13px!important;
+  overflow:hidden!important;
+}
+#compareTool .compare-preview-section > summary{
+  padding:13px 14px!important;
+  min-height:0!important;
+  background:#101a25!important;
+  border-bottom:1px solid #1f2d3c!important;
+  font-size:14px!important;
+  font-weight:700!important;
+  color:#e7eef6!important;
+  list-style:none!important;
+}
+#compareTool .compare-preview-section > summary::-webkit-details-marker{display:none!important}
+#compareTool .compare-preview-section > summary::before{
+  content:'▾'!important;
+  display:inline-block!important;
+  margin-right:8px!important;
+  color:#7faee7!important;
+  transition:transform .15s ease!important;
+}
+#compareTool .compare-preview-section:not([open]) > summary::before{transform:rotate(-90deg)!important}
+#compareTool .preview-count{
+  float:right!important;
+  color:#7f91a5!important;
+  font-size:12px!important;
+  font-weight:500!important;
+}
+
+/* Selection toolbar: compact, deliberate, not a row of loose controls */
+#compareTool .compare-copy-tools{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+  padding:10px 12px!important;
+  background:#0a121b!important;
+  border-bottom:1px solid #1d2a38!important;
+}
+#compareTool .compare-copy-btn{
+  order:0!important;
+  min-height:34px!important;
+  padding:7px 12px!important;
+  border:1px solid #2b3d50!important;
+  border-radius:8px!important;
+  background:#142131!important;
+  color:#dce7f2!important;
+  font-size:12px!important;
+  font-weight:650!important;
+  cursor:pointer!important;
+}
+#compareTool .compare-copy-btn:hover{
+  background:#192b3f!important;
+  border-color:#3e5872!important;
+}
+#compareTool .compare-copy-picker{
+  position:relative!important;
+  flex:1 1 230px!important;
+  min-width:210px!important;
+}
+#compareTool .compare-copy-picker > summary{
+  min-height:34px!important;
+  box-sizing:border-box!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  padding:7px 10px!important;
+  border:1px solid #2b3d50!important;
+  border-radius:8px!important;
+  background:#101a25!important;
+  color:#dce7f2!important;
+  cursor:pointer!important;
+  font-size:12px!important;
+  font-weight:650!important;
+  list-style:none!important;
+}
+#compareTool .compare-copy-picker > summary::-webkit-details-marker{display:none!important}
+#compareTool .compare-copy-picker > summary::after{content:'⌄';color:#7faee7!important;font-size:14px!important}
+#compareTool .compare-copy-count{
+  margin-left:auto!important;
+  color:#8fa7bf!important;
+  font-weight:500!important;
+}
+#compareTool .compare-copy-picker-body{
+  position:absolute!important;
+  z-index:30!important;
+  top:calc(100% + 6px)!important;
+  left:0!important;
+  right:0!important;
+  width:min(430px,calc(100vw - 48px))!important;
+  max-height:260px!important;
+  box-sizing:border-box!important;
+  padding:10px!important;
+  background:#0c141e!important;
+  border:1px solid #2b3d50!important;
+  border-radius:10px!important;
+  box-shadow:0 16px 40px rgba(0,0,0,.35)!important;
+  overflow:auto!important;
+}
+#compareTool .compare-copy-picker-actions{
+  position:sticky!important;
+  top:-10px!important;
+  z-index:2!important;
+  display:flex!important;
+  gap:6px!important;
+  padding:10px 0 8px!important;
+  background:#0c141e!important;
+  border-bottom:1px solid #1d2a38!important;
+}
+#compareTool .compare-copy-picker-actions button{
+  border:1px solid #2b3d50!important;
+  border-radius:7px!important;
+  background:#111d29!important;
+  color:#bfcddd!important;
+  padding:6px 9px!important;
+  font-size:11px!important;
+  cursor:pointer!important;
+}
+#compareTool .compare-copy-picker-actions button:hover{
+  background:#18293a!important;
+  color:#fff!important;
+}
+#compareTool .compare-copy-options{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:5px!important;
+  max-height:none!important;
+  overflow:visible!important;
+  padding-top:8px!important;
+}
+#compareTool .compare-copy-option{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  padding:7px 8px!important;
+  border:1px solid transparent!important;
+  border-radius:7px!important;
+  background:#0f1a25!important;
+  color:#b9c8d7!important;
+  font-size:11px!important;
+  line-height:1.25!important;
+  cursor:pointer!important;
+}
+#compareTool .compare-copy-option:hover{
+  background:#152435!important;
+  border-color:#263b50!important;
+}
+#compareTool .compare-copy-option input{
+  flex:0 0 auto!important;
+  margin:0!important;
+  accent-color:#5b9bea!important;
+}
+
+#compareTool .compare-copy-empty{
+  padding:14px!important;
+  color:#74879b!important;
+  text-align:center!important;
+}
+
+/* Result tables stay inside their own viewport */
+#compareTool .compare-preview-table-wrap{
+  margin:0!important;
+  height:270px!important;
+  max-height:270px!important;
+  min-height:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:#090f15!important;
+}
+
+#compareTool .compare-preview-table-wrap thead th{
+  background:#121d28!important;
+  color:#aebed0!important;
+  font-size:11px!important;
+  padding:9px 10px!important;
+}
+#compareTool .compare-preview-table-wrap tbody td{
+  padding:8px 10px!important;
+  font-size:12px!important;
+}
+#compareTool .compare-preview-table-wrap tbody tr:hover td{background:#0f1822!important}
+
+/* Don't let the two result cards stretch each other vertically */
+#compareTool #compareWebPreviewBody > .compare-preview-section{align-self:start!important}
+
+@media (max-width:1000px){
+  #compareTool #compareWebPreviewBody{grid-template-columns:1fr!important}
+  #compareTool .compare-copy-picker-body{width:min(430px,calc(100vw - 70px))!important}
+}
+@media (max-width:600px){
+  #compareTool #compareWebPreview{padding:12px!important}
+  #compareTool .compare-web-preview-head{align-items:flex-start!important;flex-direction:column!important}
+  #compareTool .compare-copy-options{grid-template-columns:1fr!important}
+  #compareTool .compare-copy-picker-body{width:calc(100vw - 48px)!important}
+  #compareTool .compare-preview-table-wrap{height:240px!important;max-height:240px!important}
+}
+
+/* ================================================================
+   v17 — TABLE HEADER / DATA ALIGNMENT
+   Keep every table header directly aligned with the data beneath it.
+   This is intentionally a final override: no colors, sizing logic,
+   or JavaScript behavior are changed.
+   ================================================================ */
+
+/* All data tables across every page */
+
+/* Header text starts at the same horizontal position as its cell data. */
+.tool table th,
+.preview table th,
+.beta-table th,
+.table th,
+.order-pivot-table th,
+.before-order-table th,
+.compare-preview-table th,
+.order-stock-check table th{
+  text-align:left!important;
+  padding:9px 10px!important;
+  vertical-align:middle!important;
+}
+
+/* Keep the data padding identical to the header so the two line up exactly. */
+.tool table td,
+.preview table td,
+.beta-table td,
+.table td,
+.order-pivot-table td,
+.before-order-table td,
+.compare-preview-table td,
+.order-stock-check table td{
+  padding:8px 10px!important;
+  vertical-align:middle!important;
+}
+
+/* Tables that use a wider first column still keep header and cell starts together. */
+#mergeTool .beta-table table th,
+#mergeTool .beta-table table td,
+#compareTool .compare-preview-table th,
+#compareTool .compare-preview-table td,
+#orderTool .order-pivot-table th,
+#orderTool .order-pivot-table td,
+#beforeOrderTool .before-order-table th,
+#beforeOrderTool .before-order-table td{
+  text-align:left!important;
+}
+
+/* Do not disturb checkbox/control columns: center only the actual checkbox. */
+
+.before-order-table input[type="checkbox"]{
+  margin-left:auto!important;
+  margin-right:auto!important;
+}
+
+/* Status cells can contain badges/icons; keep the cell itself aligned with its header. */
+.order-stock-check td,
+.order-stock-check th{
+  text-align:left!important;
+}
+
+/* Sticky headers remain sticky while the inner result area scrolls. */
+
+/* On narrow screens use the same left alignment rather than centering headers away
+   from their corresponding values. */
+@media (max-width:760px){
+  .tool table th,
+  .tool table td{
+    padding:8px!important;
+    text-align:left!important;
+  }
+}
+
+/* ================================================================
+   V18 FINAL FIX — FLOATING RESULT PICKERS + ORDER FILTER COLLAPSE
+   Applied to the uploaded ORDER_TABLE_HEADER_ALIGNED_v17 file only.
+   Does not change data/Excel/compare logic.
+   ================================================================ */
+
+/* 1) Result selectors on "ยอดคงเหลือ" and "รายการที่ถูกลบ-ถูกหัก"
+      must float above the result table instead of pushing the table down.
+      The table itself keeps its own scroll area. */
+
+#compareTool .compare-copy-picker[open]{
+  z-index:100!important;
+}
+
+/* Keep the actual result table below the floating picker and independently
+   scrollable; opening the picker must not resize/reflow the table. */
+
+/* 2) ORDER page — make "พับเก็บ" actually collapse the filter workspace.
+      The JS already toggles .collapsed; this supplies the missing visual
+      state instead of changing the existing filter logic. */
+#orderTool .order-filter-wrap.collapsed .order-filter-body{
+  display:none!important;
+}
+
+#orderTool .order-filter-wrap.collapsed .order-summary{
+  display:none!important;
+}
+
+/* Keep the title bar usable while collapsed. */
+#orderTool .order-filter-wrap.collapsed .order-filter-title{
+  border-bottom:0!important;
+  cursor:pointer!important;
+}
+
+#orderTool .order-filter-toggle{
+  position:relative!important;
+  z-index:5!important;
+  cursor:pointer!important;
+  user-select:none!important;
+  pointer-events:auto!important;
+}
+
+#orderTool .order-filter-title{
+  position:relative!important;
+  z-index:4!important;
+}
+
+@media(max-width:600px){
+  #compareTool .compare-copy-picker-body{
+    width:calc(100vw - 48px)!important;
+    max-width:calc(100vw - 48px)!important;
+  }
+}
+
+/* ================================================================
+   V19 — COMPARE RESULT TABLE BALANCE
+   Make "ยอดคงเหลือ" narrower and give "รายการที่ถูกลบ-ถูกหัก"
+   enough width to show all seven headers without horizontal scrolling.
+   Keep each table vertically scrollable inside its own panel.
+   ================================================================ */
+#compareTool #compareWebPreviewBody{
+  grid-template-columns:minmax(260px,0.36fr) minmax(0,0.64fr)!important;
+  align-items:start!important;
+}
+
+#compareTool #compareWebPreviewBody > .compare-preview-section{
+  min-width:0!important;
+  width:100%!important;
+}
+
+/* The deducted result has 7 columns: fit them to its available width. */
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table-wrap{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+}
+
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table{
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  table-layout:fixed!important;
+}
+
+/* Give the SKU column more room; numeric columns stay compact. */
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(1),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(1){
+  width:24%!important;
+}
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(2),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(2),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(3),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(3),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(4),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(4),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(5),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(5){
+  width:12%!important;
+}
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(6),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(6){
+  width:10%!important;
+}
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(7),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(7){
+  width:18%!important;
+}
+
+/* Keep headers readable; long cell values may wrap instead of creating
+   a second horizontal scrollbar. */
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  text-align:center!important;
+  line-height:1.25!important;
+}
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}
+
+/* Remaining table can use its narrower column without affecting the second. */
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(1) .compare-preview-table{
+  width:100%!important;
+  min-width:0!important;
+  table-layout:fixed!important;
+}
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(1) .compare-preview-table th:first-child,
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(1) .compare-preview-table td:first-child{
+  width:72%!important;
+}
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(1) .compare-preview-table th:last-child,
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(1) .compare-preview-table td:last-child{
+  width:28%!important;
+}
+
+/* At smaller widths, return to a single column so no table is crushed. */
+@media (max-width:1000px){
+  #compareTool #compareWebPreviewBody{
+    grid-template-columns:1fr!important;
+  }
+  #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table{
+    min-width:0!important;
+  }
+}
+
+/* FINAL — Keep the floating selector inside its own result panel.
+   It must float above the table, but never grow wider than the panel
+   that owns it or cover the neighbouring result table. */
+#compareTool .compare-copy-picker{
+  min-width:0!important;
+  max-width:100%!important;
+}
+
+#compareTool .compare-copy-option{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+
+#compareTool .compare-copy-option span{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
+/* Hide floating utility controls requested by user */
+#proDashBtn,
+#proDashOverlay,
+#ppToolbar,
+#ppThemeMenu,
+#ppShortcutsOverlay {
+  display: none !important;
+}
+
+/* ================================================================
+   FINAL — จำกัดความสูงตารางผลตรวจ ORDER กับ Stock
+   แสดงข้อมูลเป็นพื้นที่เล็กพอดี และเลื่อนดูแถวเพิ่มเติมภายในตาราง
+   ================================================================ */
+#compareTool #resultBox{
+  min-height:0!important;
+  overflow:hidden!important;
+}
+
+#compareTool #resultPreview{
+  width:100%!important;
+  max-width:100%!important;
+  height:340px!important;
+  max-height:340px!important;
+  min-height:0!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  scrollbar-width:thin!important;
+}
+
+#compareTool #resultPreview table{
+  width:100%!important;
+  min-width:0!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+
+#compareTool #resultPreview thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:5!important;
+}
+
+#compareTool #resultPreview::-webkit-scrollbar{
+  width:8px!important;
+  height:8px!important;
+}
+#compareTool #resultPreview::-webkit-scrollbar-thumb{
+  border-radius:999px!important;
+}
+
+@media(max-width:900px){
+  #compareTool #resultPreview{
+    height:300px!important;
+    max-height:300px!important;
+  }
+}
+
+@media(max-width:600px){
+  #compareTool #resultPreview{
+    height:260px!important;
+    max-height:260px!important;
+  }
+}
+
+/* V20 — Align result-table headers directly with the data columns.
+   Header text uses the same horizontal alignment as its cells so each
+   heading sits directly above the values it describes. */
+
+/* Keep the header and body using identical padding so their starting
+   positions remain exactly aligned while scrolling. */
+#compareTool #compareWebPreviewBody .compare-preview-table th,
+#compareTool #compareWebPreviewBody .compare-preview-table td{
+  padding-left:12px!important;
+  padding-right:12px!important;
+}
+
+/* Do not let the sticky header visually drift from the body columns. */
+#compareTool #compareWebPreviewBody .compare-preview-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:4!important;
+}
+
+/* ================================================================
+   V19 — ORDER STOCK RESULT: COMPACT INNER SCROLL
+   Only changes the visual height/scrolling of the result table on
+   the "รับORDER" page. Data and JavaScript behavior are unchanged.
+   ================================================================ */
+
+#orderTool #orderStockCheck{
+  width:100%!important;
+  height:420px!important;
+  max-height:50vh!important;
+  min-height:220px!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  box-sizing:border-box!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:#38506a transparent!important;
+}
+
+#orderTool #orderStockCheck > table{
+  width:100%!important;
+  min-width:760px!important;
+  margin:0!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+
+#orderTool #orderStockCheck > div:first-child{
+  position:sticky!important;
+  top:0!important;
+  z-index:6!important;
+  background:var(--surface)!important;
+  padding:8px 10px!important;
+  margin:0!important;
+}
+
+#orderTool #orderStockCheck > table thead th{
+  position:sticky!important;
+  top:34px!important;
+  z-index:5!important;
+  background:#111923!important;
+  white-space:nowrap!important;
+}
+
+#orderTool #orderStockCheck > table th,
+#orderTool #orderStockCheck > table td{
+  box-sizing:border-box!important;
+  white-space:nowrap!important;
+}
+
+@media (max-width:760px){
+  #orderTool #orderStockCheck{
+    height:360px!important;
+    max-height:52vh!important;
+  }
+  #orderTool #orderStockCheck > table{
+    min-width:680px!important;
+  }
+}
+
+/* ================================================================
+   ORDER CLEAR RESET
+   When the ORDER file is cleared, remove every generated/result
+   section from view. Upload area and counters remain available.
+   The existing JS already toggles #orderTool.has-file.
+   ================================================================ */
+#orderTool:not(.has-file) .order-filter-wrap,
+#orderTool:not(.has-file) .beta-progress,
+#orderTool:not(.has-file) .beta-status,
+#orderTool:not(.has-file) .beta-actions,
+#orderTool:not(.has-file) .order-summary-extra,
+#orderTool:not(.has-file) .order-pivot-wrap,
+#orderTool:not(.has-file) .order-preview-head,
+#orderTool:not(.has-file) .beta-preview{
+  display:none!important;
+}
+
+#orderTool.has-file .order-filter-wrap,
+#orderTool.has-file .beta-progress,
+#orderTool.has-file .beta-status,
+#orderTool.has-file .beta-actions,
+#orderTool.has-file .order-preview-head,
+#orderTool.has-file .beta-preview{
+  display:block!important;
+}
+
+#orderTool.has-file .beta-actions{
+  display:flex!important;
+}
+
+/* ===== UNIVERSAL CLICK FEEDBACK ===== */
+.global-click-ripple,
+.global-click-flash{
+  position:fixed !important;
+  z-index:2147483646 !important;
+  pointer-events:none !important;
+  transform:translate(-50%,-50%) scale(0) !important;
+  border-radius:999px !important;
+  mix-blend-mode:screen !important;
+}
+.global-click-ripple{
+  width:18px !important;
+  height:18px !important;
+  border:2px solid rgba(255,255,255,.78) !important;
+  box-shadow:0 0 0 1px rgba(96,165,250,.35),0 0 18px rgba(96,165,250,.45),0 0 34px rgba(255,255,255,.18) !important;
+  opacity:0 !important;
+}
+.global-click-ripple.is-active{
+  animation:globalClickRipple .62s cubic-bezier(.16,1,.3,1) forwards !important;
+}
+.global-click-flash{
+  width:9px !important;
+  height:9px !important;
+  background:rgba(255,255,255,.92) !important;
+  box-shadow:0 0 10px rgba(255,255,255,.75),0 0 24px rgba(96,165,250,.65) !important;
+  opacity:0 !important;
+}
+.global-click-flash.is-active{
+  animation:globalClickFlash .24s ease-out forwards !important;
+}
+.global-click-pressed{
+  animation:globalClickPressed .12s ease-out !important;
+}
+@keyframes globalClickRipple{
+  0%{transform:translate(-50%,-50%) scale(.25) !important;opacity:.95 !important}
+  45%{opacity:.72 !important}
+  100%{transform:translate(-50%,-50%) scale(10) !important;opacity:0 !important}
+}
+@keyframes globalClickFlash{
+  0%{transform:translate(-50%,-50%) scale(.5) !important;opacity:.95 !important}
+  100%{transform:translate(-50%,-50%) scale(2.7) !important;opacity:0 !important}
+}
+@keyframes globalClickPressed{
+  0%{transform:scale(1)}
+  50%{transform:scale(.985)}
+  100%{transform:scale(1)}
+}
+
+/* ================================================================
+   v15 — TRACKING COPY BOXES
+   Split Tracking results into separate boxes, max 100 numbers/box.
+   Clicking a box copies only the numbers inside that box.
+   The main Tracking header remains unchanged.
+   ================================================================ */
+#orderTool #orderTrackingPreview{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  align-items:flex-start!important;
+  justify-content:flex-start!important;
+  gap:10px!important;
+  overflow-x:auto!important;
+  overflow-y:auto!important;
+}
+#orderTool #orderTrackingPreview .tracking-box{
+  display:block!important;
+  flex:0 0 340px!important;
+  width:340px!important;
+  min-width:340px!important;
+  max-width:340px!important;
+  box-sizing:border-box!important;
+  padding:0 10px 8px!important;
+  background:#090f15!important;
+  border:1px solid #2b3a4b!important;
+  border-radius:9px!important;
+  cursor:pointer!important;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease!important;
+}
+#orderTool #orderTrackingPreview .tracking-box:hover{
+  border-color:#55728f!important;
+  background:#0b1219!important;
+}
+#orderTool #orderTrackingPreview .tracking-box.tracking-all-copied{
+  border-color:#5c91c7!important;
+  box-shadow:0 0 0 2px rgba(92,145,199,.18) inset!important;
+}
+#orderTool #orderTrackingPreview .tracking-box .tracking-group{
+  margin-left:-10px!important;
+  margin-right:-10px!important;
+}
+
+/* ================================================================
+   FINAL — FLOATING BRAND / LOCATION PICKERS
+   The dropdown must escape the result panel and stay above every
+   table/card underneath it.  It must not push or resize the layout.
+   ================================================================ */
+#compareTool #compareWebPreview{
+  position:relative!important;
+  z-index:20!important;
+  overflow:visible!important;
+}
+
+#compareTool #compareWebPreviewBody{
+  position:relative!important;
+  z-index:21!important;
+  overflow:visible!important;
+}
+
+#compareTool .compare-preview-section{
+  position:relative!important;
+  overflow:visible!important;
+  isolation:auto!important;
+  z-index:1!important;
+}
+
+#compareTool .compare-preview-section:has(.compare-copy-picker[open]){
+  z-index:9999!important;
+}
+
+#compareTool .compare-copy-tools{
+  position:relative!important;
+  z-index:10000!important;
+  overflow:visible!important;
+}
+
+#compareTool .compare-copy-picker{
+  position:relative!important;
+  z-index:10001!important;
+}
+
+#compareTool .compare-copy-picker[open]{
+  z-index:10002!important;
+}
+
+#compareTool .compare-copy-picker-body{
+  position:absolute!important;
+  z-index:10003!important;
+  top:calc(100% + 6px)!important;
+  left:0!important;
+  right:auto!important;
+  width:min(430px,calc(100vw - 48px))!important;
+  max-width:min(430px,calc(100vw - 48px))!important;
+  box-sizing:border-box!important;
+  overflow:auto!important;
+  box-shadow:0 18px 50px rgba(0,0,0,.65)!important;
+}
+
+/* The table itself keeps its own scroll; only the picker floats outside it. */
+#compareTool .compare-preview-table-wrap{
+  position:relative!important;
+  z-index:1!important;
+  overflow:auto!important;
+}
+
+/* ===== ORDER Pivot: ปุ่มคัดลอกทั้งหมด ===== */
+#orderTool .order-pivot-head{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+#orderTool .order-pivot-title-wrap{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+#orderTool .order-pivot-copy-btn{
+  flex:0 0 auto;
+  border:1px solid #33485b!important;
+  background:#111b25!important;
+  color:#e7edf5!important;
+  border-radius:8px!important;
+  padding:7px 12px!important;
+  font-size:12px!important;
+  font-weight:600!important;
+  cursor:pointer!important;
+}
+#orderTool .order-pivot-copy-btn:hover{
+  background:#fff!important;
+  color:#080b10!important;
+  transform:translateY(-1px)!important;
+}
+#orderTool .order-pivot-copy-btn:active{
+  transform:translateY(0)!important;
+}
+@media (max-width:700px){
+  #orderTool .order-pivot-head{
+    align-items:flex-start!important;
+    flex-direction:column!important;
+  }
+  #orderTool .order-pivot-copy-btn{
+    width:100%;
+  }
+}
+
+/* ================================================================
+   THEME REFRESH — unified, restrained accent (minimalist pass)
+   One muted accent, flat fills, no gradients/glow, no per-section
+   rainbow of blue/teal/violet decoration. Appended last on purpose
+   so it wins the cascade without touching the rules above.
+   ================================================================ */
+:root{
+  --accent:#78a9ff;
+  --accent-bright:#a6c8ff;
+  --accent-deep:#4f7dcf;
+  --accent-fg:#08111c;
+  --accent-soft:rgba(120,169,255,.12);
+  --neutral-label:#7c8898;
+}
+
+.beta-primary,.green,.excel-pivot-export-btn,.pdf-print-btn,.compare-web-download,
+#orderTool .order-pivot-copy-btn{
+  background:var(--accent)!important;
+  color:var(--accent-fg)!important;
+  border-color:var(--accent)!important;
+  box-shadow:none!important;
+}
+.beta-primary:hover,.green:hover,.excel-pivot-export-btn:hover,.pdf-print-btn:hover,.compare-web-download:hover,
+.beta-primary:hover:not(:disabled),.green:hover:not(:disabled),.excel-pivot-export-btn:hover:not(:disabled),.pdf-print-btn:hover:not(:disabled),.compare-web-download:hover:not(:disabled),
+#orderTool .order-pivot-copy-btn:hover{
+  background:var(--accent-bright)!important;
+  color:var(--accent-fg)!important;
+  transform:none!important;
+}
+
+.beta-secondary:hover,.secondary:hover,.btn-secondary:hover,.compare-export-short:hover,.compare-export-none:hover{
+  border-color:var(--accent-deep)!important;
+  color:#dce8ff!important;
+}
+
+.tabs .tab.active{
+  background:var(--accent-soft)!important;
+  color:#eaf1ff!important;
+  border-color:transparent!important;
+  box-shadow:inset 3px 0 0 var(--accent)!important;
+}
+.tab.active .nav-ico{
+  color:var(--accent-bright)!important;
+  background:transparent!important;
+  border-color:transparent!important;
+}
+
+input:focus,select:focus,textarea:focus{
+  border-color:var(--accent-deep)!important;
+  box-shadow:0 0 0 3px var(--accent-soft)!important;
+}
+
+::selection{background:var(--accent-soft);color:inherit}
+
+/* --- remove the per-section rainbow (blue/teal/violet) so every
+   workspace reads as one system with a single quiet accent --- */
+#mergeTool .beta-card:before{color:var(--neutral-label)!important}
+#orderTool .beta-card:before{color:var(--neutral-label)!important}
+#mergeTool .beta-drop:before{
+  background:#141a22!important;border-color:#2a323d!important;color:#aab4c2!important;
+}
+
+
+/* ===== ORDER Pivot: เลือกยี่ห้อสำหรับคัดลอก ===== */
+#orderTool .order-pivot-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:8px!important;flex-wrap:wrap!important}
+#orderTool .order-pivot-wrap:has(.order-brand-picker[open]){overflow:visible!important;position:relative!important;z-index:50!important}
+#orderTool .order-brand-picker{position:relative!important}
+#orderTool .order-brand-picker>summary{
+  min-height:34px!important;display:flex!important;align-items:center!important;gap:10px!important;
+  padding:7px 10px!important;border:1px solid #2b3d50!important;border-radius:8px!important;
+  background:#101a25!important;color:#dce7f2!important;cursor:pointer!important;
+  font-size:12px!important;font-weight:600!important;list-style:none!important;
+}
+#orderTool .order-brand-picker>summary::-webkit-details-marker{display:none!important}
+#orderTool .order-brand-picker>summary::after{content:'⌄';color:var(--accent)!important;font-size:14px!important}
+#orderTool .order-brand-picker[open]>summary{border-color:var(--accent-deep)!important}
+#orderTool .order-brand-count{color:#8fa7bf!important;font-weight:500!important}
+#orderTool .order-brand-body{
+  position:absolute!important;top:calc(100% + 6px)!important;right:0!important;z-index:60!important;
+  width:min(340px,calc(100vw - 48px))!important;max-height:280px!important;overflow:auto!important;
+  padding:10px!important;background:#0c141e!important;border:1px solid #2b3d50!important;
+  border-radius:10px!important;box-shadow:0 18px 50px rgba(0,0,0,.65)!important;
+}
+#orderTool .order-brand-actions{display:flex!important;gap:6px!important;padding-bottom:8px!important;margin-bottom:6px!important;border-bottom:1px solid #1d2a38!important}
+#orderTool .order-brand-actions button{
+  min-height:30px!important;padding:0 10px!important;border:1px solid #2b3d50!important;border-radius:7px!important;
+  background:#111d29!important;color:#bfcddd!important;font-size:11px!important;box-shadow:none!important;
+}
+#orderTool .order-brand-actions button:hover{background:#18293a!important;color:#fff!important}
+#orderTool .order-brand-options{display:grid!important;gap:2px!important}
+#orderTool .order-brand-option{
+  display:flex!important;align-items:center!important;gap:8px!important;padding:6px!important;
+  border-radius:6px!important;cursor:pointer!important;font-size:12px!important;color:#dce7f2!important;
+}
+#orderTool .order-brand-option:hover{background:#131d28!important}
+#orderTool .order-brand-option input{width:16px!important;height:16px!important;min-height:0!important;flex:0 0 auto!important;padding:0!important;margin:0!important;accent-color:var(--accent)}
+#orderTool .order-brand-option span{flex:1 1 auto!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+#orderTool .order-brand-option small{color:#7f90a4!important;font-size:11px!important}
+@media (max-width:700px){
+  #orderTool .order-pivot-actions{width:100%!important;justify-content:stretch!important}
+  #orderTool .order-brand-picker{flex:1 1 100%!important}
+  #orderTool .order-brand-body{left:0!important;right:auto!important}
+}
+/* ===== ORDER Tracking: เลือกยี่ห้อ (ใช้สไตล์ตัวเลือกเดียวกับ Pivot) ===== */
+#orderTool .tracking-copy-head{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:10px 14px!important;flex-wrap:wrap!important}
+#orderTool #trackingBrandPicker .order-brand-body{left:0!important;right:auto!important}
+#orderTool .tracking-copy-title{display:flex!important;align-items:baseline!important;gap:8px!important;flex-wrap:wrap!important;min-width:0!important}
+#orderTool #orderTrackingCopy:has(.order-brand-picker[open]){overflow:visible!important;position:relative!important;z-index:50!important}
+#orderTool .order-filter-wrap:has(.order-brand-picker[open]){overflow:visible!important}
+/* ===== ตรวจ ORDER กับ Stock: ซ่อนผลตรวจ/ตัวเลขสรุปจนกว่าจะมีข้อมูลครบทั้ง 2 ไฟล์ ===== */
+#compareTool:not(.compare-has-result) #downloadBox,
+#compareTool:not(.compare-has-result) #compareQuickStatus,
+#compareTool:not(.compare-has-result) #compareWebPreview,
+#compareTool:not(.compare-has-result) #compareExtra,
+#compareTool:not(.compare-has-result) #resultBox{display:none!important}
+/* แถบความคืบหน้าของหน้าตรวจ ORDER กับ Stock: แสดงเฉพาะตอนกำลังทำงาน */
+#compareTool #progress:not(.is-active){display:none!important}
+/* หน้าตรวจ ORDER กับ Stock: ซ่อนกล่องตรวจอัตโนมัติ/ข้อความสถานะ จนกว่าจะมีข้อมูลครบทั้ง 2 ไฟล์ */
+#compareTool:not(.compare-both) #autoCompareInfo,
+#compareTool:not(.compare-both) #compareStatus{display:none!important}
+#compareTool:not(.compare-any) .panel{display:none!important}
+/* ===== แถบด้านข้าง: สวิตช์โหมดสี + กล่องสถานะให้กลมกลืนกับพื้นหลัง ===== */
+.top .theme-switch{
+  margin-top:auto!important;
+  display:grid!important;grid-template-columns:1fr 1fr!important;gap:4px!important;
+  padding:4px!important;
+  border:1px solid var(--border)!important;border-radius:10px!important;
+  background:transparent!important;
+}
+.top .theme-switch .theme-opt{
+  min-height:32px!important;height:32px!important;padding:0 8px!important;
+  border:1px solid transparent!important;border-radius:7px!important;
+  background:transparent!important;color:var(--muted)!important;
+  font-size:12px!important;font-weight:500!important;box-shadow:none!important;
+  cursor:pointer;transform:none!important;
+}
+.top .theme-switch .theme-opt:hover:not(:disabled){background:var(--accent-soft)!important;color:var(--foreground)!important;transform:none!important}
+.top .theme-switch .theme-opt[aria-pressed="true"]{
+  background:var(--accent-soft)!important;color:var(--foreground)!important;
+  border-color:var(--accent-deep)!important;font-weight:600!important;
+}
+.top .fx-system{
+  position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  z-index:auto!important;min-height:0!important;margin:10px 0 0!important;padding:0 10px!important;
+  background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+  color:var(--muted-2)!important;font-size:11px!important;
+}
+.top .fx-system b{color:var(--muted)!important;font-weight:500!important}
+.top .fx-system .fx-dot{background:var(--accent)!important;width:6px!important;height:6px!important}
+.top .fx-system .fx-clock{color:var(--muted-2)!important;margin-left:auto!important}
+@media (max-width:760px){
+  .top .theme-switch{margin-top:10px!important}
+}
+/* ===== เอฟเฟกต์เมาส์ ===== */
+:root{--wave-rgb:120,169,255}
+
+/* คลื่นวงแหวนที่จุดกด (3 ชั้น) */
+.wave-ring{
+  position:fixed;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  pointer-events:none;z-index:2147483645;
+  border:2px solid rgba(var(--wave-rgb),.8);
+  box-shadow:0 0 14px rgba(var(--wave-rgb),.4),inset 0 0 8px rgba(var(--wave-rgb),.25);
+  opacity:0;transform:scale(.15);
+  animation:waveRing 1s cubic-bezier(.16,1,.3,1) forwards;animation-delay:var(--d,0ms);
+}
+@keyframes waveRing{
+  0%{opacity:.95;transform:scale(.15)}
+  60%{opacity:.4}
+  100%{opacity:0;transform:scale(var(--s,6))}
+}
+
+/* คลื่นหมึกภายในปุ่ม/แท็บ/กล่อง */
+.ink-wave{
+  position:absolute;border-radius:50%;pointer-events:none;z-index:0;
+  background:radial-gradient(circle,rgba(var(--wave-rgb),.55) 0%,rgba(var(--wave-rgb),.3) 45%,rgba(var(--wave-rgb),0) 70%);
+  transform:scale(0);opacity:1;
+  animation:inkWave .75s cubic-bezier(.2,.7,.2,1) forwards;
+}
+@keyframes inkWave{
+  0%{transform:scale(0);opacity:1}
+  100%{transform:scale(1);opacity:0}
+}
+
+/* แสงตามเมาส์ */
+#fxCursorGlow{
+  position:fixed;left:0;top:0;width:460px;height:460px;margin:-230px 0 0 -230px;
+  border-radius:50%;pointer-events:none;z-index:2147483000;
+  background:radial-gradient(circle,rgba(var(--wave-rgb),.14) 0%,rgba(var(--wave-rgb),.06) 40%,rgba(var(--wave-rgb),0) 68%);
+  opacity:0;transition:opacity .35s ease;will-change:transform;
+}
+#fxCursorGlow.on{opacity:1}
+
+@media (prefers-reduced-motion:reduce){
+  .wave-ring,.ink-wave,#fxCursorGlow{display:none!important}
+}
+/* ไอคอนเมนูแถบข้าง (SVG ชุดเดียวกัน) */
+.tab .nav-ico{display:grid!important;place-items:center!important;font-size:0!important}
+.tab .nav-ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s ease}
+.tab:hover .nav-ico svg{transform:scale(1.12)}
+/* หน้ารวมไฟล์ ZIP: ซ่อนแถบสถานะ/ปุ่ม/ตัวอย่างข้อมูล จนกว่าจะเลือกไฟล์ ZIP */
+#mergeTool:not(.merge-has-file) .auto-merge-hint,
+#mergeTool:not(.merge-has-file) .beta-progress,
+#mergeTool:not(.merge-has-file) .beta-status,
+#mergeTool:not(.merge-has-file) .beta-actions,
+#mergeTool:not(.merge-has-file) h3,
+#mergeTool:not(.merge-has-file) #preview{display:none!important}
+/* ปุ่มดูผลตรวจบนเว็บ (ทั้งหมด/ที่ขาด/ไม่มี Stock): ไฮไลต์ปุ่มที่กำลังเปิดอยู่ */
+#compareTool .compare-download-actions .is-open{
+  box-shadow:0 0 0 2px var(--accent-soft),0 0 0 3px var(--accent-deep)!important;
+}
+/* ===== ตรวจใบปริ้น (อ่านกากบาท/วงกลมจากรูปถ่าย) ===== */
+#scanTool .scan-card{padding:24px!important}
+#scanTool .scan-need{display:none;margin:14px 0 0;padding:12px 14px;border:1px solid #6b4e16;border-radius:10px;background:#1c1608;color:#f0c674;font-size:13px}
+#scanTool.scan-no-pivot .scan-need{display:block}
+#scanTool #scanDrop{margin-top:16px!important;min-height:130px!important}
+#scanTool .scan-status{margin-top:12px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--muted);font-size:13px;white-space:pre-line}
+#scanTool:not(.scan-has-image) .scan-result{display:none}
+#scanTool .scan-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:16px}
+#scanTool .scan-stats{display:flex;flex-wrap:wrap;gap:8px}
+#scanTool .scan-stats>div{display:flex;flex-direction:column;min-width:86px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:11px;color:var(--muted)}
+#scanTool .scan-stats b{font-size:20px;line-height:1.2;color:var(--foreground)}
+#scanTool .scan-stats .st-cross b{color:#f87171}
+#scanTool .scan-stats .st-ring b{color:#60a5fa}
+#scanTool .scan-stats .st-check b{color:#fbbf24}
+#scanTool .scan-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#scanTool .scan-start{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+#scanTool .scan-start input{width:84px;min-height:34px!important;padding:0 8px!important}
+#scanTool .scan-warn{margin-top:12px;padding:11px 14px;border:1px solid #6b4e16;border-radius:10px;background:#1c1608;color:#f0c674;font-size:13px;white-space:pre-line}
+#scanTool .scan-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+#scanTool .scan-photo{position:sticky;top:84px;border:1px solid var(--border);border-radius:12px;padding:8px;background:transparent}
+#scanTool .scan-photo canvas{display:block;width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:8px;cursor:pointer}
+#scanTool .scan-photo-hint{margin-top:6px;font-size:11px;color:var(--muted-2);text-align:center}
+#scanTool .scan-list{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+#scanTool .scan-list-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)}
+#scanTool .scan-list-head select{min-height:34px!important;padding:0 8px!important;font-size:12px}
+#scanTool .scan-rows{max-height:72vh;overflow:auto}
+#scanTool .scan-row{display:grid;grid-template-columns:44px minmax(0,1fr) 56px auto;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border-soft);font-size:13px}
+#scanTool .scan-row:hover{background:var(--accent-soft)}
+#scanTool .scan-row.is-cross{background:rgba(239,68,68,.12)}
+#scanTool .scan-row.is-ring{background:rgba(59,130,246,.08)}
+#scanTool .scan-row.is-check{box-shadow:inset 3px 0 0 #f59e0b}
+#scanTool .scan-n{color:var(--muted-2);font-size:11px;font-variant-numeric:tabular-nums}
+#scanTool .scan-sku{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#scanTool .scan-qty{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+#scanTool .scan-seg{display:inline-flex;gap:3px}
+#scanTool .scan-seg button{min-height:28px!important;height:28px;width:32px;padding:0!important;border-radius:7px!important;font-size:14px;line-height:1;box-shadow:none!important;transform:none!important}
+#scanTool .scan-seg button[aria-pressed="true"][data-mark="cross"]{background:#b91c1c!important;border-color:#ef4444!important;color:#fff!important}
+#scanTool .scan-seg button[aria-pressed="true"][data-mark="ring"]{background:#1d4ed8!important;border-color:#60a5fa!important;color:#fff!important}
+#scanTool .scan-seg button[aria-pressed="true"][data-mark="none"]{background:var(--accent-soft)!important;border-color:var(--accent-deep)!important}
+#scanTool .scan-empty{padding:24px;text-align:center;color:var(--muted-2);font-size:13px}
+#scanTool .scan-footer{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border-soft)}
+#scanTool .scan-summary{font-size:14px;font-weight:600}
+#scanTool .scan-actions{display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:980px){
+  #scanTool .scan-grid{grid-template-columns:1fr}
+  #scanTool .scan-photo{position:static}
+}
+/* แก้ไขจำนวนในตารางตรวจใบปริ้น */
+#scanTool .scan-qty.is-editable{cursor:text;border-radius:6px;padding:3px 6px;margin:-3px -6px;border:1px dashed transparent}
+#scanTool .scan-qty.is-editable:hover{border-color:var(--accent-deep);color:var(--foreground)}
+#scanTool .scan-qty.is-edited{color:#fbbf24;font-weight:700}
+#scanTool .scan-qty .scan-qty-input{width:64px!important;min-height:28px!important;height:28px;padding:0 6px!important;text-align:right;font-size:13px}
+/* ===== ไฟล์ ORDER ที่เคยใช้ ===== */
+#orderTool .saved-files{margin:14px 22px 0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:transparent}
+#orderTool .saved-files[hidden]{display:none!important}
+#orderTool .saved-files-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:8px}
+#orderTool .saved-files-head strong{font-size:13px;color:var(--foreground)}
+#orderTool .saved-files-head span{font-size:11px;color:var(--muted-2);flex:1 1 auto}
+#orderTool .saved-files-clear{min-height:26px!important;padding:0 10px!important;font-size:11px;border-radius:7px!important;box-shadow:none!important;background:transparent!important;color:var(--muted)!important}
+#orderTool .saved-files-list{display:grid;gap:6px;max-height:230px;overflow:auto}
+#orderTool .saved-file{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border-soft);border-radius:9px}
+#orderTool .saved-file:hover{background:var(--accent-soft)}
+#orderTool .saved-file-info{display:flex;flex-direction:column;min-width:0}
+#orderTool .saved-file-info strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#orderTool .saved-file-info span{font-size:11px;color:var(--muted-2)}
+#orderTool .saved-file button{min-height:30px!important;padding:0 12px!important;font-size:12px;border-radius:8px!important;box-shadow:none!important}
+#orderTool .saved-file .saved-file-open{background:var(--accent)!important;color:var(--accent-fg)!important;border-color:var(--accent)!important;font-weight:600}
+#orderTool .saved-file .saved-file-del{background:transparent!important;color:var(--muted)!important}
+/* ตัวเลือกอ้างอิงรายการ (ใบปริ้นที่บันทึกไว้) */
+/* ตรวจใบปริ้น: หลายรูป */
+#scanTool .scan-pages{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+#scanTool .scan-page-chip{display:inline-flex;align-items:stretch;border:1px solid var(--border);border-radius:999px;overflow:hidden;max-width:100%}
+#scanTool .scan-page-chip.is-active{border-color:var(--accent,#7c9cff);background:rgba(124,156,255,.14)}
+#scanTool .scan-page-chip.is-fail{border-color:rgba(239,68,68,.6)}
+#scanTool .scan-page-pick,#scanTool .scan-page-del,#scanTool .scan-page-add{font:inherit;font-size:12px;color:inherit;background:transparent;border:0;cursor:pointer;padding:6px 12px}
+#scanTool .scan-page-pick{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#scanTool .scan-page-del{padding:6px 10px;color:var(--muted)}
+#scanTool .scan-page-del:hover{color:#ef4444}
+#scanTool .scan-page-add{border:1px dashed var(--border);border-radius:999px;color:var(--muted)}
+#scanTool .scan-page-add:hover{color:inherit}
+/* ตรวจใบปริ้น: รายการใบปริ้นที่เคยปริ้น (หน้าตาเดียวกับ "ไฟล์ที่เคยใช้" ของหน้า รับORDER) */
+#scanTool .saved-files{margin:14px 0 0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:transparent}
+#scanTool .saved-files[hidden]{display:none!important}
+#scanTool .saved-files-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:8px}
+#scanTool .saved-files-head strong{font-size:13px;color:var(--foreground)}
+#scanTool .saved-files-head span{font-size:11px;color:var(--muted-2);flex:1 1 auto}
+#scanTool .saved-files-clear{min-height:26px!important;padding:0 10px!important;font-size:11px;border-radius:7px!important;box-shadow:none!important;background:transparent!important;color:var(--muted)!important}
+#scanTool .saved-files-list{display:grid;gap:6px;max-height:230px;overflow:auto}
+#scanTool .saved-file{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border-soft);border-radius:9px}
+#scanTool .saved-file:hover{background:var(--accent-soft)}
+#scanTool .saved-file.is-current{border-color:var(--accent)}
+#scanTool .saved-file-info{display:flex;flex-direction:column;min-width:0}
+#scanTool .saved-file-info strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#scanTool .saved-file-info span{font-size:11px;color:var(--muted-2)}
+#scanTool .saved-file-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+#scanTool .saved-file button{min-height:30px!important;padding:0 12px!important;font-size:12px;border-radius:8px!important;box-shadow:none!important}
+#scanTool .saved-file .saved-file-open{background:var(--accent)!important;color:var(--accent-fg)!important;border-color:var(--accent)!important;font-weight:600}
+#scanTool .saved-file .saved-file-open[aria-pressed="true"]{background:transparent!important;color:var(--accent)!important}
+#scanTool .saved-file .saved-file-del{background:transparent!important;color:var(--muted)!important}
+#scanTool .saved-file .saved-file-alt{background:transparent!important}
+
+/* หัวคอลัมน์ตารางผลตรวจที่กดเรียงลำดับได้ */
+#compareTool .compare-preview-table thead th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+#compareTool .compare-preview-table thead th.sortable:hover{color:var(--foreground)}
+#compareTool .compare-preview-table thead th.sortable::after{content:"↕";margin-left:6px;font-size:10px;opacity:.35}
+#compareTool .compare-preview-table thead th[data-sort="asc"]::after{content:"▲";opacity:1;color:var(--accent)}
+#compareTool .compare-preview-table thead th[data-sort="desc"]::after{content:"▼";opacity:1;color:var(--accent)}
+
+/* ก่อนสั่ง: รายการใบปริ้นที่เคยปริ้น (หน้าตาเดียวกับหน้าตรวจใบปริ้น) */
+#beforeOrderTool .saved-files{margin:14px 0 0;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:transparent}
+#beforeOrderTool .saved-files[hidden]{display:none!important}
+#beforeOrderTool .saved-files-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:8px}
+#beforeOrderTool .saved-files-head strong{font-size:13px;color:var(--foreground)}
+#beforeOrderTool .saved-files-head span{font-size:11px;color:var(--muted-2);flex:1 1 auto}
+#beforeOrderTool .saved-files-clear{min-height:26px!important;padding:0 10px!important;font-size:11px;border-radius:7px!important;box-shadow:none!important;background:transparent!important;color:var(--muted)!important}
+#beforeOrderTool .saved-files-list{display:grid;gap:6px;max-height:230px;overflow:auto}
+#beforeOrderTool .saved-file{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border-soft);border-radius:9px}
+#beforeOrderTool .saved-file:hover{background:var(--accent-soft)}
+#beforeOrderTool .saved-file.is-current{border-color:var(--accent)}
+#beforeOrderTool .saved-file-info{display:flex;flex-direction:column;min-width:0}
+#beforeOrderTool .saved-file-info strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#beforeOrderTool .saved-file-info span{font-size:11px;color:var(--muted-2)}
+#beforeOrderTool .saved-file-actions{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+#beforeOrderTool .saved-file button{min-height:30px!important;padding:0 12px!important;font-size:12px;border-radius:8px!important;box-shadow:none!important}
+#beforeOrderTool .saved-file .saved-file-open{background:var(--accent)!important;color:var(--accent-fg)!important;border-color:var(--accent)!important;font-weight:600}
+#beforeOrderTool .saved-file .saved-file-open[aria-pressed="true"]{background:transparent!important;color:var(--accent)!important}
+#beforeOrderTool .saved-file .saved-file-del{background:transparent!important;color:var(--muted)!important}
+#beforeOrderTool .saved-file .saved-file-alt{background:transparent!important}
