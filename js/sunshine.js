@@ -511,6 +511,9 @@
     if (!MODE_TITLES[mode]) mode = 'purchase';
     currentMode = mode;
     started = true;
+    // ปุ่มดาวน์โหลดตารางสี/ไซซ์ ใช้ได้แค่หน้าใบสั่งซื้อล่วงหน้า (มีคอลัมน์ "สั่งเพิ่ม") หน้าอื่นซ่อนไปเลยกันสับสน
+    const matrixBtn = $('sunMatrixXlsx');
+    if (matrixBtn) matrixBtn.hidden = (mode !== 'purchase');
     // ไม่ล้างคำค้นตอนสลับแท็บ/สลับหน้า — ให้ค้างไว้จนกว่าจะกดรีเฟรชหน้าเว็บจริงๆ (applyView อ่านคำค้นปัจจุบันเองอยู่แล้วตอนโหลดเสร็จ)
     loadData(mode);
   }
