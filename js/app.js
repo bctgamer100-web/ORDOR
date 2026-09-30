@@ -4202,14 +4202,28 @@ renderBeforeOrderTable();
 
   const current = () => (root.getAttribute('data-prod-theme') === 'light' ? 'light' : 'dark');
   const sync = () => buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoice === current())));
-
-  buttons.forEach(b => b.addEventListener('click', () => {
-    const t = b.dataset.themeChoice === 'light' ? 'light' : 'dark';
+  const setTheme = (t) => {
     root.setAttribute('data-prod-theme', t);
     try { localStorage.setItem(KEY, t); } catch (_) {}
     sync();
-  }));
+  };
+
+  buttons.forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeChoice === 'light' ? 'light' : 'dark')));
   sync();
+
+  // คลิกขวาติดกัน 2 ครั้งเร็วๆ (ภายใน 500ms) ตรงไหนของหน้าเว็บก็ได้ = สลับโหมดสว่าง/มืด
+  // ปิดเมนูคลิกขวาของเบราว์เซอร์ทั้งเว็บไปด้วย ไม่งั้นเมนูจะเด้งกวนระหว่างคลิกขวาซ้อนกัน
+  let lastRightClickAt = 0;
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const now = Date.now();
+    if (now - lastRightClickAt < 500) {
+      setTheme(current() === 'light' ? 'dark' : 'light');
+      lastRightClickAt = 0; // เริ่มนับใหม่ กันคลิกขวาครั้งที่ 3 ติดกันสลับซ้ำอีกรอบ
+    } else {
+      lastRightClickAt = now;
+    }
+  });
 })();
 
 /* ===== เอฟเฟกต์เมาส์: คลื่นหมึกในปุ่ม/แท็บ/กล่องต่างๆ + แสงตามเมาส์ ===== */
