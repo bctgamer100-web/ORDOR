@@ -130,12 +130,20 @@ begin
   end if;
 
   get diagnostics v_count = row_count;
+
+  if p_target = 'moves' then
+    perform public.op_com_recalc(); -- เพิ่มทีหลังใน op_com_recalc.sql: หักสั่งเป้าตามเคลื่อนไหวที่เพิ่งอัปโหลด
+  end if;
+
   return v_count;
 end;
 $$;
 
 revoke all on function public.op_upload(text, text, jsonb, boolean) from public;
 grant execute on function public.op_upload(text, text, jsonb, boolean) to anon, authenticated;
+
+-- หมายเหตุ: ห้ามรันไฟล์นี้ทั้งไฟล์ซ้ำ! บรรทัดท้ายไฟล์ตั้งรหัสอัปโหลดเป็น 'CHANGE_ME' จะรีเซ็ตรหัสจริงทิ้ง
+-- ถ้าต้องอัปเดตฟังก์ชัน op_upload ให้รันผ่าน op_com_recalc.sql แทน (มีเวอร์ชันล่าสุดในตัว ไม่แตะรหัสอัปโหลด)
 
 -- ---------- สถานะโควตาอัปโหลด (อ่านได้โดยไม่ต้องใส่รหัส แค่ไว้เช็กว่าวันนี้อัปโหลดชนิดไหนไปแล้วบ้าง) ----------
 -- คืนค่าเฉพาะชนิดที่เคยอัปโหลดแล้วเท่านั้น (ชนิดที่ยังไม่เคยอัปโหลดจะไม่มีแถวคืนมา = อัปโหลดได้ตามปกติ)

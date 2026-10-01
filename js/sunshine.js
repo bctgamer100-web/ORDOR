@@ -511,9 +511,10 @@
     if (!MODE_TITLES[mode]) mode = 'purchase';
     currentMode = mode;
     started = true;
-    // ปุ่มดาวน์โหลดตารางสี/ไซซ์ ใช้ได้แค่หน้าใบสั่งซื้อล่วงหน้า (มีคอลัมน์ "สั่งเพิ่ม") หน้าอื่นซ่อนไปเลยกันสับสน
-    const matrixBtn = $('sunMatrixXlsx');
+    // ปุ่มดาวน์โหลด/นำเข้าตารางสี/ไซซ์ ใช้ได้แค่หน้าใบสั่งซื้อล่วงหน้า (มีคอลัมน์ "สั่งเพิ่ม"/"สั่งเป้า") หน้าอื่นซ่อนไปเลยกันสับสน
+    const matrixBtn = $('sunMatrixXlsx'), matrixImportBtn = $('sunMatrixImport');
     if (matrixBtn) matrixBtn.hidden = (mode !== 'purchase');
+    if (matrixImportBtn) matrixImportBtn.hidden = (mode !== 'purchase');
     // ไม่ล้างคำค้นตอนสลับแท็บ/สลับหน้า — ให้ค้างไว้จนกว่าจะกดรีเฟรชหน้าเว็บจริงๆ (applyView อ่านคำค้นปัจจุบันเองอยู่แล้วตอนโหลดเสร็จ)
     loadData(mode);
   }
@@ -521,10 +522,9 @@
   // หน้าใบสั่งซื้อ: true = โชว์ทุก SKU ใน products, false = เฉพาะตัวที่ถึงจุดสั่งซื้อ
   let PURCHASE_SHOW_ALL = true;
 
-  let TARGET_EXPORT = []; // [sku, สั่งเป้าที่หักเคลื่อนไหวแล้ว] ของ SKU ที่ยังเหลือ > 0 (ใช้ดาวน์โหลดไฟล์สั่งเป้า)
-  const TARGET_MOVE_MIN = 4; // เคลื่อนไหวต้อง >= ค่านี้ ถึงจะหักสั่งเป้า
+  let TARGET_EXPORT = []; // [sku, สั่งเป้าที่เหลือ] ของ SKU ที่ยังเหลือ > 0 (ใช้ดาวน์โหลดไฟล์สั่งเป้า)
 
-  // รวมยอด "สั่งเป้า" (op_com.qty) ต่อ SKU
+  // รวมยอด "สั่งเป้า" (op_com.qty) ต่อ SKU — qty หักเคลื่อนไหวมาแล้วจากฝั่งฐานข้อมูล (op_com_recalc) ไม่ต้องหักซ้ำฝั่งนี้
   function buildComMap(rows) {
     const m = {};
     (rows || []).forEach(function (r) {
@@ -548,12 +548,10 @@
       const sold = vel[sku] || 0;
       // สต๊อก FRONT ต้องปริ้นใบไปเช็คนับจริงก่อนถึงจะเชื่อได้ ไม่เอามารวมคำนวณสั่งซื้อ
       const verified = s.K + s.Y;
-      // สั่งเป้า (จาก op_com) ใช้ลบกับ "เคลื่อนไหว" อย่างเดียว: เคลื่อนไหว (+) ตั้งแต่ TARGET_MOVE_MIN (4) ขึ้นไปถึงจะหักสั่งเป้าได้
+      // สั่งเป้า (op_com.qty) หักเคลื่อนไหวมาแล้วจากฝั่งฐานข้อมูล (ดู op_com_recalc ใน supabase/op_com_recalc.sql) ใช้ค่าตรงๆ ได้เลย
       // ไม่มีผลกับ "สั่งเพิ่ม" (ยังเป็นสูตรเดิม: ขาย 3 ด. − คลัง − เคลื่อนไหว) และไม่มีผลกับเกณฑ์ถึงจุดสั่งซื้อ
       const moveQty = (moveMap && moveMap[sku]) || 0;
-      const target0 = (comMap && comMap[sku]) || 0;                                   // สั่งเป้าตั้งต้นจาก op_com
-      const consume = (moveQty >= TARGET_MOVE_MIN || (moveQty > 0 && moveQty === target0)) ? moveQty : 0;                      // เคลื่อนไหวที่นับว่าเข้ามาหักสั่งเป้า
-      const target = Math.max(0, target0 - consume);                                  // สั่งเป้าที่เหลือ (แสดงในตาราง)
+      const target = (comMap && comMap[sku]) || 0;                                     // สั่งเป้าที่เหลือ (แสดงในตาราง)
       const ads = sold / CFG.HIST_DAYS;
       const cover = ads > 0 ? verified / ads : 9999;
       const rop = ads * (CFG.LEAD_DAYS + CFG.SAFETY_DAYS);
@@ -567,11 +565,10 @@
 
     list = gradeList(list, 'sold');
     TARGET_EXPORT = list.filter(function (i) { return i.target > 0; }).map(function (i) { return [i.sku, i.target]; });
-    // SKU ที่อยู่ใน op_com แต่ไม่มียอดขาย/ไม่อยู่ใน products: หักเคลื่อนไหวแล้วใส่ในไฟล์ด้วย
+    // SKU ที่อยู่ใน op_com แต่ไม่มียอดขาย/ไม่อยู่ใน products: ใส่ในไฟล์ด้วย (qty หักเคลื่อนไหวมาแล้วจาก DB)
     Object.keys(comMap || {}).forEach(function (sku) {
       if (list.some(function (i) { return i.sku === sku; })) return;
-      const mv = (moveMap && moveMap[sku]) || 0, t0 = comMap[sku];
-      const t = Math.max(0, t0 - ((mv >= TARGET_MOVE_MIN || (mv > 0 && mv === t0)) ? mv : 0));
+      const t = comMap[sku];
       if (t > 0) TARGET_EXPORT.push([sku, t]);
     });
 
@@ -1606,6 +1603,72 @@
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  });
+
+  // นำไฟล์ตารางสี/ไซซ์ (ที่ดาวน์โหลดจากปุ่มด้านบน) กลับเข้ามาใหม่ — "บวกเพิ่ม" เข้ากับสั่งเป้า (op_com) ของ SKU นั้นๆ
+  // ไม่เขียนทับทั้งตาราง op_com เหมือนการ์ด "สั่งเป้า" ในหน้านำเข้าข้อมูล (นั่นคือเขียนทับทั้งหมด ส่วนนี้แค่บวกเพิ่มเฉพาะ SKU ในไฟล์)
+  // อ่านทุกชีตในไฟล์: แถว 1 = รหัสสินค้า, แถว 2 = หัวตาราง (สี/ไซซ์ + ไซซ์ต่างๆ + รวม), แถวสุดท้าย = รวม (ข้าม), ที่เหลือคือแถวสี
+  function sunParseMatrixWorkbook(wb) {
+    const rows = [];
+    wb.SheetNames.forEach(function (name) {
+      const ws = wb.Sheets[name];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (aoa.length < 4) return; // ต้องมีอย่างน้อย หัวเรื่อง + หัวตาราง + สี 1 แถว + แถวรวม
+      const code = String(aoa[0][0] || '').trim();
+      if (!code) return;
+      const header = aoa[1] || [];
+      const sizes = header.slice(1, header.length - 1).map(function (s) { return String(s).trim(); });
+      if (!sizes.length) return;
+      for (let i = 2; i < aoa.length - 1; i++) { // ข้ามแถวสุดท้าย (รวม)
+        const row = aoa[i] || [];
+        const color = String(row[0] || '').trim();
+        if (!color || color === 'รวม') continue;
+        sizes.forEach(function (sz, idx) {
+          if (!sz) return;
+          const qty = Number(row[idx + 1]);
+          if (!Number.isFinite(qty) || qty === 0) return;
+          rows.push({ sku: code + '-' + color + '-' + sz, qty: qty });
+        });
+      }
+    });
+    return rows;
+  }
+  $('sunMatrixImportFile').addEventListener('change', async function (e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      const rows = sunParseMatrixWorkbook(wb);
+      if (!rows.length) { alert('อ่านไฟล์นี้ไม่ได้ หรือไม่พบข้อมูลในรูปแบบตารางสี/ไซซ์ (ต้องเป็นไฟล์ที่ดาวน์โหลดจากปุ่ม "ดาวน์โหลดตารางสี/ไซซ์" เท่านั้น)'); return; }
+
+      const totalQty = rows.reduce(function (s, r) { return s + r.qty; }, 0);
+      const skuCount = new Set(rows.map(function (r) { return r.sku; })).size;
+      if (!confirm('พบ ' + skuCount.toLocaleString() + ' SKU รวม ' + totalQty.toLocaleString() + ' ชิ้น จากไฟล์ "' + file.name + '"\n\nจะ "บวกเพิ่ม" เข้ากับสั่งเป้า (op_com) ของ SKU เหล่านี้ (ไม่เขียนทับของเดิม)\nกด "ตกลง" เพื่อดำเนินการต่อ')) return;
+
+      if (!uploadPasscode) {
+        const typed = window.prompt('ใส่รหัสอัปโหลด');
+        uploadPasscode = (typed || '').trim();
+      }
+      if (!uploadPasscode) { alert('ยกเลิก: ต้องใส่รหัสอัปโหลดก่อน'); return; }
+
+      const res = await sb().rpc('op_com_increment', { p_passcode: uploadPasscode, p_rows: rows });
+      if (res.error) {
+        if (/รหัสอัปโหลด/.test(res.error.message)) uploadPasscode = '';
+        alert('นำเข้าไม่สำเร็จ: ' + res.error.message);
+        return;
+      }
+      alert('บวกเพิ่มสั่งเป้าสำเร็จ: ' + skuCount.toLocaleString() + ' SKU | รวม ' + totalQty.toLocaleString() + ' ชิ้น');
+      CACHE = null;
+      if (started) loadData(currentMode);
+    } catch (err) {
+      console.error(err);
+      alert('นำเข้าไฟล์ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+    }
+  });
+  $('sunMatrixImport').addEventListener('click', function (e) {
+    if (e.target.closest('input')) return;
+    $('sunMatrixImportFile').click();
   });
 
   // ค้นหาแบบพิมพ์แล้วขึ้นผลทันที (หน่วงสั้นๆ 120ms กันหน่วงตอนพิมพ์เร็ว กับตารางหลายหมื่นแถว)
