@@ -85,18 +85,59 @@ html[data-prod-theme="light"] .side-right.top{
 /* ---------- Sunshine ---------- */
 #sunTool .sun-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px}
 #sunTool .sun-search{
-  display:flex;align-items:center;gap:8px;flex:1 1 240px;max-width:380px;
+  position:relative;display:flex;align-items:center;gap:8px;flex:1 1 240px;max-width:380px;
   padding:0 12px;border:1px solid var(--border);border-radius:9px;background:transparent;
 }
 #sunTool .sun-search svg{width:16px;height:16px;flex:0 0 auto;color:var(--muted-2)}
 #sunTool .sun-search input{flex:1;min-width:0;border:0!important;background:transparent!important;outline:none;box-shadow:none!important;padding:9px 0;color:var(--foreground);font-size:14px}
-#sunTool .sun-actions{display:flex;gap:6px}
+
+/* ปุ่มเปิดกล่องวางหลาย SKU พร้อมกัน + กล่องที่เปิดมา */
+/* ต้อง !important ทับสไตล์ button ส่วนกลาง (style.css) ไม่งั้นได้กรอบ/เงา/พื้นหลังมาด้วย ดูเป็นปุ่มแยกจากช่องค้นหา */
+#sunTool .sun-bulk-btn{
+  width:22px!important;min-height:0!important;height:22px!important;display:inline-grid!important;place-items:center;
+  padding:0!important;margin:0;flex:0 0 auto;
+  border:0!important;border-radius:5px!important;background:transparent!important;color:var(--muted-2)!important;
+  box-shadow:none!important;cursor:pointer;transition:background .15s,color .15s;
+}
+#sunTool .sun-bulk-btn svg{width:16px;height:16px}
+#sunTool .sun-bulk-btn:hover{transform:none!important;background:var(--accent-soft)!important;color:var(--accent)!important;border-color:transparent!important}
+#sunTool .sun-bulk-btn.active{background:var(--accent-soft)!important;color:var(--accent)!important}
+#sunTool .sun-bulk-panel{
+  display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:40;width:320px;max-width:90vw;
+  padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);
+  box-shadow:0 14px 30px rgba(0,0,0,.28);
+}
+#sunTool .sun-bulk-panel.open{display:block}
+#sunTool .sun-bulk-panel textarea{
+  width:100%;min-height:110px;resize:vertical;box-sizing:border-box;padding:8px 10px;
+  border:1px solid var(--border);border-radius:7px;background:transparent;color:var(--foreground);
+  font-size:13px;font-family:inherit;
+}
+#sunTool .sun-bulk-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
+#sunTool .sun-bulk-apply{
+  min-height:0!important;padding:7px 16px!important;border:1px solid var(--accent)!important;border-radius:7px!important;
+  background:var(--accent)!important;color:var(--accent-fg)!important;box-shadow:none!important;
+  font-weight:700;font-size:13px;cursor:pointer;
+}
+#sunTool .sun-bulk-apply:hover{transform:none!important;filter:brightness(1.08)}
+#sunTool .sun-bulk-actions .sun-linkbtn{
+  min-height:0!important;padding:0!important;border:0!important;background:transparent!important;
+  box-shadow:none!important;margin-left:0;
+}
+#sunTool .sun-bulk-actions .sun-linkbtn:hover{transform:none!important}
+#sunTool .sun-actions{display:flex;align-items:center;gap:6px}
+#sunTool .sun-actions[hidden]{display:none!important}
+/* เว้นช่องว่าง + เส้นคั่นก่อนปุ่มพิมพ์ ให้ดูแยกกลุ่มจากปุ่มดาวน์โหลด/นำเข้าไฟล์ (ใช้ ::before แทนการแก้กรอบปุ่มเอง กันไอคอนเบี้ยว) */
+#sunTool #sunPrint{position:relative;margin-left:12px}
+#sunTool #sunPrint::before{content:'';position:absolute;left:-7px;top:50%;width:1px;height:20px;background:var(--border);transform:translateY(-50%)}
 .sun-icon-btn{
   width:36px;height:36px;display:inline-grid;place-items:center;padding:0;
   border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);
   transition:background .15s,color .15s,border-color .15s;
 }
 .sun-icon-btn svg{width:17px;height:17px}
+/* ไอคอนรีเฟรช (ลูกศรวงกลม) เส้นชิดขอบ viewBox มากกว่าไอคอนอื่น ย่อลงนิดให้มีขอบเท่าๆ กัน ดูสมดุลในกรอบเหมือนปุ่มอื่น */
+#sunTool #sunRefresh svg{width:15px;height:15px}
 .sun-icon-btn:hover{background:var(--accent-soft);color:var(--foreground);border-color:var(--accent)}
 
 #sunTool .sun-status{margin:12px 0 4px;font-size:12.5px;color:var(--muted-2)}

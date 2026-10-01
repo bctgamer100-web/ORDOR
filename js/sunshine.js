@@ -339,18 +339,21 @@
   function applyView(resetLimit) {
     if (!VIEW) return;
     const searchEl = $('sunSearch');
-    const query = searchEl ? searchEl.value.toLowerCase() : '';
+    // ค้นหาหลาย SKU พร้อมกันได้: คั่นด้วยจุลภาค/เซมิโคลอน/ขึ้นบรรทัดใหม่ (วาง/พิมพ์ก็ได้) เจอคำไหนคำหนึ่งก็ถือว่าผ่าน
+    const queryTerms = searchEl
+      ? searchEl.value.toLowerCase().split(/[,;\n\r]+/).map(function (s) { return s.trim(); }).filter(Boolean)
+      : [];
     const brands = getMultiselectValues('purchBrand').map(function (b) { return b.toUpperCase(); });
     const grades = getMultiselectValues('purchGrade');
     const recs = getMultiselectValues('purchRec');
 
     let list = VIEW.rows;
-    if (query || brands.length || grades.length || recs.length) {
+    if (queryTerms.length || brands.length || grades.length || recs.length) {
       list = list.filter(function (r) {
         if (brands.length && !brands.some(function (b) { return r.brand.indexOf(b) > -1; })) return false;
         if (grades.length && grades.indexOf(r.grade) === -1) return false;
         if (recs.length && recs.indexOf(r.rec) === -1) return false;
-        return !query || r.search.indexOf(query) > -1;
+        return !queryTerms.length || queryTerms.some(function (q) { return r.search.indexOf(q) > -1; });
       });
     }
 
@@ -511,10 +514,9 @@
     if (!MODE_TITLES[mode]) mode = 'purchase';
     currentMode = mode;
     started = true;
-    // ปุ่มดาวน์โหลด/นำเข้าตารางสี/ไซซ์ ใช้ได้แค่หน้าใบสั่งซื้อล่วงหน้า (มีคอลัมน์ "สั่งเพิ่ม"/"สั่งเป้า") หน้าอื่นซ่อนไปเลยกันสับสน
-    const matrixBtn = $('sunMatrixXlsx'), matrixImportBtn = $('sunMatrixImport');
-    if (matrixBtn) matrixBtn.hidden = (mode !== 'purchase');
-    if (matrixImportBtn) matrixImportBtn.hidden = (mode !== 'purchase');
+    // แถบปุ่ม (รีเฟรช/ดาวน์โหลด/นำเข้า/พิมพ์) ใช้ได้แค่หน้าใบสั่งซื้อล่วงหน้า หน้าอื่นซ่อนไปเลยกันสับสน
+    const actions = root.querySelector('.sun-actions');
+    if (actions) actions.hidden = (mode !== 'purchase');
     // ไม่ล้างคำค้นตอนสลับแท็บ/สลับหน้า — ให้ค้างไว้จนกว่าจะกดรีเฟรชหน้าเว็บจริงๆ (applyView อ่านคำค้นปัจจุบันเองอยู่แล้วตอนโหลดเสร็จ)
     loadData(mode);
   }
@@ -1476,11 +1478,16 @@
     const i = SUN_SIZE_ORDER.indexOf(String(sz).toUpperCase());
     return i < 0 ? SUN_SIZE_ORDER.length : i;
   }
-  // WARRIX เท่านั้น: รหัสสินค้าเป็น 2 ท่อนแรก (เช่น "WA-221PLACL30") เพราะ SKU ของแบรนด์นี้ขึ้นต้นด้วยรหัสแบรนด์แยกขีดต่างหาก
-  // แบรนด์อื่น: รหัสสินค้าเป็นท่อนแรกท่อนเดียว (เช่น "012585")
+  // WARRIX: รหัสสินค้าเป็น 2 ท่อนแรกตายตัว (เช่น "WA-221PLACL30") เพราะ SKU ขึ้นต้นด้วยรหัสแบรนด์แยกขีดต่างหาก สียังเหลือแค่ท่อนเดียว
+  // H3: รหัสสินค้าไม่เท่ากันทุกตัว (เช่น "SH-ECO", "SH-HTCL-01", "SH-VEST-JR2" ยาวสั้นไม่เท่ากัน) แต่ "สี" ของแบรนด์นี้เป็นรหัส 2 ตัวอักษรท่อนเดียวเสมอ (AA/DD/GG ฯลฯ)
+  //   เลยนับท่อนรหัสสินค้าจากท้ายแทน: เอาท่อนสุดท้ายเป็นไซซ์ ท่อนก่อนหน้าเป็นสี ที่เหลือข้างหน้าทั้งหมดเป็นรหัสสินค้า
+  // แบรนด์อื่น: รหัสสินค้าเป็นท่อนแรกท่อนเดียว (เช่น "012585") ส่วนสีอาจมีหลายท่อน (เช่น "กรม-ฟ้า" สองโทนสี) เลยรวมทุกท่อนตรงกลางเป็นสี
   function sunSplitColorSizeSku(sku, brand) {
     const parts = String(sku || '').trim().split('-').filter(function (s) { return s !== ''; });
-    const codeSegs = (brand === 'WARRIX' && parts.length >= 4) ? 2 : 1;
+    let codeSegs;
+    if (brand === 'WARRIX' && parts.length >= 4) codeSegs = 2;
+    else if (brand === 'H3' && parts.length >= 3) codeSegs = parts.length - 2;
+    else codeSegs = 1;
     if (parts.length < codeSegs + 2) return null;
     return { code: parts.slice(0, codeSegs).join('-'), color: parts.slice(codeSegs, -1).join('-'), size: parts[parts.length - 1] };
   }
@@ -1673,12 +1680,38 @@
 
   // ค้นหาแบบพิมพ์แล้วขึ้นผลทันที (หน่วงสั้นๆ 120ms กันหน่วงตอนพิมพ์เร็ว กับตารางหลายหมื่นแถว)
   $('sunSearch').addEventListener('input', filterTable);
+  // วางรายการ SKU ที่คัดลอกมาจาก Excel (หลายบรรทัด/แท็บ) เข้าช่องค้นหา: แปลงเป็นคั่นด้วยจุลภาคให้อัตโนมัติ
+  $('sunSearch').addEventListener('paste', function (e) {
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text || text.indexOf('\n') === -1 && text.indexOf('\t') === -1) return; // บรรทัดเดียว ปล่อยให้วางปกติ
+    e.preventDefault();
+    const terms = text.split(/[\n\r\t,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    e.target.value = terms.join(', ');
+    filterTable();
+  });
   // กด Enter ให้ตัดหน่วงแล้วกรองทันที (เผื่ออยากดูผลไวๆ ไม่ต้องรอ)
   $('sunSearch').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
     clearTimeout(SEARCH_DEBOUNCE_TIMER);
     applyAllFilters();
+  });
+
+  // รวมคำค้นจากกล่องวางหลาย SKU ใส่ช่องค้นหาหลักแล้วกรองทันที (closePanel = ปิดกล่องด้วยมั้ย)
+  function applyBulkSearch(closePanel) {
+    const terms = $('sunBulkSearchText').value.split(/[\n\r\t,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    $('sunSearch').value = terms.join(', ');
+    if (closePanel) {
+      $('sunBulkSearchPanel').classList.remove('open');
+      $('sunBulkSearchBtn').classList.remove('active');
+    }
+    clearTimeout(SEARCH_DEBOUNCE_TIMER);
+    applyAllFilters();
+  }
+
+  // วางรายการ SKU ลงกล่องนี้แล้วค้นหาให้ทันทีอัตโนมัติ (ไม่ต้องกด "ค้นหา" เอง) แต่เปิดกล่องค้างไว้เผื่อแก้ต่อ
+  $('sunBulkSearchText').addEventListener('paste', function () {
+    setTimeout(function () { applyBulkSearch(false); }, 0);
   });
 
   // คลิกในเนื้อหา: หัวคอลัมน์เรียงลำดับ / เปิดปิด dropdown / ปุ่มเกณฑ์
@@ -1690,6 +1723,30 @@
     if (msBtn) { toggleMultiselect(msBtn.dataset.ms); return; }
 
     if (e.target.closest('#sunThreshApply')) applyBestThresholds();
+
+    if (e.target.closest('#sunBulkSearchBtn')) {
+      const panel = $('sunBulkSearchPanel');
+      const opening = !panel.classList.contains('open');
+      panel.classList.toggle('open', opening);
+      $('sunBulkSearchBtn').classList.toggle('active', opening);
+      if (opening) {
+        // เอาคำค้นปัจจุบัน (ถ้ามีหลายรายการ) มาใส่ในกล่องให้แก้ต่อได้ แยกบรรทัดให้อ่านง่าย
+        $('sunBulkSearchText').value = $('sunSearch').value.split(/[,;]+/).map(function (s) { return s.trim(); }).filter(Boolean).join('\n');
+        $('sunBulkSearchText').focus();
+      }
+      return;
+    }
+    if (e.target.closest('#sunBulkSearchApply')) {
+      applyBulkSearch(true);
+      return;
+    }
+    if (e.target.closest('#sunBulkSearchClear')) {
+      $('sunBulkSearchText').value = '';
+      $('sunSearch').value = '';
+      clearTimeout(SEARCH_DEBOUNCE_TIMER);
+      applyAllFilters();
+      return;
+    }
   });
 
   root.addEventListener('change', function (e) {
@@ -1711,6 +1768,13 @@
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('.sun-ms')) return;
     root.querySelectorAll('.sun-ms-panel.open').forEach(function (p) { p.classList.remove('open'); });
+
+    if (!(e.target.closest && e.target.closest('.sun-search'))) {
+      const bulkPanel = $('sunBulkSearchPanel');
+      if (bulkPanel) bulkPanel.classList.remove('open');
+      const bulkBtn = $('sunBulkSearchBtn');
+      if (bulkBtn) bulkBtn.classList.remove('active');
+    }
   });
 
   /* ---------------------------------------------------------------- */
