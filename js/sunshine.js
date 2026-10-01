@@ -1134,15 +1134,15 @@
   // แต่ละชนิด: ชื่อชีต, ตัวแปลง, ตารางปลายทาง, คอลัมน์ตัวอย่าง, รายละเอียดที่ตัดออก
   const KINDS = {
     m3: {
-      eyebrow: '01 / SALES', icon: '3M', title: 'ยอดขายย้อนหลัง → 3M',
-      desc: 'เลือกไฟล์ยอดขาย (Excel/CSV หรือ ZIP หลายไฟล์ได้) ระบบแตกไฟล์ รวมยอดต่อ SKU และตัดออเดอร์ยกเลิกให้ก่อน แล้วแสดงตัวอย่าง ตรวจแล้วค่อยกดอัปโหลดทับตาราง op_sales',
+      eyebrow: '01 / SALES', icon: '3M', title: 'ยอดขายย้อนหลัง → 3M', zipOnly: true,
+      desc: 'เลือกไฟล์ ZIP ยอดขาย (รับเฉพาะ .zip เท่านั้น หลายไฟล์ได้) ระบบแตกไฟล์ รวมยอดต่อ SKU และตัดออเดอร์ยกเลิกให้ก่อน แล้วแสดงตัวอย่าง ตรวจแล้วค่อยกดอัปโหลดทับตาราง op_sales',
       sheet: '3M', build: toSalesRows, target: 'sales', label: '3M (ยอดขายย้อนหลัง)',
       cols: ['SKU Merchant', 'จำนวน'], cells: function (r) { return [r.sku, r.qty]; },
       dropped: function (s) { return 'ตัดออเดอร์ยกเลิก ' + s.cancelled.toLocaleString() + ' แถว · ไม่มี SKU ' + s.noSku.toLocaleString() + ' แถว · รวมยอดต่อ SKU'; }
     },
     st: {
-      eyebrow: '02 / STOCK', icon: 'ST', title: 'สต๊อกและตำแหน่ง → ST',
-      desc: 'เลือกไฟล์สต๊อก (Excel/CSV หรือ ZIP หลายไฟล์ได้) ระบบแตกไฟล์ รวม และตัดตำแหน่ง FRONT/DELETE/ในบ้านให้ก่อน แล้วแสดงตัวอย่าง ตรวจแล้วค่อยกดอัปโหลดทับตาราง op_stock',
+      eyebrow: '02 / STOCK', icon: 'ST', title: 'สต๊อกและตำแหน่ง → ST', zipOnly: true,
+      desc: 'เลือกไฟล์ ZIP สต๊อก (รับเฉพาะ .zip เท่านั้น หลายไฟล์ได้) ระบบแตกไฟล์ รวม และตัดตำแหน่ง FRONT/DELETE/ในบ้านให้ก่อน แล้วแสดงตัวอย่าง ตรวจแล้วค่อยกดอัปโหลดทับตาราง op_stock',
       sheet: 'ST', build: toStockRows, target: 'stock', label: 'ST (สต๊อกและตำแหน่ง)',
       cols: ['SKU', 'ชื่อ SKU', 'ตำแหน่ง', 'จำนวน'], cells: function (r) { return [r.sku, r.sku_name, r.location, r.qty]; },
       dropped: function (s) { return 'ตัดตำแหน่ง FRONT/DELETE/ในบ้าน ' + s.excludedLoc.toLocaleString() + ' แถว · ไม่มี SKU ' + s.noSku.toLocaleString() + ' แถว'; }
@@ -1183,13 +1183,15 @@
     if (!grid) return;
     grid.innerHTML = KIND_IDS.map(function (k) {
       const c = KINDS[k];
+      const accept = c.zipOnly ? '.zip' : '.xlsx,.xls,.csv,.zip';
+      const hint = c.zipOnly ? 'รับเฉพาะไฟล์ ZIP เท่านั้น (เลือกได้หลายไฟล์)' : 'หรือลากไฟล์ Excel / CSV / ZIP มาวางที่นี่ (เลือกได้หลายไฟล์)';
       return '<section class="sun-imp-card" id="sunCard_' + k + '">' +
         '<div class="sun-imp-eyebrow">' + c.eyebrow + '</div>' +
         '<h2>' + esc(c.title) + '</h2>' +
         '<div class="sun-imp-drop" id="sunDrop_' + k + '"><div class="sun-imp-badge">' + c.icon + '</div>' +
           '<strong>📁 คลิกเพื่อเลือกไฟล์ ' + c.icon + '</strong>' +
-          '<span>หรือลากไฟล์ Excel / CSV / ZIP มาวางที่นี่ (เลือกได้หลายไฟล์)</span>' +
-          '<input id="sunIn_' + k + '" type="file" accept=".xlsx,.xls,.csv,.zip" multiple></div>' +
+          '<span>' + hint + '</span>' +
+          '<input id="sunIn_' + k + '" type="file" accept="' + accept + '" multiple></div>' +
         '<div class="sun-imp-stats"><div><span>ไฟล์ที่อ่าน</span><b id="sunFiles_' + k + '">0</b></div>' +
           '<div><span>แถวที่จะอัปโหลด</span><b id="sunRows_' + k + '">0</b></div></div>' +
         '<div class="sun-imp-progress"><i id="sunBar_' + k + '"></i></div>' +
@@ -1211,6 +1213,13 @@
     const input = kid('In', kind);
     const raw = input ? Array.from(input.files || []) : [];
     if (!raw.length) { PREP[kind] = null; renderPrep(kind); if (kind === 'si') updateCompareSi(null); return null; }
+
+    // ชนิดที่จำกัดแค่ ZIP (3M/ST): เผื่อลากไฟล์วางซึ่งไม่เช็ค accept ของ input ให้ด้วย กันหลุดเป็น Excel/CSV ตรงๆ
+    if (cfg.zipOnly && raw.some(function (f) { return !/\.zip$/i.test(f.name); })) {
+      PREP[kind] = { sig: fileSig(raw), kind: kind, error: 'การ์ดนี้รับเฉพาะไฟล์ ZIP เท่านั้น กรุณาบีบอัดไฟล์เป็น .zip ก่อนแล้วค่อยเลือกใหม่' };
+      renderPrep(kind);
+      return null;
+    }
 
     const sig = fileSig(raw);
     if (!force && PREP[kind] && PREP[kind].sig === sig) return PREP[kind];
