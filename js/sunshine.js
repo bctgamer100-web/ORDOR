@@ -11,8 +11,8 @@
   if (!root) return;
 
   // ค่าจาก Supabase > Project Settings > API (ใช้ publishable/anon key เท่านั้น ห้ามใช้ service_role)
-  const SUPABASE_URL = 'https://dsekvvygczrvvwnnrkuy.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_boz7aOGbmjTHyPwsKhJl0Q_W41e5RXl';
+  const SUPABASE_URL = 'https://yvfqxlgkwaylivopctno.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_xNq2vHHwVe8v_rujH3P_QQ_ep6-g6ol';
   let sbClient = null;
   function sb() {
     if (sbClient) return sbClient;
