@@ -166,8 +166,12 @@ html[data-prod-theme="light"] .side-right.top{
   border:1px solid var(--border);border-radius:10px;
 }
 #sunTool .sun-table{border-collapse:collapse;width:100%;font-size:13.5px}
+/* ความกว้างคอลัมน์คงที่ตามน้ำหนักที่ตั้งไว้ตอนสร้างตาราง (sunColWeight) ไม่ขยับตามความยาวข้อมูลที่โชว์อยู่
+   กันตารางยืด/แถบเลื่อนแนวนอนโผล่-หายตอนกดเรียงสลับแถว (เจอปัญหานี้ตอนข้อมูลแถวที่โชว์เปลี่ยนความยาว) */
+#sunTool .sun-table-fixed{table-layout:fixed}
 #sunTool .sun-table th,#sunTool .sun-table td{
   padding:9px 12px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border-soft);
+  overflow:hidden;text-overflow:ellipsis;
 }
 #sunTool .sun-table thead th{
   position:sticky;top:0;z-index:2;background:var(--surface-2);color:var(--foreground);
@@ -357,6 +361,7 @@ html[data-prod-theme="light"] .side-right.top{
 #compareTool .compare-si-deduct table{width:auto!important;min-width:min(100%,560px)}
 #compareTool .compare-si-deduct th.num,#compareTool .compare-si-deduct td.num{text-align:right!important}
 #compareTool .compare-si-deduct th,#compareTool .compare-si-deduct td{padding:6px 16px!important}
+
 /* ปุ่มอัปโหลดรวมปุ่มเดียวบนสุดของหน้า นำเข้าข้อมูล */
 #sunImportTool .sun-imp-bar{
   display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 18px;

@@ -114,6 +114,11 @@
         console.warn('อ่านตาราง op_com ไม่ได้:', err);
         comReadError = err && err.message ? err.message : String(err);
         return [];
+      }),
+      // op_front_sale = ยอด "ขาย" (หน้าร้าน) ต่อ SKU แยกจาก op_stock — ถ้ายังไม่ได้รัน supabase/op_front_sale.sql ก็ใช้งานต่อได้ โดยขายเป็น 0
+      fetchAllRows('op_front_sale', 'sku,qty', 'sku').catch(function (err) {
+        console.warn('อ่านตาราง op_front_sale ไม่ได้:', err);
+        return [];
       })
     ]);
 
@@ -127,7 +132,8 @@
       }),
       'BRAND': results[3],
       'COM': results[4],
-      'COMERR': comReadError
+      'COMERR': comReadError,
+      'FRONTSALE': results[5]
     };
   }
 
@@ -140,6 +146,14 @@
   function num(v) {
     const n = Number(String(v).replace(/[^0-9.-]/g, ''));
     return isNaN(n) ? 0 : n;
+  }
+
+  // แยกคำค้น SKU จากข้อความที่วาง/พิมพ์มา: แต่ละรายการคั่นด้วยจุลภาค/เซมิโคลอน/ขึ้นบรรทัดใหม่
+  // ถ้าในรายการเดียวมีจำนวนติดมาด้วย (คั่นด้วยแท็บ เช่นคัดลอกจาก Excel 2 คอลัมน์ SKU-จำนวน หรือคั่นด้วยเว้นวรรค) ตัดส่วนจำนวนทิ้ง เหลือแค่ SKU
+  function sunSkuTerms(text) {
+    return String(text || '').split(/[\n\r,;]+/).map(function (s) {
+      return s.trim().split('\t')[0].trim().replace(/\s+\d+$/, '').trim();
+    }).filter(Boolean);
   }
 
   function zoneOf(loc) {
@@ -268,7 +282,7 @@
     let h = '<tr' + (r.cls ? ' class="' + r.cls + '"' : '') + '>';
     for (let i = 0; i < r.cells.length; i++) {
       const c = r.cells[i];
-      h += '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + (c.h !== undefined ? c.h : esc(c.v)) + '</td>';
+      h += '<td' + (c.cls ? ' class="' + c.cls + '"' : '') + ' title="' + esc(c.v) + '">' + (c.h !== undefined ? c.h : esc(c.v)) + '</td>';
     }
     return h + '</tr>';
   }
@@ -279,14 +293,27 @@
     TABLE_SORT = { col: null, dir: 1 };
   }
 
+  // น้ำหนักความกว้างคอลัมน์ คงที่ตามชนิด/หัวข้อ ไม่อิงความยาวข้อมูลจริง กันตารางขยาย/โผล่แถบเลื่อนแนวนอนตอนเรียงสลับแถว
+  // (เมื่อก่อนใช้ auto layout แล้ว white-space:nowrap เลยยืดตามแถวที่โชว์อยู่ พอเรียงสลับแถวที่ยาวกว่าขึ้นมา ตารางก็โตเกินจอ)
+  function sunColWeight(head, type) {
+    if (type === 'number') return 1.1;
+    if (head === 'SKU') return 2.4;
+    if (head.indexOf('ชื่อ') === 0) return 2.6;
+    if (!type) return 1.3; // คอลัมน์เรียงไม่ได้ (เช่น เกรด/ป้าย) มักสั้น
+    return 1.8;
+  }
+
   function tableShell() {
+    const weights = VIEW.head.map(function (h, idx) { return sunColWeight(h, VIEW.sortTypes[idx]); });
+    const totalWeight = weights.reduce(function (a, b) { return a + b; }, 0);
     const ths = VIEW.head.map(function (h, idx) {
       const type = VIEW.sortTypes[idx];
-      if (!type) return '<th>' + esc(h) + '</th>';
-      return '<th class="sun-sortable" data-sun-sort="' + idx + '" data-sun-type="' + type + '">' +
+      const widthStyle = ' style="width:' + (weights[idx] / totalWeight * 100).toFixed(2) + '%"';
+      if (!type) return '<th' + widthStyle + '>' + esc(h) + '</th>';
+      return '<th class="sun-sortable" data-sun-sort="' + idx + '" data-sun-type="' + type + '"' + widthStyle + '>' +
         esc(h) + ' <span class="sun-sort-ic" data-sortic="' + idx + '"></span></th>';
     }).join('');
-    return '<div class="sun-tablewrap"><table class="sun-table"><thead><tr>' + ths +
+    return '<div class="sun-tablewrap"><table class="sun-table sun-table-fixed"><thead><tr>' + ths +
       '</tr></thead><tbody id="sunTbody"></tbody></table></div><div class="sun-more" id="sunMore"></div>';
   }
 
@@ -340,10 +367,8 @@
     if (!VIEW) return;
     const searchEl = $('sunSearch');
     // ค้นหาหลาย SKU พร้อมกันได้: คั่นด้วยจุลภาค/เซมิโคลอน/ขึ้นบรรทัดใหม่ (วาง/พิมพ์ก็ได้) เจอคำไหนคำหนึ่งก็ถือว่าผ่าน
-    // ถ้าแต่ละคำมีตัวเลขตามหลัง (เช่น วางมาจากไฟล์ "SKU จำนวน" คนละคอลัมน์ติดกัน) ตัดตัวเลขท้ายทิ้ง เหลือแค่ SKU ไว้ค้นหา
-    const queryTerms = searchEl
-      ? searchEl.value.toLowerCase().split(/[,;\n\r]+/).map(function (s) { return s.trim().replace(/\s+\d+$/, ''); }).filter(Boolean)
-      : [];
+    // ถ้าแต่ละคำมีจำนวนติดมาด้วย (เช่น วางมาจากไฟล์ "SKU จำนวน" คนละคอลัมน์ติดกัน) ตัดจำนวนทิ้ง เหลือแค่ SKU ไว้ค้นหา
+    const queryTerms = searchEl ? sunSkuTerms(searchEl.value.toLowerCase()) : [];
     const brands = getMultiselectValues('purchBrand').map(function (b) { return b.toUpperCase(); });
     const grades = getMultiselectValues('purchGrade');
     const recs = getMultiselectValues('purchRec');
@@ -487,7 +512,7 @@
       const skuNames = buildSkuNameMap(st, brandMap);
       const moveMap = buildMovementMap(CACHE['SI']);
 
-      if (mode === 'purchase') renderPurchase(hist, st, skuNames, moveMap, buildComMap(CACHE['COM']));
+      if (mode === 'purchase') renderPurchase(hist, st, skuNames, moveMap, buildComMap(CACHE['COM']), buildComMap(CACHE['FRONTSALE']));
       else if (mode === 'stockin') renderStockIn(CACHE['SI']);
       else renderBestSellers(hist, skuNames);
 
@@ -538,7 +563,7 @@
     return m;
   }
 
-  function renderPurchase(hist, st, skuNames, moveMap, comMap) {
+  function renderPurchase(hist, st, skuNames, moveMap, comMap, frontSaleMap) {
     const stock = buildStock(st);
     const vel = buildVelocity(hist);
     const th = getBestThresholds(); // ใช้เกณฑ์เดียวกับหน้าสินค้าขายดี ABC ไม่ต้องตั้งซ้ำ
@@ -597,6 +622,7 @@
         cell((i.ads * 30).toFixed(1), 'sun-num'),
         cell(i.ads.toFixed(2), 'sun-num'),
         cell(i.verified, 'sun-num', '<b>' + esc(i.verified) + '</b>'),
+        cell((frontSaleMap && frontSaleMap[i.sku]) || 0, 'sun-num'), // ขาย (หน้าร้าน) — จาก op_front_sale (FRONT/ในบ้าน) แยกจาก "คลัง" เดิม
         cell(i.target, 'sun-num'),
         cell(moveTxt, 'sun-num ' + moveCls),
         cell(i.order, 'sun-num', '<b>' + esc(i.order) + '</b>'),
@@ -624,8 +650,8 @@
         ]) +
       '</div>';
 
-    setView(['เกรด', 'SKU', 'ชื่อสินค้า', 'ขาย 3 ด.', 'ขาย/เดือน', 'ขาย/วัน', 'คลัง', 'สั่งเป้า', 'เคลื่อนไหว', 'สั่งเพิ่ม', 'คำแนะนำ'],
-      ['text', 'text', 'text', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'text'], viewRows);
+    setView(['เกรด', 'SKU', 'ชื่อสินค้า', 'ขาย 3 ด.', 'ขาย/เดือน', 'ขาย/วัน', 'คลัง', 'ขาย', 'สั่งเป้า', 'เคลื่อนไหว', 'สั่งเพิ่ม', 'คำแนะนำ'],
+      ['text', 'text', 'text', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'text'], viewRows);
     mountView(filterBarHtml);
 
     const checklistItems = urgent
@@ -1010,6 +1036,23 @@
       .filter(function (r) { if (!r.sku) st.noSku++; return r.sku; });
   }
 
+  // ขาย (หน้าร้าน) — อ่านไฟล์ ST ชุดเดียวกับ toStockRows แต่กลับด้าน: เอาเฉพาะแถว FRONT/ในบ้าน (ที่ toStockRows ตัดทิ้งไปตอนคิด "คลัง")
+  // และอ่านคอลัมน์ "สต็อกพร้อมขายของตำแหน่ง" แทน — ไปเก็บตาราง op_front_sale แยกต่างหาก ไม่แตะ op_stock/การคำนวณ "คลัง" เดิมเลย
+  // ถ้าไฟล์ไม่มีคอลัมน์นี้ (ไฟล์เก่า/รูปแบบอื่น) ข้ามไปเงียบๆ ไม่ให้กระทบการอัปโหลด ST หลัก
+  function toFrontSaleRows(tbl) {
+    const has = function (h) { return tbl[0].indexOf(h) !== -1; };
+    if (!has('ชื่อSKU') || !has('ตำแหน่ง') || !has('สต็อกพร้อมขายของตำแหน่ง')) return [];
+    const map = {};
+    rowsToObjects(tbl).forEach(function (r) {
+      const loc = norm(r['ตำแหน่ง']).toUpperCase();
+      if (loc.indexOf('FRONT') !== 0 && loc !== 'ในบ้าน') return;
+      const sku = norm(r['ชื่อSKU']);
+      if (!sku) return;
+      map[sku] = (map[sku] || 0) + num(r['สต็อกพร้อมขายของตำแหน่ง']);
+    });
+    return Object.keys(map).map(function (sku) { return { sku: sku, qty: map[sku] }; });
+  }
+
   // COM: เพิ่มต่อท้ายตาราง op_com (คอลัมน์ sku, qty) — แปลงหัวคอลัมน์ของไฟล์ให้เป็น sku / qty อัตโนมัติ
   //   sku ← SKU Merchant, SKU, ชื่อSKU (หรือ sku)   |   qty ← จำนวน, สต็อกที่มีอยู่ของตำแหน่ง, qty, quantity
   const COM_SKU_HEADS = ['sku merchant', 'sku', 'ชื่อsku', 'sku_merchant'];
@@ -1235,7 +1278,9 @@
       if (table.length < 2) throw new Error('ไม่พบข้อมูลในไฟล์');
       const stats = {};
       const rows = cfg.build(table, stats);
-      prep = { sig: sig, kind: kind, target: cfg.target, label: cfg.label, rows: rows, files: files.length, names: raw.map(function (f) { return f.name; }), rawRows: table.length - 1, stats: stats, cols: stats.cols ? stats.cols.slice(0, 8) : null };
+      // ST เท่านั้น: อ่านช่อง "ขาย" (FRONT/ในบ้าน) จากไฟล์ชุดเดียวกันไปด้วยในตัว ไม่ต้องอัปโหลดซ้ำสองรอบ (ดู toFrontSaleRows)
+      const frontSaleRows = kind === 'st' ? toFrontSaleRows(table) : null;
+      prep = { sig: sig, kind: kind, target: cfg.target, label: cfg.label, rows: rows, files: files.length, names: raw.map(function (f) { return f.name; }), rawRows: table.length - 1, stats: stats, cols: stats.cols ? stats.cols.slice(0, 8) : null, frontSaleRows: frontSaleRows };
     } catch (err) {
       prep = { sig: sig, kind: kind, error: err.message };
     }
@@ -1384,7 +1429,12 @@
     for (const it of items) {
       const k = it.kind;
       if (st) st.textContent = 'กำลังอัปโหลด ' + (KINDS[k].sheet || KINDS[k].icon) + ' (' + (done.length + 1) + '/' + items.length + ') ...';
-      const ok = await submitPayload([{ target: it.p.target, label: KINDS[k].sheet || KINDS[k].icon, rows: it.p.rows, fn: KINDS[k].fn }],
+      const payload = [{ target: it.p.target, label: KINDS[k].sheet || KINDS[k].icon, rows: it.p.rows, fn: KINDS[k].fn }];
+      // ST: ถ้าไฟล์นี้มีช่อง "ขาย" (FRONT/ในบ้าน) ด้วย ส่งขึ้น op_front_sale พร้อมกันในการอัปโหลดครั้งเดียวกัน
+      if (it.p.frontSaleRows && it.p.frontSaleRows.length) {
+        payload.push({ target: 'frontsale', label: 'ขาย (หน้าร้าน)', rows: it.p.frontSaleRows });
+      }
+      const ok = await submitPayload(payload,
         'sunStatus_' + k, ['sunIn_' + k, 'sunMIn_' + k], [k]);
       if (!ok) {
         if (st) st.innerHTML = '<span class="sun-warn">หยุดที่ ' + esc(KINDS[k].sheet || KINDS[k].icon) + ' — ' + (done.length ? 'อัปโหลดสำเร็จแล้ว: ' + esc(done.join(', ')) : 'ยังไม่มีชนิดไหนถูกอัปโหลด') + ' (ดูรายละเอียดที่การ์ดของชนิดนั้น)</span>';
@@ -1695,7 +1745,7 @@
     const text = (e.clipboardData || window.clipboardData).getData('text');
     if (!text || text.indexOf('\n') === -1 && text.indexOf('\t') === -1) return; // บรรทัดเดียว ปล่อยให้วางปกติ
     e.preventDefault();
-    const terms = text.split(/[\n\r\t,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    const terms = sunSkuTerms(text);
     e.target.value = terms.join(', ');
     filterTable();
   });
@@ -1709,7 +1759,7 @@
 
   // รวมคำค้นจากกล่องวางหลาย SKU ใส่ช่องค้นหาหลักแล้วกรองทันที (closePanel = ปิดกล่องด้วยมั้ย)
   function applyBulkSearch(closePanel) {
-    const terms = $('sunBulkSearchText').value.split(/[\n\r\t,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    const terms = sunSkuTerms($('sunBulkSearchText').value);
     $('sunSearch').value = terms.join(', ');
     if (closePanel) {
       $('sunBulkSearchPanel').classList.remove('open');
@@ -1722,6 +1772,11 @@
   // วางรายการ SKU ลงกล่องนี้แล้วค้นหาให้ทันทีอัตโนมัติ (ไม่ต้องกด "ค้นหา" เอง) แต่เปิดกล่องค้างไว้เผื่อแก้ต่อ
   $('sunBulkSearchText').addEventListener('paste', function () {
     setTimeout(function () { applyBulkSearch(false); }, 0);
+  });
+  // แก้ไข/ลบบรรทัดในกล่องเองก็ให้ค้นหาใหม่ตามด้วย (หน่วงสั้นๆ กันหน่วงตอนพิมพ์/ลบเร็ว) ไม่ต้องรอวางหรือกดปุ่ม
+  $('sunBulkSearchText').addEventListener('input', function () {
+    clearTimeout(SEARCH_DEBOUNCE_TIMER);
+    SEARCH_DEBOUNCE_TIMER = setTimeout(function () { applyBulkSearch(false); }, 120);
   });
 
   // คลิกในเนื้อหา: หัวคอลัมน์เรียงลำดับ / เปิดปิด dropdown / ปุ่มเกณฑ์
