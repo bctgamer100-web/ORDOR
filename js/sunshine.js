@@ -340,8 +340,9 @@
     if (!VIEW) return;
     const searchEl = $('sunSearch');
     // ค้นหาหลาย SKU พร้อมกันได้: คั่นด้วยจุลภาค/เซมิโคลอน/ขึ้นบรรทัดใหม่ (วาง/พิมพ์ก็ได้) เจอคำไหนคำหนึ่งก็ถือว่าผ่าน
+    // ถ้าแต่ละคำมีตัวเลขตามหลัง (เช่น วางมาจากไฟล์ "SKU จำนวน" คนละคอลัมน์ติดกัน) ตัดตัวเลขท้ายทิ้ง เหลือแค่ SKU ไว้ค้นหา
     const queryTerms = searchEl
-      ? searchEl.value.toLowerCase().split(/[,;\n\r]+/).map(function (s) { return s.trim(); }).filter(Boolean)
+      ? searchEl.value.toLowerCase().split(/[,;\n\r]+/).map(function (s) { return s.trim().replace(/\s+\d+$/, ''); }).filter(Boolean)
       : [];
     const brands = getMultiselectValues('purchBrand').map(function (b) { return b.toUpperCase(); });
     const grades = getMultiselectValues('purchGrade');
