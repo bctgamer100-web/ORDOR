@@ -1281,6 +1281,15 @@ function getMovePriority(){
   const el=document.getElementById('movePriority');
   return String(el ? el.value : '').split(/[\s,]+/).map(v=>v.trim().toUpperCase()).filter(Boolean);
 }
+// ไฟล์ที่แถวนั้นจะไปอยู่: ตำแหน่งที่ลงท้ายด้วย " J" (FH-A1-04 J, GS-A2-10 J, H3-A1-03 J ...) รวมอยู่ไฟล์ J.xlsx ไฟล์เดียว
+// รวมกับตำแหน่งที่ขึ้นต้นด้วย J (J-W-01 ...) ซึ่งได้ไฟล์ J ตามกลุ่มอยู่แล้ว
+// ยกเว้นตำแหน่ง H (เช่น H-03-09-34 J) ยังอยู่ไฟล์ H ตามเดิม ที่เหลือแยกไฟล์ตามกลุ่มตำแหน่ง (ตัวหน้า "-")
+const MOVE_J_FILE = 'J';
+function moveFileKey(place){
+  if(place.prefix!==MOVE_FULL_BOX_PREFIX && /\sJ$/i.test(String(place.loc||'').trim())) return MOVE_J_FILE;
+  return place.prefix;
+}
+
 function moveRank(prefix, priority){
   const i=priority.indexOf(String(prefix).toUpperCase());
   if(i!==-1) return i;
@@ -1362,8 +1371,9 @@ function downloadPickListsByLocation(){
       }
       moved+=qty;
       if(!selected.has(p.prefix)) continue;
-      if(!byPrefix.has(p.prefix)) byPrefix.set(p.prefix,[]);
-      byPrefix.get(p.prefix).push([item.sku,'',p.loc||p.prefix,qty,MOVE_TO_LOCATION,qty]);
+      const fileKey=moveFileKey(p);
+      if(!byPrefix.has(fileKey)) byPrefix.set(fileKey,[]);
+      byPrefix.get(fileKey).push([item.sku,'',p.loc||p.prefix,qty,MOVE_TO_LOCATION,qty]);
     }
   });
 
