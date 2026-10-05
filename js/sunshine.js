@@ -17,7 +17,7 @@
   function sb() {
     if (sbClient) return sbClient;
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-      throw new Error('โหลดไลบรารี Supabase ไม่สำเร็จ (ต้องเชื่อมต่ออินเทอร์เน็ต)');
+      throw new Error('โหลดไลบรารี Supabase ไม่สำเร็จ (ไม่พบไฟล์ js/vendor/supabase.min.js) ลองรีเฟรชหน้าเว็บ');
     }
     sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     return sbClient;
@@ -33,8 +33,8 @@
 
   const CFG = { HIST_DAYS: 90, LEAD_DAYS: 7, SAFETY_DAYS: 7, CYCLE_DAYS: 14, FRONT_DAYS: 3 };
 
-  // ตำแหน่งที่ไม่มีอยู่จริง/ถูกยกเลิก ไม่นับเป็นสต๊อกเลยไม่ว่าหน้าไหน
-  const EXCLUDED_LOCATIONS = ['DELETE', 'ในบ้าน'];
+  // ตำแหน่งที่ไม่มีอยู่จริง/ถูกยกเลิก/วางสินค้าชำรุด (X001) ไม่นับเป็นสต๊อกเลยไม่ว่าหน้าไหน
+  const EXCLUDED_LOCATIONS = ['DELETE', 'ในบ้าน', 'X001'];
 
   let CACHE = null;
   let currentMode = 'purchase';
@@ -1008,7 +1008,7 @@
     return Object.keys(totals).map(function (sku) { return { sku: sku, qty: totals[sku] }; });
   }
 
-  // ST: ตัดตำแหน่ง FRONT* / DELETE / ในบ้าน ทิ้ง
+  // ST: ตัดตำแหน่ง FRONT* / DELETE / ในบ้าน / X001 (ชำรุด) ทิ้ง
   function toStockRows(tbl, st) {
     st = st || {};
     st.excludedLoc = 0; st.noSku = 0;
@@ -1186,10 +1186,10 @@
     },
     st: {
       eyebrow: '02 / STOCK', icon: 'ST', title: 'สต๊อกและตำแหน่ง → ST', zipOnly: true,
-      desc: 'เลือกไฟล์ ZIP สต๊อก (รับเฉพาะ .zip เท่านั้น หลายไฟล์ได้) ระบบแตกไฟล์ รวม และตัดตำแหน่ง FRONT/DELETE/ในบ้านให้ก่อน แล้วแสดงตัวอย่าง ตรวจแล้วค่อยกดอัปโหลดทับตาราง op_stock',
+      desc: 'เลือกไฟล์ ZIP สต๊อก (รับเฉพาะ .zip เท่านั้น หลายไฟล์ได้) ระบบแตกไฟล์ รวม และตัดตำแหน่ง FRONT/DELETE/ในบ้าน/X001 (ชำรุด) ให้ก่อน แล้วแสดงตัวอย่าง ตรวจแล้วค่อยกดอัปโหลดทับตาราง op_stock',
       sheet: 'ST', build: toStockRows, target: 'stock', label: 'ST (สต๊อกและตำแหน่ง)',
       cols: ['SKU', 'ชื่อ SKU', 'ตำแหน่ง', 'จำนวน'], cells: function (r) { return [r.sku, r.sku_name, r.location, r.qty]; },
-      dropped: function (s) { return 'ตัดตำแหน่ง FRONT/DELETE/ในบ้าน ' + s.excludedLoc.toLocaleString() + ' แถว · ไม่มี SKU ' + s.noSku.toLocaleString() + ' แถว'; }
+      dropped: function (s) { return 'ตัดตำแหน่ง FRONT/DELETE/ในบ้าน/X001 ' + s.excludedLoc.toLocaleString() + ' แถว · ไม่มี SKU ' + s.noSku.toLocaleString() + ' แถว'; }
     },
     si: {
       eyebrow: '03 / STOCK MOVEMENT', icon: 'SI', title: 'ประวัติเคลื่อนไหวสต๊อก → SI',
@@ -1596,7 +1596,8 @@
       return { code: code, sizes: sizes, rows: rows, colTotals: colTotals, grand: grand };
     });
 
-    if (typeof ExcelJS === 'undefined') { alert('โหลดไลบรารีสร้างไฟล์ Excel ไม่สำเร็จ (ต้องต่ออินเทอร์เน็ตตอนโหลดหน้าเว็บ) ลองรีเฟรชหน้าเว็บแล้วลองใหม่'); return; }
+    try { await window.loadLib('exceljs'); } catch (e) { console.warn(e); }
+    if (typeof ExcelJS === 'undefined') { alert('โหลดไลบรารีสร้างไฟล์ Excel ไม่สำเร็จ ลองรีเฟรชหน้าเว็บแล้วลองใหม่'); return; }
 
     // ใช้ ExcelJS สร้างไฟล์ .xlsx จริง เพราะไลบรารี XLSX (community build) ที่ใช้ที่อื่นในเว็บนี้เขียนสไตล์เซลล์ลงไฟล์จริงไม่ได้
     // (ทดสอบแล้ว: เซฟสไตล์แล้วเปิดกลับมาหาย) ส่วนวิธี HTML-table หลอก Excel ก็ลองแล้วแยกชีตไม่เสถียร (ข้อมูลไปกองชีตแรกหมด)

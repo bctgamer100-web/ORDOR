@@ -13,12 +13,15 @@ ORDER Workspace — แยกไฟล์
 - tests/ : ชุดทดสอบการอ่านใบปริ้น เปิด http://localhost:8934/tests/index.html (ผ่านเซิร์ฟเวอร์ในเครื่อง) จะรันรูปตัวอย่างใน tests/fixtures เทียบกับเฉลยใน tests/expected.json ถ้าแก้โค้ดอ่านรูป (js/scan-sheet.js) ให้เปิดหน้านี้ตรวจว่ายังผ่านทั้งหมด (รูปตัวอย่างเป็นใบปริ้นจริง เก็บไว้ในเครื่องเท่านั้น)
 - js/sunshine.js + css/sunshine.css : ระบบ Sunshine (ใบสั่งซื้อล่วงหน้า / สินค้าขายดี ABC / ประวัติเคลื่อนไหวสต๊อก / นำเข้าข้อมูล) ที่รวมเข้ามา แท็บอยู่แถบด้านขวา ดึงข้อมูลจาก Supabase (ต้องต่ออินเทอร์เน็ต และโหลดเมื่อเปิดแท็บ Sunshine ครั้งแรกเท่านั้น) ค่าเชื่อมต่ออยู่ต้นไฟล์ js/sunshine.js
 - supabase/op_setup.sql : สคริปต์สร้างตารางของ Sunshine รันครั้งเดียวใน Supabase > SQL Editor (แก้ 'CHANGE_ME' เป็นรหัสอัปโหลดก่อนรัน)
+- js/move-rules.js : รหัสสินค้าแต่ละแบรนด์ + จำนวนย้ายเผื่อ ใช้กับปุ่ม "📦 ไฟล์ย้ายสินค้าแยกตำแหน่ง" (หน้าตรวจ ORDER กับ Stock) ซึ่งสร้างไฟล์นำเข้าใบย้ายสินค้าของ BigSeller 1 ไฟล์ต่อ 1 ตำแหน่ง ย้ายเข้า FRONT
 - js/layout.js : ปุ่มซ่อน/แสดงแท็บซ้าย ขวา และทั้งหมด (จำค่าไว้ในเบราว์เซอร์)
 - js/vendor/ : ไลบรารีภายนอกเก็บไว้ในเครื่อง (ใช้งานออฟไลน์ได้)
     - xlsx.full.min.js (SheetJS 0.20.3)
     - jszip.min.js (JSZip 3.10.1)
     - html2pdf.bundle.min.js (html2pdf.js 0.10.1)
     - exceljs.min.js (ExcelJS 4.4.0) — ใช้เฉพาะปุ่มดาวน์โหลดตารางสี/ไซซ์ในหน้าใบสั่งซื้อล่วงหน้า เพราะต้องเขียนสไตล์เซลล์ (ตัวหนา/สีพื้น/เส้นตาราง) ซึ่ง SheetJS เขียนลง .xlsx จริงไม่ได้
+    - supabase.min.js (supabase-js 2.117.2, UMD) — ไลบรารีของ Sunshine เก็บในเครื่อง (ตัวข้อมูลยังต้องต่ออินเทอร์เน็ต)
+    * html2pdf และ ExcelJS ไม่ได้ใส่ใน <head> แต่โหลดทีหลังผ่าน js/lazy-lib.js (เริ่มโหลดเองหลังหน้าเว็บโหลดเสร็จ) โค้ดที่ใช้ต้อง await loadLib('html2pdf') / loadLib('exceljs') ก่อน
 - backup/ : ไฟล์สำรอง (SOURCE-backup-dashboard-fixed.html และ style.before-cleanup.css ซึ่งเป็น CSS ก่อนล้างกฎที่ไม่มีผล)
 
 หมายเหตุ:

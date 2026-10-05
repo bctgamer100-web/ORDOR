@@ -622,6 +622,17 @@ function formatComparePosition(v){
   return extractCompareLocationPrefixes(v).join(", ");
 }
 
+// ตำแหน่งวางสินค้าชำรุด ไม่ใช้หยิบของ: ไม่นับทั้งจำนวนและตำแหน่งตอนตรวจ ORDER กับ Stock
+// ดูจากรหัสตำแหน่ง (ฐานข้อมูล op_stock ไม่มีคอลัมน์ประเภทตำแหน่ง) หรือคอลัมน์ "ประเภทตำแหน่ง" ที่มีคำว่า ชำรุด (ไฟล์ Stock)
+const COMPARE_DAMAGED_LOCATIONS = ['X001'];
+function isDamagedStockRow(row){
+  if(stockPosCol){
+    const loc=norm(row[stockPosCol]).toUpperCase();
+    if(COMPARE_DAMAGED_LOCATIONS.some(x=>loc===x || loc.startsWith(x+'-'))) return true;
+  }
+  return Object.keys(row).some(h=>/ประเภทตำแหน่ง/.test(h) && /ชำรุด/.test(norm(row[h])));
+}
+
 const COMPARE_SI_MIN_QTY = 4; // เอาเฉพาะจำนวนใน SI ที่ตั้งแต่ค่านี้ขึ้นไป (มากกว่าหรือเท่ากับ 4) ไปหักลบกับ ORDER
 
 // กล่อง "หักลบกับไฟล์ที่ 3 (SI)": บอกว่า SKU Merchant ไหนถูกหักลบ ORDER เดิม / SI / ORDER หลังหัก
@@ -659,12 +670,13 @@ function compareFiles(){
     data1.forEach(row=>{
       const displaySku=norm(row[stockSkuCol]);
       if(!displaySku)return;
+      if(isDamagedStockRow(row))return;
 
       const sku=normalizeOrderSku(displaySku);
       const qty=num(row[stockQtyCol]);
       let item=stockMap.get(sku);
       if(!item){
-        item={sku:displaySku,qty:0,locations:[]};
+        item={sku:displaySku,qty:0,locations:[],places:[]};
         stockMap.set(sku,item);
       }
       item.qty+=qty;
@@ -708,6 +720,11 @@ function compareFiles(){
           item.locations.push(loc);
         }
       });
+
+      // เก็บจำนวนรายตำแหน่งไว้ใช้ทำไฟล์เบิกของแยกตำแหน่ง (downloadPickListsByLocation)
+      if(locationPrefixes.length){
+        item.places.push({ loc: stockPosCol ? norm(row[stockPosCol]) : '', prefix: locationPrefixes[0], qty });
+      }
     });
 
     setProgress(40);
@@ -780,6 +797,7 @@ function compareFiles(){
         stockQty,
         status,
         locations,
+        places: stock ? stock.places : [],
         merchantNames: skuBrandNames(sku, pivotItem)
       };
     });
@@ -1247,6 +1265,139 @@ function downloadStockCheckResult(){
   XLSX.writeFile(wb,"ผลลัพธ์_เปรียบเทียบและยอดคงเหลือ.xlsx");
 }
 
+// ไฟล์ย้ายสินค้าแยกตำแหน่ง: 1 ไฟล์ต่อ 1 ตำแหน่ง (C.xlsx, KT.xlsx, H.xlsx ...) ในรูปแบบ "นำเข้าเพื่อสร้างใบย้ายสินค้า" ของ BigSeller
+// ใช้รายการชุดเดียวกับ "รายการที่ถูกลบ-ถูกหัก" จำนวนที่จะเบิกต่อ SKU = min(ORDER, Stock)
+// จำนวนที่ย้าย = max(จำนวนที่จะเบิก, ย้ายเผื่อของรหัสนั้นใน js/move-rules.js) แต่ไม่เกินสต็อกที่มี
+// เลือกตำแหน่งตามลำดับเบิก (ดู moveRank) ในกลุ่มเดียวกันเอาที่มีของมากสุดก่อน
+// ถ้าตำแหน่งนั้นมีไม่พอจำนวนที่จะเบิก เพิ่มอีกแถวจากตำแหน่งถัดไปจนได้พอดีหรือเผื่อ
+// ตำแหน่ง H (ลัง) ย้ายทั้งลังเสมอ และเอาได้แค่ 1 ลังต่อ SKU
+// สร้างเฉพาะตำแหน่งที่ติ๊กไว้ใน "📍 เลือกตำแหน่ง"
+const MOVE_TO_LOCATION = 'FRONT';
+const MOVE_FULL_BOX_PREFIX = 'H';
+// ลำดับการเลือกตำแหน่ง: ตำแหน่งที่พิมพ์ในช่อง "ลำดับเบิก" มาก่อนตามลำดับที่พิมพ์ → ตำแหน่งอื่น → ลัง H ท้ายสุด
+// (ถ้าพิมพ์ H ไว้ในช่อง H จะอยู่ตามลำดับที่พิมพ์) ในกลุ่มเดียวกันเอาที่มีของมากสุดก่อน
+const MOVE_PRIORITY_KEY='order_move_priority_v1';
+function getMovePriority(){
+  const el=document.getElementById('movePriority');
+  return String(el ? el.value : '').split(/[\s,]+/).map(v=>v.trim().toUpperCase()).filter(Boolean);
+}
+function moveRank(prefix, priority){
+  const i=priority.indexOf(String(prefix).toUpperCase());
+  if(i!==-1) return i;
+  return prefix===MOVE_FULL_BOX_PREFIX ? 2000 : 1000;
+}
+(function initMovePriority(){
+  const el=document.getElementById('movePriority');
+  if(!el) return;
+  try{ el.value=localStorage.getItem(MOVE_PRIORITY_KEY)||''; }catch(e){}
+  el.addEventListener('change',()=>{ try{ localStorage.setItem(MOVE_PRIORITY_KEY,el.value.trim()); }catch(e){} });
+})();
+
+let moveBufferIndex=null;
+function getMoveBufferIndex(){
+  if(moveBufferIndex) return moveBufferIndex;
+  const exact=[], numeric=new Map();
+  Object.values(window.MOVE_BUFFER_RULES||{}).forEach(codes=>{
+    Object.entries(codes).forEach(([code,qty])=>{
+      const parts=String(code).split('-');
+      // รหัสตัวเลขล้วน (GRAND) เทียบแบบไม่สนเลข 0 นำหน้า "001478-001520" = รหัสแทนกันได้ 2 ตัว
+      if(parts.every(p=>/^\d{4,}$/.test(p))) parts.forEach(p=>numeric.set(p.replace(/^0+/,''),qty));
+      else exact.push([normalizeOrderSku(code),qty]);
+    });
+  });
+  exact.sort((a,b)=>b[0].length-a[0].length); // รหัสยาวกว่าเจาะจงกว่า ให้เทียบก่อน
+  return moveBufferIndex={exact,numeric};
+}
+
+function moveBufferQty(sku){
+  const s=normalizeOrderSku(sku);
+  const {exact,numeric}=getMoveBufferIndex();
+  const hit=exact.find(([code])=>s===code || s.startsWith(code+'-'));
+  if(hit) return hit[1];
+  const first=s.split('-')[0];
+  if(/^\d+$/.test(first)) return numeric.get(first.replace(/^0+/,''))||0;
+  return 0;
+}
+const MOVE_HEADERS = [
+  '*เลข SKU（กรอกเลข SKU หรือ GTIN อย่างใดอย่างหนึ่ง）',
+  '*GTIN（กรอกเลข SKU หรือ GTIN อย่างใดอย่างหนึ่ง）',
+  '*ตำแหน่งที่ย้ายออก (จำเป็นต้องกรอก)',
+  '*จำนวนสินค้าที่ย้ายออก (จำเป็นต้องกรอก)',
+  '*ตำแหน่งที่ย้ายเข้า (จำเป็นต้องกรอก)',
+  '*จำนวนสินค้าที่ย้ายเข้า (จำเป็นต้องกรอก)'
+];
+
+function downloadPickListsByLocation(){
+  if(!compareResults.length) return alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
+  const selected=compareCopyLocationSelection;
+  if(!selected.size) return alert("ยังไม่ได้เลือกตำแหน่ง (📍 เลือกตำแหน่ง)");
+
+  const byPrefix=new Map();
+  const priority=getMovePriority();
+  compareResults.filter(item=>item.stockQty>0).forEach(item=>{
+    // เพิ่มตำแหน่งถัดไปเฉพาะเมื่อยังไม่พอจำนวนที่จะเบิกจริง ส่วนเผื่อเอาเท่าที่ตำแหน่งที่ใช้อยู่มีให้ ไม่เพิ่มแถวเพื่อเผื่อ
+    const pick=Math.min(item.orderQty,item.stockQty);
+    const target=Math.max(pick,moveBufferQty(item.sku));
+    let moved=0;
+    let usedBox=false;
+    // สต็อกบางตัวมีตำแหน่งเดียวกันหลายแถว รวมเป็นแถวเดียวก่อน ไม่ให้ SKU เดียวถูกเบิกซ้ำที่ตำแหน่งเดิม
+    const merged=new Map();
+    (item.places||[]).forEach(p=>{
+      const key=String(p.loc||p.prefix).trim().toUpperCase();
+      const cur=merged.get(key);
+      if(cur) cur.qty+=p.qty; else merged.set(key,{...p});
+    });
+    const places=[...merged.values()].filter(p=>p.qty>0)
+      .sort((a,b)=>moveRank(a.prefix,priority)-moveRank(b.prefix,priority) || b.qty-a.qty ||
+        String(a.loc).localeCompare(String(b.loc),undefined,{numeric:true}));
+    for(const p of places){
+      if(moved>=pick) break;
+      let qty;
+      if(p.prefix===MOVE_FULL_BOX_PREFIX){
+        if(usedBox) continue;
+        usedBox=true;
+        qty=p.qty;
+      }else{
+        qty=Math.min(target-moved,p.qty);
+      }
+      moved+=qty;
+      if(!selected.has(p.prefix)) continue;
+      if(!byPrefix.has(p.prefix)) byPrefix.set(p.prefix,[]);
+      byPrefix.get(p.prefix).push([item.sku,'',p.loc||p.prefix,qty,MOVE_TO_LOCATION,qty]);
+    }
+  });
+
+  const prefixes=uniqueSorted([...byPrefix.keys()]);
+  if(!prefixes.length) return alert("ไม่มีรายการที่ต้องเบิกในตำแหน่งที่เลือก");
+
+  // รวมทุกตำแหน่งเป็น ZIP ไฟล์เดียว (ข้างในเป็น C.xlsx, KT.xlsx ...) ดาวน์โหลดหลายไฟล์แยกกัน Chrome มักบล็อกตั้งแต่ไฟล์ที่ 2
+  const zip=new JSZip();
+  prefixes.forEach(prefix=>{
+    const rows=byPrefix.get(prefix)
+      .sort((a,b)=>a[2].localeCompare(b[2],undefined,{numeric:true})||a[0].localeCompare(b[0],undefined,{numeric:true}));
+    const ws=XLSX.utils.aoa_to_sheet([MOVE_HEADERS,...rows]);
+    // กว้างตามข้อความยาวสุด ตำแหน่งเต็มยาวๆ (เช่น C-LY1-002-WL026102) จะได้ไม่ถูกตัดตอนเปิดใน Excel
+    const width=(i,min)=>Math.max(min,...rows.map(r=>String(r[i]).length+2));
+    ws["!cols"]=[{wch:width(0,24)},{wch:10},{wch:width(2,20)},{wch:14},{wch:14},{wch:14}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"SKU");
+    zip.file(prefix.replace(/[\\/:*?"<>|]/g,"_")+".xlsx",XLSX.write(wb,{type:"array",bookType:"xlsx"}));
+  });
+
+  const d=new Date(), pad=n=>String(n).padStart(2,"0");
+  const zipName=`ใบย้าย_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.zip`;
+  zip.generateAsync({type:"blob"}).then(blob=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=zipName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    if(typeof window.fxToast==="function") window.fxToast(`ดาวน์โหลดใบย้าย ${prefixes.length} ตำแหน่ง (${prefixes.join(", ")})`,"success");
+  }).catch(e=>alert("สร้างไฟล์ ZIP ไม่สำเร็จ\n\n"+e.message));
+}
+
 function downloadCompareSubset(type){
   if(!compareResults.length){
     alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
@@ -1320,6 +1471,8 @@ const downloadAllPreviewBtn=document.getElementById("download2");
 if(downloadAllPreviewBtn) downloadAllPreviewBtn.onclick=()=>toggleCompareWebPreview("all");
 const downloadWebExcelBtn=document.getElementById("downloadWebExcel");
 if(downloadWebExcelBtn) downloadWebExcelBtn.onclick=downloadStockCheckResult;
+const downloadPickByLocBtn=document.getElementById("downloadPickByLoc");
+if(downloadPickByLocBtn) downloadPickByLocBtn.onclick=downloadPickListsByLocation;
 
 let compareTextTimer=null;
 
@@ -2989,7 +3142,8 @@ function printOrderPDF() {
   }
 
   if (typeof window.html2pdf !== 'function') {
-    alert('ไม่พบไลบรารีสร้าง PDF กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
+    // ยังโหลดไม่เสร็จ (js/lazy-lib.js) รอแล้วเรียกใหม่
+    window.loadLib('html2pdf').then(printOrderPDF, () => alert('โหลดไลบรารีสร้าง PDF ไม่สำเร็จ ลองรีเฟรชหน้าเว็บแล้วลองใหม่อีกครั้ง'));
     return;
   }
 

@@ -191,6 +191,7 @@
   // สร้าง PDF ของใบปริ้น: วาดแต่ละหน้าลง canvas ตรงๆ (ตำแหน่งตามเลย์เอาต์เดียวกับหน้าปริ้น)
   // ไม่ใช้การถ่ายภาพหน้าเว็บ จึงไม่เพี้ยนเมื่อหน้าถูกเลื่อน และตัวอักษรไทย (สระ/วรรณยุกต์) ถูกต้อง
   async function buildPdf(rows) {
+    try { await window.loadLib('html2pdf'); } catch (e) { console.warn(e); }
     if (typeof window.html2pdf !== 'function' || typeof layoutOrderSheetColumns !== 'function') return null;
     const PXMM = 8;                       // ~203 dpi
     const W = 210 * PXMM, H = 296 * PXMM;

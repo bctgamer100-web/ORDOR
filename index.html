@@ -1,4 +1,4 @@
-﻿
+
 
 <!doctype html>
 <html lang="th">
@@ -14,8 +14,7 @@
 <link rel="alternate icon" href="favicon.svg?v=1">
 <script src="js/vendor/xlsx.full.min.js"></script>
 <script src="js/vendor/jszip.min.js"></script>
-<script src="js/vendor/html2pdf.bundle.min.js"></script>
-<script src="js/vendor/exceljs.min.js"></script>
+<!-- html2pdf และ ExcelJS โหลดทีหลังผ่าน js/lazy-lib.js -->
 <style>
 /* ซ่อนกล่องกติกาในหน้าเปรียบเทียบ แต่คงกติกาการตรวจสอบใน JavaScript ตามเดิม */
 .rules { display: none !important; }
@@ -149,7 +148,13 @@
                 <strong id="compareWebPreviewTitle">📋 ผลลัพธ์บนเว็บ</strong>
                 <div class="download-note">ข้อมูลชุดเดียวกับไฟล์ Excel ที่ระบบเตรียมไว้</div>
               </div>
-              <button class="compare-web-download" id="downloadWebExcel">⬇ ดาวน์โหลด Excel</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <label class="download-note" style="display:flex;gap:6px;align-items:center;margin:0" title="ตำแหน่งที่พิมพ์ใช้ก่อนตามลำดับ ตำแหน่งที่ไม่ได้พิมพ์ใช้ถัดมา ลัง H ใช้ท้ายสุด (ถ้าไม่ได้พิมพ์ H) ในกลุ่มเดียวกันเอาที่มีของมากสุดก่อน">ลำดับเบิก
+                  <input type="text" id="movePriority" placeholder="เช่น KT, C" autocomplete="off" spellcheck="false" style="width:170px;min-height:36px;padding:0 10px">
+                </label>
+                <button type="button" class="beta-secondary" id="downloadPickByLoc" title="ไฟล์นำเข้าใบย้ายสินค้า (BigSeller) 1 ไฟล์ต่อ 1 ตำแหน่ง ชื่อไฟล์ตามตำแหน่ง (เฉพาะตำแหน่งที่เลือกไว้)">📦 ไฟล์ย้ายสินค้าแยกตำแหน่ง</button>
+                <button class="compare-web-download" id="downloadWebExcel">⬇ ดาวน์โหลด Excel</button>
+              </div>
             </div>
             <div id="compareWebPreviewBody"></div>
           </div>
@@ -532,13 +537,15 @@
   setTimeout(sync,50);
 })();
 </script>
-<script src="js/app.js?v=20261133"></script>
+<script src="js/lazy-lib.js?v=20261134"></script>
+<script src="js/move-rules.js?v=20261139"></script>
+<script src="js/app.js?v=20261143"></script>
 <script src="js/scan-sheet.js?v=20261133"></script>
-<script src="js/saved-files.js?v=20261133"></script>
+<script src="js/saved-files.js?v=20261134"></script>
 <script src="js/layout.js?v=20261133"></script>
-<!-- Sunshine: ต้องต่ออินเทอร์เน็ตเพื่อโหลดไลบรารี Supabase (ส่วนอื่นของเว็บใช้ออฟไลน์ได้ตามเดิม) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/sunshine.js?v=20261133"></script>
+<!-- Sunshine: ไลบรารี Supabase เก็บในเครื่องแล้ว แต่การดึง/อัปโหลดข้อมูลยังต้องต่ออินเทอร์เน็ต -->
+<script src="js/vendor/supabase.min.js"></script>
+<script src="js/sunshine.js?v=20261135"></script>
 </body>
 
 </html>
