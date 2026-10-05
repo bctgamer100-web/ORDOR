@@ -777,7 +777,19 @@ function compareFiles(){
     setProgress(65);
 
     compareResults=[...orderMap.values()].map(({sku,orderQty})=>{
-      const stock=stockMap.get(normalizeOrderSku(sku));
+      let stock=stockMap.get(normalizeOrderSku(sku));
+      // รหัสที่ใช้แทนกันได้ (เช่น 004309-004318 ใน js/move-rules.js): รหัสที่สั่งไม่มีสต็อก ให้เบิกรหัสคู่ที่สี/ไซซ์เดียวกันแทน
+      // ถ้ามีทั้งคู่ เอาตามรหัสที่สั่ง
+      let stockSku='';
+      if(!stock || stock.qty<=0){
+        const alt=findInterchangeableStock(sku, stockMap);
+        if(alt){
+          // ORDER ที่สั่งรหัสคู่ตรงตัวได้สต็อกก่อน ตัวที่เบิกแทนได้แค่ที่เหลือ (สต็อกไม่ถูกนับซ้ำ)
+          const own=orderMap.get(normalizeOrderSku(alt.sku));
+          const left=alt.qty-Math.min(own ? own.orderQty : 0, alt.qty);
+          if(left>0){ stock={...alt,qty:left}; stockSku=alt.sku; }
+        }
+      }
       const stockQty=stock ? stock.qty : 0;
       const locations=stock ? stock.locations.join(", ") : "";
 
@@ -797,6 +809,7 @@ function compareFiles(){
         stockQty,
         status,
         locations,
+        stockSku,
         places: stock ? stock.places : [],
         merchantNames: skuBrandNames(sku, pivotItem)
       };
@@ -805,6 +818,7 @@ function compareFiles(){
     // ผลตรวจชุดใหม่: ให้ตัวเลือกยี่ห้อ/ตำแหน่งเริ่มต้นเป็น "เลือกทั้งหมด" ตามข้อมูลจริง
     compareCopyBrandSelection.clear();
     compareCopyLocationSelection.clear();
+    moveQtyOverrides.clear();
     compareCopySelectionsInitialized = false;
 
     // คงลำดับตามไฟล์ ORDER (ไฟล์ที่ 1) ไม่เรียง SKU ใหม่ตามพยัญชนะ
@@ -872,7 +886,7 @@ function renderCompareResults(){
     if(filter==="none" && !item.status.startsWith("❌"))return false;
 
     if(search){
-      const text=[item.sku,item.orderQty,item.stockQty,item.status,item.locations]
+      const text=[item.sku,item.stockSku,item.orderQty,item.stockQty,item.status,item.locations]
         .join(" ").toLowerCase();
       if(!text.includes(search))return false;
     }
@@ -884,7 +898,7 @@ function renderCompareResults(){
 
   // หน้าจอคงรูปแบบเดิม: SKU / ORDER / Stock รวม / สถานะ / ตำแหน่ง
   const rows=filtered.slice(0,1000).map(item=>({
-    "SKU":item.sku,
+    "SKU":compareSkuLabel(item),
     "ORDER":formatPivotNumber(item.orderQty),
     "Stock รวม":formatPivotNumber(item.stockQty),
     "สถานะ":item.status,
@@ -930,7 +944,8 @@ function previewCompareTable(headers, rows){
   }
 
   const head=headers.map(h=>`<th>${esc(h)}</th>`).join('');
-  const body=rows.map(row=>`<tr>${row.map(v=>`<td>${esc(v ?? '')}</td>`).join('')}</tr>`).join('');
+  // ช่องที่เป็น {html} (เช่น ช่องจำนวนเบิกที่แก้ได้) ใส่ HTML ตรงๆ ช่องอื่น escape ตามปกติ
+  const body=rows.map(row=>`<tr>${row.map(v=>`<td>${v && typeof v==='object' && 'html' in v ? v.html : esc(v ?? '')}</td>`).join('')}</tr>`).join('');
   return `<div class="compare-preview-table-wrap"><table class="compare-preview-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -1103,9 +1118,10 @@ function updateComparePreviewTables(){
     const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
     return locs.some(loc=>compareCopyLocationSelection.has(loc));
   }) : [];
+  const plan=buildMovePlan();
   const deducted=deductedFiltered.map(item=>[
-    item.sku,item.orderQty,item.stockQty,Math.min(item.orderQty,item.stockQty),
-    Math.max(item.stockQty-item.orderQty,0),item.locations||'-',item.status
+    compareSkuLabel(item),item.orderQty,item.stockQty,Math.min(item.orderQty,item.stockQty),
+    moveQtyCell(item,plan),item.locations||'-',item.status
   ]);
 
   const remWrap=document.querySelector('[data-preview-table="remaining"]');
@@ -1114,7 +1130,7 @@ function updateComparePreviewTables(){
   if(remCount) remCount.textContent=`${remaining.length.toLocaleString()} รายการ`;
 
   const dedWrap=document.querySelector('[data-preview-table="deducted"]');
-  if(dedWrap) dedWrap.innerHTML=previewCompareTable(['SKU Merchant','จำนวนไฟล์ที่ 1','จำนวนไฟล์ที่ 2','จำนวนที่ถูกลบ','ยอดคงเหลือ','ตำแหน่ง','สถานะ'],deducted);
+  if(dedWrap) dedWrap.innerHTML=previewCompareTable(['SKU Merchant','จำนวนไฟล์ที่ 1','จำนวนไฟล์ที่ 2','จำนวนที่ถูกลบ','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted);
   const dedCount=document.querySelector('[data-preview-count="deducted"]');
   if(dedCount) dedCount.textContent=`${deducted.length.toLocaleString()} รายการ`;
 }
@@ -1159,12 +1175,13 @@ function renderCompareWebPreview(mode='all'){
       const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
       return locs.some(loc=>compareCopyLocationSelection.has(loc));
     }) : [];
+    const plan=buildMovePlan();
     const deducted=deductedFiltered.map(item=>[
-        item.sku,
+        compareSkuLabel(item),
         item.orderQty,
         item.stockQty,
         Math.min(item.orderQty,item.stockQty),
-        Math.max(item.stockQty-item.orderQty,0),
+        moveQtyCell(item,plan),
         item.locations || '-',
         item.status
       ]);
@@ -1178,14 +1195,14 @@ function renderCompareWebPreview(mode='all'){
     html += `<details class="compare-preview-section" open>
       <summary>📋 รายการที่ถูกลบ-ถูกหัก <span class="preview-count" data-preview-count="deducted">${deducted.length.toLocaleString()} รายการ</span></summary>
       ${copyControlHtml('location', getCompareLocationOptions(compareResults.filter(item=>item.stockQty>0)), compareCopyLocationSelection)}
-      <div data-preview-table="deducted">${previewCompareTable(['SKU Merchant','จำนวนไฟล์ที่ 1','จำนวนไฟล์ที่ 2','จำนวนที่ถูกลบ','ยอดคงเหลือ','ตำแหน่ง','สถานะ'],deducted)}</div>
+      <div data-preview-table="deducted">${previewCompareTable(['SKU Merchant','จำนวนไฟล์ที่ 1','จำนวนไฟล์ที่ 2','จำนวนที่ถูกลบ','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted)}</div>
     </details>`;
   }else if(mode==='short'){
     title.textContent='⚠️ รายการที่ขาด';
     const rows=compareResults
       .filter(item=>item.status.startsWith('⚠️'))
       .map(item=>[
-        item.sku,
+        compareSkuLabel(item),
         item.orderQty,
         item.stockQty,
         Math.max(item.orderQty-item.stockQty,0),
@@ -1235,16 +1252,17 @@ function downloadStockCheckResult(){
   ];
 
   // Sheet 2: รายละเอียดการตรวจ พร้อมตำแหน่งและสถานะว่าพอ/ขาด
+  const plan=buildMovePlan();
   const deductedData=[
-    ["SKU Merchant","จำนวนไฟล์ที่ 1","จำนวนไฟล์ที่ 2","จำนวนที่ถูกลบ","ยอดคงเหลือ","ตำแหน่ง","สถานะ"],
+    ["SKU Merchant","จำนวนไฟล์ที่ 1","จำนวนไฟล์ที่ 2","จำนวนที่ถูกลบ","จำนวนเบิก","ตำแหน่ง","สถานะ"],
     ...compareResults
       .filter(item=>item.stockQty > 0)
       .map(item=>[
-        item.sku,
+        compareSkuLabel(item),
         item.orderQty,
         item.stockQty,
         Math.min(item.orderQty,item.stockQty),
-        Math.max(item.stockQty-item.orderQty,0),
+        (plan.get(moveKeyOf(item))||{total:0}).total,
         item.locations || "-",
         item.status
       ])
@@ -1299,7 +1317,11 @@ function moveRank(prefix, priority){
   const el=document.getElementById('movePriority');
   if(!el) return;
   try{ el.value=localStorage.getItem(MOVE_PRIORITY_KEY)||''; }catch(e){}
-  el.addEventListener('change',()=>{ try{ localStorage.setItem(MOVE_PRIORITY_KEY,el.value.trim()); }catch(e){} });
+  el.addEventListener('change',()=>{
+    try{ localStorage.setItem(MOVE_PRIORITY_KEY,el.value.trim()); }catch(e){}
+    // ลำดับเบิกเปลี่ยน จำนวนเบิกตามเงื่อนไขอาจเปลี่ยน (เช่น ไปเปิดลัง H) แสดงตัวเลขใหม่ในตาราง
+    if(compareResults.length) updateComparePreviewTables();
+  });
 })();
 
 let moveBufferIndex=null;
@@ -1316,6 +1338,42 @@ function getMoveBufferIndex(){
   });
   exact.sort((a,b)=>b[0].length-a[0].length); // รหัสยาวกว่าเจาะจงกว่า ให้เทียบก่อน
   return moveBufferIndex={exact,numeric};
+}
+
+// รหัสตัวเลขที่แทนกันได้จาก js/move-rules.js (เช่น '004309-004318') → Map(รหัสไม่มี 0 นำหน้า → [รหัสคู่])
+let moveAltCodes=null;
+function getMoveAltCodes(){
+  if(moveAltCodes) return moveAltCodes;
+  const m=new Map();
+  Object.values(window.MOVE_BUFFER_RULES||{}).forEach(codes=>Object.keys(codes).forEach(code=>{
+    const parts=String(code).split('-');
+    if(parts.length<2 || !parts.every(p=>/^\d{4,}$/.test(p))) return;
+    const stripped=parts.map(p=>p.replace(/^0+/,''));
+    stripped.forEach(a=>m.set(a,stripped.filter(b=>b!==a)));
+  }));
+  return moveAltCodes=m;
+}
+
+// หาสต็อกของรหัสคู่ที่ส่วนท้าย (สี/ไซซ์) เหมือนกัน เช่น สั่ง 004318-ดำ-L → 004309-ดำ-L
+function findInterchangeableStock(sku, stockMap){
+  const s=normalizeOrderSku(sku);
+  const i=s.indexOf('-');
+  if(i<1 || !/^\d+$/.test(s.slice(0,i))) return null;
+  const alts=getMoveAltCodes().get(s.slice(0,i).replace(/^0+/,''));
+  if(!alts || !alts.length) return null;
+  const rest=s.slice(i);
+  for(const [key,item] of stockMap){
+    if(item.qty<=0) continue;
+    const j=key.indexOf('-');
+    if(j<1 || key.slice(j)!==rest) continue;
+    if(alts.includes(key.slice(0,j).replace(/^0+/,''))) return item;
+  }
+  return null;
+}
+
+// SKU ที่แสดงในตาราง: ถ้าเบิกรหัสแทน ให้เห็นว่าเบิกตัวไหน
+function compareSkuLabel(item){
+  return item.stockSku ? `${item.sku} (เบิก ${item.stockSku})` : item.sku;
 }
 
 function moveBufferQty(sku){
@@ -1336,45 +1394,111 @@ const MOVE_HEADERS = [
   '*จำนวนสินค้าที่ย้ายเข้า (จำเป็นต้องกรอก)'
 ];
 
+// จำนวนเบิกที่ผู้ใช้แก้เองในตาราง "รายการที่ถูกลบ-ถูกหัก" (คีย์ = SKU ที่เบิกจริง) ล้างทุกครั้งที่ตรวจชุดใหม่
+const moveQtyOverrides=new Map();
+
+// รวมความต้องการตาม SKU ที่จะเบิกจริง: ORDER ที่เบิกรหัสแทน (004318 → 004309) กับ ORDER ของ 004309 เอง
+// ใช้สต็อกตัวเดียวกัน ต้องคิดรวมกันครั้งเดียว ไม่อย่างนั้นใบย้ายจะมีแถวซ้ำ
+function moveKeyOf(item){
+  return normalizeOrderSku(item.stockSku||item.sku);
+}
+function buildMovePlan(){
+  const priority=getMovePriority();
+  const demand=new Map();
+  compareResults.filter(item=>item.stockQty>0).forEach(item=>{
+    const sku=item.stockSku||item.sku;
+    const key=moveKeyOf(item);
+    const pick=Math.min(item.orderQty,item.stockQty);
+    const cur=demand.get(key);
+    if(cur) cur.pick+=pick;
+    else demand.set(key,{sku,pick,places:item.places});
+  });
+
+  const plan=new Map(); // key → { sku, rows:[{place, qty}], total, auto }
+  demand.forEach((item,key)=>{
+    // สต็อกบางตัวมีตำแหน่งเดียวกันหลายแถว รวมเป็นแถวเดียวก่อน ไม่ให้ SKU เดียวถูกเบิกซ้ำที่ตำแหน่งเดิม
+    const merged=new Map();
+    (item.places||[]).forEach(p=>{
+      const k=String(p.loc||p.prefix).trim().toUpperCase();
+      const cur=merged.get(k);
+      if(cur) cur.qty+=p.qty; else merged.set(k,{...p});
+    });
+    const places=[...merged.values()].filter(p=>p.qty>0)
+      .sort((a,b)=>moveRank(a.prefix,priority)-moveRank(b.prefix,priority) || b.qty-a.qty ||
+        String(a.loc).localeCompare(String(b.loc),undefined,{numeric:true}));
+
+    const allocate=(pick,target,boxRule)=>{
+      const rows=[];
+      let moved=0, usedBox=false;
+      for(const p of places){
+        if(moved>=pick) break;
+        let qty;
+        if(boxRule && p.prefix===MOVE_FULL_BOX_PREFIX){
+          if(usedBox) continue;
+          usedBox=true;
+          qty=p.qty;
+        }else{
+          qty=Math.min(target-moved,p.qty);
+        }
+        if(qty<=0) continue;
+        moved+=qty;
+        rows.push({place:p,qty});
+      }
+      return rows;
+    };
+
+    // ตามเงื่อนไข: เพิ่มตำแหน่งถัดไปเฉพาะเมื่อยังไม่พอจำนวนที่จะเบิกจริง ส่วนเผื่อเอาเท่าที่ตำแหน่งที่ใช้อยู่มีให้
+    const autoRows=allocate(item.pick,Math.max(item.pick,moveBufferQty(item.sku)),true);
+    const auto=autoRows.reduce((s,r)=>s+r.qty,0);
+    // แก้ตัวเลขเอง: เบิกตามตัวเลขนั้นพอดี (ไม่บังคับทั้งลัง) ตามลำดับตำแหน่งเดิม ไม่เกินสต็อกที่มี
+    const manual=moveQtyOverrides.has(key) ? moveQtyOverrides.get(key) : null;
+    const rows=manual===null ? autoRows : allocate(manual,manual,false);
+    plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto});
+  });
+  return plan;
+}
+
+// ช่องจำนวนเบิกในตาราง: ค่าเริ่มต้นตามเงื่อนไข แก้เองได้
+function moveQtyCell(item, plan){
+  const key=moveKeyOf(item);
+  const p=plan.get(key);
+  const val=p ? p.total : 0;
+  const edited=moveQtyOverrides.has(key) ? ' is-edited' : '';
+  const tip=p ? `ตามเงื่อนไข ${p.auto}` : '';
+  return {html:`<input type="number" min="0" step="1" class="move-qty-input${edited}" data-move-key="${encodeURIComponent(key)}" value="${val}" title="${esc(tip)}" style="width:72px">`};
+}
+
+document.addEventListener('change',e=>{
+  const el=e.target.closest && e.target.closest('.move-qty-input');
+  if(!el) return;
+  const key=decodeURIComponent(el.dataset.moveKey||'');
+  const raw=String(el.value).trim();
+  if(raw===''){ moveQtyOverrides.delete(key); }
+  else moveQtyOverrides.set(key,Math.max(0,Math.floor(Number(raw)||0)));
+  // ปรับตัวเลขให้ตรงกับที่เบิกได้จริง (ไม่เกินสต็อก) และอัปเดตทุกช่องของ SKU เดียวกัน
+  const p=buildMovePlan().get(key);
+  const total=p ? p.total : 0;
+  if(p && moveQtyOverrides.has(key) && moveQtyOverrides.get(key)===p.auto) moveQtyOverrides.delete(key);
+  document.querySelectorAll('.move-qty-input').forEach(inp=>{
+    if(decodeURIComponent(inp.dataset.moveKey||'')!==key) return;
+    inp.value=total;
+    inp.classList.toggle('is-edited',moveQtyOverrides.has(key));
+  });
+});
+
 function downloadPickListsByLocation(){
   if(!compareResults.length) return alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
   const selected=compareCopyLocationSelection;
   if(!selected.size) return alert("ยังไม่ได้เลือกตำแหน่ง (📍 เลือกตำแหน่ง)");
 
   const byPrefix=new Map();
-  const priority=getMovePriority();
-  compareResults.filter(item=>item.stockQty>0).forEach(item=>{
-    // เพิ่มตำแหน่งถัดไปเฉพาะเมื่อยังไม่พอจำนวนที่จะเบิกจริง ส่วนเผื่อเอาเท่าที่ตำแหน่งที่ใช้อยู่มีให้ ไม่เพิ่มแถวเพื่อเผื่อ
-    const pick=Math.min(item.orderQty,item.stockQty);
-    const target=Math.max(pick,moveBufferQty(item.sku));
-    let moved=0;
-    let usedBox=false;
-    // สต็อกบางตัวมีตำแหน่งเดียวกันหลายแถว รวมเป็นแถวเดียวก่อน ไม่ให้ SKU เดียวถูกเบิกซ้ำที่ตำแหน่งเดิม
-    const merged=new Map();
-    (item.places||[]).forEach(p=>{
-      const key=String(p.loc||p.prefix).trim().toUpperCase();
-      const cur=merged.get(key);
-      if(cur) cur.qty+=p.qty; else merged.set(key,{...p});
-    });
-    const places=[...merged.values()].filter(p=>p.qty>0)
-      .sort((a,b)=>moveRank(a.prefix,priority)-moveRank(b.prefix,priority) || b.qty-a.qty ||
-        String(a.loc).localeCompare(String(b.loc),undefined,{numeric:true}));
-    for(const p of places){
-      if(moved>=pick) break;
-      let qty;
-      if(p.prefix===MOVE_FULL_BOX_PREFIX){
-        if(usedBox) continue;
-        usedBox=true;
-        qty=p.qty;
-      }else{
-        qty=Math.min(target-moved,p.qty);
-      }
-      moved+=qty;
-      if(!selected.has(p.prefix)) continue;
+  buildMovePlan().forEach(item=>{
+    item.rows.forEach(({place:p,qty})=>{
+      if(!selected.has(p.prefix)) return;
       const fileKey=moveFileKey(p);
       if(!byPrefix.has(fileKey)) byPrefix.set(fileKey,[]);
       byPrefix.get(fileKey).push([item.sku,'',p.loc||p.prefix,qty,MOVE_TO_LOCATION,qty]);
-    }
+    });
   });
 
   const prefixes=uniqueSorted([...byPrefix.keys()]);
@@ -1427,7 +1551,7 @@ function downloadCompareSubset(type){
   const data = [
     ["SKU Merchant","จำนวน ORDER","Stock รวม","จำนวนที่ขาด","ตำแหน่ง","สถานะ"],
     ...rows.map(item => [
-      item.sku,
+      compareSkuLabel(item),
       item.orderQty,
       item.stockQty,
       isShort ? Math.max(item.orderQty - item.stockQty, 0) : Math.max(item.orderQty - item.stockQty, 0),
