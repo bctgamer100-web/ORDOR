@@ -399,7 +399,6 @@ async function loadSiFromDb(){
 }
 const si3FromDbBtn=$("si3FromDb");
 if(si3FromDbBtn) si3FromDbBtn.addEventListener('click', loadSiFromDb);
-
 async function loadOrderCompareFile(file){
   if(!file)return;
   try{
@@ -1097,11 +1096,30 @@ async function copyTextToClipboard(text, successText){
   }
 }
 
+// ยอดคงเหลือ (ต้องสั่งเพิ่ม): ORDER ที่สต็อกไม่พอ + ส่วนที่แก้จำนวนเบิกเกินสต็อกที่มี (ส่วนเกินย้ายมาอยู่ที่นี่)
+// คืนค่า [{item, qty}] เรียงตาม ORDER เดิม
+function getRemainingRows(){
+  const rows=compareResults
+    .filter(item=>item.stockQty<=0 || item.stockQty<item.orderQty)
+    .map(item=>({item,qty:Math.max(item.orderQty-item.stockQty,0)}));
+  const plan=buildMovePlan();
+  plan.forEach((p,key)=>{
+    if(p.manual===null || p.manual<=p.stockTotal) return;
+    const excess=p.manual-p.stockTotal;
+    const item=compareResults.find(x=>moveKeyOf(x)===key);
+    if(!item) return;
+    // ตัวเลขที่พิมพ์แทนจำนวนที่ต้องการทั้งหมด: ยอดคงเหลือของ SKU นี้ = ตัวเลขที่พิมพ์ - สต็อกที่มี (แทนค่าเดิม ไม่บวกซ้ำ)
+    const cur=rows.find(r=>r.item===item);
+    if(cur) cur.qty=excess;
+    else rows.push({item,qty:excess});
+  });
+  const order=new Map(compareResults.map((x,i)=>[x,i]));
+  return rows.sort((a,b)=>order.get(a.item)-order.get(b.item));
+}
+
 function copyRemainingByBrand(){
-  const rows=compareResults.filter(item=>item.stockQty<=0 || item.stockQty<item.orderQty);
-  const selected=compareCopyBrandSelection;
-  const filtered=rows.filter(compareBrandPass);
-  const text=filtered.map(item=>`${item.sku}	${Math.max(item.orderQty-item.stockQty,0)}`).join('\n');
+  const filtered=getRemainingRows().filter(r=>compareBrandPass(r.item));
+  const text=filtered.map(r=>`${r.item.sku}	${r.qty}`).join('\n');
   if(!text) return alert('ไม่พบรายการตามยี่ห้อที่เลือก');
   copyTextToClipboard(text,`คัดลอกยอดคงเหลือ ${filtered.length.toLocaleString()} รายการแล้ว`);
 }
@@ -1119,9 +1137,7 @@ function copyDeductedByLocation(){
 }
 
 function updateComparePreviewTables(){
-  const remainingSource=compareResults.filter(item=>item.stockQty<=0 || item.stockQty<item.orderQty);
-  const remainingFiltered=remainingSource.filter(compareBrandPass);
-  const remaining=remainingFiltered.map(item=>[item.sku,Math.max(item.orderQty-item.stockQty,0)]);
+  const remaining=getRemainingRows().filter(r=>compareBrandPass(r.item)).map(r=>[r.item.sku,r.qty]);
 
   const deductedSource=compareResults.filter(item=>item.stockQty>0);
   const deductedFiltered=compareCopyLocationSelection.size ? deductedSource.filter(item=>{
@@ -1171,13 +1187,7 @@ function renderCompareWebPreview(mode='all'){
     title.textContent='📋 ผลตรวจทั้งหมด';
 
     // ส่วนที่ 1 ตรงกับ Sheet "ยอดคงเหลือ" ในไฟล์ Excel
-    const remainingSource=compareResults
-      .filter(item=>item.stockQty<=0 || item.stockQty<item.orderQty);
-    const remainingFiltered=remainingSource.filter(compareBrandPass);
-    const remaining=remainingFiltered.map(item=>[
-      item.sku,
-      Math.max(item.orderQty-item.stockQty,0)
-    ]);
+    const remaining=getRemainingRows().filter(r=>compareBrandPass(r.item)).map(r=>[r.item.sku,r.qty]);
 
     // ส่วนที่ 2 ตรงกับ Sheet "รายการที่ถูกลบ-ถูกหัก" ในไฟล์ Excel
     const deductedSource=compareResults.filter(item=>item.stockQty>0);
@@ -1253,12 +1263,7 @@ function downloadStockCheckResult(){
   // Sheet 1: ยอดคงเหลือสำหรับสั่งของ
   const remainingData=[
     ["SKU Merchant","จำนวน"],
-    ...compareResults
-      .filter(item=>item.stockQty <= 0 || item.stockQty < item.orderQty)
-      .map(item=>[
-        item.sku,
-        Math.max(item.orderQty - item.stockQty, 0)
-      ])
+    ...getRemainingRows().map(r=>[r.item.sku,r.qty])
   ];
 
   // Sheet 2: รายละเอียดการตรวจ พร้อมตำแหน่งและสถานะว่าพอ/ขาด
@@ -1296,14 +1301,14 @@ function downloadStockCheckResult(){
 // ไฟล์ย้ายสินค้าแยกตำแหน่ง: 1 ไฟล์ต่อ 1 ตำแหน่ง (C.xlsx, KT.xlsx, H.xlsx ...) ในรูปแบบ "นำเข้าเพื่อสร้างใบย้ายสินค้า" ของ BigSeller
 // ใช้รายการชุดเดียวกับ "รายการที่ถูกลบ-ถูกหัก" จำนวนที่จะเบิกต่อ SKU = min(ORDER, Stock)
 // จำนวนที่ย้าย = max(จำนวนที่จะเบิก, ย้ายเผื่อของรหัสนั้นใน js/move-rules.js) แต่ไม่เกินสต็อกที่มี
-// เลือกตำแหน่งตามลำดับเบิก (ดู moveRank) ในกลุ่มเดียวกันเอาที่มีของมากสุดก่อน
+// เลือกตำแหน่งตามลำดับเบิก (ดู moveRank) ในกลุ่มเดียวกันเอาที่มีของน้อยสุดก่อน (ลัง H เอาที่มีมากสุดก่อน)
 // ถ้าตำแหน่งนั้นมีไม่พอจำนวนที่จะเบิก เพิ่มอีกแถวจากตำแหน่งถัดไปจนได้พอดีหรือเผื่อ
 // ตำแหน่ง H (ลัง) ย้ายทั้งลังเสมอ และเอาได้แค่ 1 ลังต่อ SKU
 // สร้างเฉพาะตำแหน่งที่ติ๊กไว้ใน "📍 เลือกตำแหน่ง"
 const MOVE_TO_LOCATION = 'FRONT';
 const MOVE_FULL_BOX_PREFIX = 'H';
 // ลำดับการเลือกตำแหน่ง: ตำแหน่งที่พิมพ์ในช่อง "ลำดับเบิก" มาก่อนตามลำดับที่พิมพ์ → ตำแหน่งอื่น → ลัง H ท้ายสุด
-// (ถ้าพิมพ์ H ไว้ในช่อง H จะอยู่ตามลำดับที่พิมพ์) ในกลุ่มเดียวกันเอาที่มีของมากสุดก่อน
+// (ถ้าพิมพ์ H ไว้ในช่อง H จะอยู่ตามลำดับที่พิมพ์) ในกลุ่มเดียวกันเอาที่มีของน้อยสุดก่อน ยกเว้นลัง H
 const MOVE_PRIORITY_KEY='order_move_priority_v1';
 function getMovePriority(){
   const el=document.getElementById('movePriority');
@@ -1370,19 +1375,28 @@ function getMoveAltCodes(){
   return moveAltCodes=m;
 }
 
-// หาสต็อกของรหัสคู่ที่ส่วนท้าย (สี/ไซซ์) เหมือนกัน เช่น สั่ง 004318-ดำ-L → 004309-ดำ-L
+// รหัสหน้า SKU สำหรับเทียบ: ตัวเลขไม่สน 0 นำหน้า (072083 = 72083)
+function skuCodeKey(code){
+  const c=String(code||'').trim().toUpperCase();
+  return /^\d+$/.test(c) ? c.replace(/^0+/,'') : c;
+}
+
+// หาสต็อกของรหัสที่ใช้แทนกันได้ ที่ส่วนท้าย (สี/ไซซ์) เหมือนกัน:
+//  - SKU ในสต็อกที่ตั้งชื่อรวมรหัสด้วย "/" เช่น สั่ง 012283-ดำ-2XL → สต็อก 012106/012283/012586-ดำ-2XL
+//  - รหัสคู่ใน js/move-rules.js เช่น สั่ง 004318-ดำ-L → สต็อก 004309-ดำ-L
 function findInterchangeableStock(sku, stockMap){
   const s=normalizeOrderSku(sku);
   const i=s.indexOf('-');
-  if(i<1 || !/^\d+$/.test(s.slice(0,i))) return null;
-  const alts=getMoveAltCodes().get(s.slice(0,i).replace(/^0+/,''));
-  if(!alts || !alts.length) return null;
+  if(i<1) return null;
+  const codes=s.slice(0,i).split('/').map(skuCodeKey);
+  const wanted=new Set(codes);
+  codes.forEach(c=>(getMoveAltCodes().get(c)||[]).forEach(a=>wanted.add(a)));
   const rest=s.slice(i);
   for(const [key,item] of stockMap){
-    if(item.qty<=0) continue;
+    if(item.qty<=0 || key===s) continue;
     const j=key.indexOf('-');
     if(j<1 || key.slice(j)!==rest) continue;
-    if(alts.includes(key.slice(0,j).replace(/^0+/,''))) return item;
+    if(key.slice(0,j).split('/').some(c=>wanted.has(skuCodeKey(c)))) return item;
   }
   return null;
 }
@@ -1396,9 +1410,9 @@ function compareLocQtyLabel(item){
   return label || '-';
 }
 
-// SKU ที่แสดงในตาราง: ถ้าเบิกรหัสแทน ให้เห็นว่าเบิกตัวไหน
+// SKU ที่แสดงในตาราง: แสดงตามที่สั่ง (ชื่อในสต็อกที่เบิกจริงไปอยู่ในไฟล์ใบย้าย)
 function compareSkuLabel(item){
-  return item.stockSku ? `${item.sku} (เบิก ${item.stockSku})` : item.sku;
+  return item.sku;
 }
 
 function moveBufferQty(sku){
@@ -1406,8 +1420,10 @@ function moveBufferQty(sku){
   const {exact,numeric}=getMoveBufferIndex();
   const hit=exact.find(([code])=>s===code || s.startsWith(code+'-'));
   if(hit) return hit[1];
-  const first=s.split('-')[0];
-  if(/^\d+$/.test(first)) return numeric.get(first.replace(/^0+/,''))||0;
+  // ชื่อรวมรหัส (012106/012283/012586-ดำ-2XL) ใช้เผื่อของรหัสแรกที่ตั้งไว้
+  for(const code of s.split('-')[0].split('/')){
+    if(/^\d+$/.test(code) && numeric.has(skuCodeKey(code))) return numeric.get(skuCodeKey(code));
+  }
   return 0;
 }
 const MOVE_HEADERS = [
@@ -1471,7 +1487,9 @@ function buildMovePlan(){
       if(cur) cur.qty+=p.qty; else merged.set(k,{...p});
     });
     const places=[...merged.values()].filter(p=>p.qty>0)
-      .sort((a,b)=>moveRank(a.prefix,priority)-moveRank(b.prefix,priority) || b.qty-a.qty ||
+      // กลุ่มเดียวกัน: ตำแหน่งที่มีของน้อยสุดเบิกก่อน (เคลียร์ตำแหน่งที่เหลือน้อย) ยกเว้นลัง H เอาลังที่มีมากสุดก่อน
+      .sort((a,b)=>moveRank(a.prefix,priority)-moveRank(b.prefix,priority) ||
+        (a.prefix===MOVE_FULL_BOX_PREFIX && b.prefix===MOVE_FULL_BOX_PREFIX ? b.qty-a.qty : a.qty-b.qty) ||
         String(a.loc).localeCompare(String(b.loc),undefined,{numeric:true}));
 
     const allocate=(pick,target,boxRule)=>{
@@ -1501,7 +1519,8 @@ function buildMovePlan(){
     // แต่ลัง H ยังบังคับทั้งลังเสมอ ถ้าต้องเปิดลัง H ยอดรวมจึงอาจมากกว่าตัวเลขที่พิมพ์
     const manual=moveQtyOverrides.has(key) ? moveQtyOverrides.get(key) : null;
     const rows=manual===null ? autoRows : allocate(manual,manual,true);
-    plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto});
+    const stockTotal=places.reduce((s,p)=>s+p.qty,0);
+    plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto,manual,stockTotal});
   });
   return plan;
 }
@@ -1510,9 +1529,11 @@ function buildMovePlan(){
 function moveQtyCell(item, plan){
   const key=moveKeyOf(item);
   const p=plan.get(key);
-  const val=p ? p.total : 0;
+  // พิมพ์เกินสต็อกรวม: คงตัวเลขที่พิมพ์ไว้ (เบิกได้เท่าที่มี ส่วนเกินไปอยู่ "ยอดคงเหลือ") ไม่เกิน: แสดงยอดที่เบิกจริง
+  const over=p && p.manual!==null && p.manual>p.stockTotal;
+  const val=p ? (over ? p.manual : p.total) : 0;
   const edited=moveQtyOverrides.has(key) ? ' is-edited' : '';
-  const tip=p ? `ตามเงื่อนไข ${p.auto}` : '';
+  const tip=p ? `ตามเงื่อนไข ${p.auto} · สต็อกรวม ${p.stockTotal}`+(over ? ` · เบิกได้ ${p.total} ส่วนเกิน ${p.manual-p.stockTotal} ไปอยู่ยอดคงเหลือ` : '') : '';
   return {html:`<input type="number" min="0" step="1" class="move-qty-input${edited}" data-move-key="${encodeURIComponent(key)}" value="${val}" title="${esc(tip)}" style="width:72px">`};
 }
 
@@ -1523,15 +1544,10 @@ document.addEventListener('change',e=>{
   const raw=String(el.value).trim();
   if(raw===''){ moveQtyOverrides.delete(key); }
   else moveQtyOverrides.set(key,Math.max(0,Math.floor(Number(raw)||0)));
-  // ปรับตัวเลขให้ตรงกับที่เบิกได้จริง (ไม่เกินสต็อก) และอัปเดตทุกช่องของ SKU เดียวกัน
   const p=buildMovePlan().get(key);
-  const total=p ? p.total : 0;
   if(p && moveQtyOverrides.has(key) && moveQtyOverrides.get(key)===p.auto) moveQtyOverrides.delete(key);
-  document.querySelectorAll('.move-qty-input').forEach(inp=>{
-    if(decodeURIComponent(inp.dataset.moveKey||'')!==key) return;
-    inp.value=total;
-    inp.classList.toggle('is-edited',moveQtyOverrides.has(key));
-  });
+  // วาดตารางใหม่: ช่องจำนวนเบิกแสดงยอดที่เบิกได้ และส่วนที่เกินสต็อกไปโผล่ในตาราง "ยอดคงเหลือ" ทันที
+  updateComparePreviewTables();
 });
 
 function downloadPickListsByLocation(){
