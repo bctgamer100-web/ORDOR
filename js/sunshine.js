@@ -39,6 +39,15 @@
   let CACHE = null;
   let currentMode = 'purchase';
   let uploadPasscode = ''; // รหัสอัปโหลด (จำเฉพาะในหน้านี้)
+  // อัปโหลดโดยไม่ต้องใส่รหัส: ฐานข้อมูลตั้งรหัสเป็นค่าว่าง (op_settings.upload_passcode_hash = crypt('', ...))
+  // จึงส่งรหัสว่างไปได้เลย ถ้าฐานข้อมูลยังตั้งรหัสอยู่ (ตอบว่ารหัสผิด) ค่อยถามรหัสตอนกดครั้งถัดไป
+  let needUploadPasscode = false;
+  function askUploadPasscode() {
+    if (!needUploadPasscode || uploadPasscode) return true;
+    const typed = window.prompt('ใส่รหัสอัปโหลด');
+    uploadPasscode = (typed || '').trim();
+    return !!uploadPasscode;
+  }
   let started = false;
   let PENDING_CHECKLIST = { title: '', items: [] };
   let LOAD_TOKEN = 0; // เพิ่มทุกครั้งที่เปลี่ยนหน้า ใช้กันคำขอเก่าเขียนทับคำขอใหม่
@@ -1133,16 +1142,13 @@
       return false;
     }
 
-    // ไม่มีช่องกรอกรหัสบนหน้าจอ: ถามรหัสตอนกดอัปโหลด และจำไว้ในหน่วยความจำจนกว่าจะปิด/รีเฟรชหน้า (ไม่เก็บลงเบราว์เซอร์)
-    if (!uploadPasscode) {
-      const typed = window.prompt('ใส่รหัสอัปโหลด');
-      uploadPasscode = (typed || '').trim();
-    }
-    const passcode = uploadPasscode;
-    if (!passcode) {
+    // ไม่ต้องใส่รหัส: ส่งรหัสว่างไป (ฐานข้อมูลตั้งรหัสเป็นค่าว่างแล้ว ดู askUploadPasscode)
+    // ถ้าฐานข้อมูลยังตั้งรหัสไว้ จะถามรหัสตอนกดอัปโหลดครั้งถัดไปแทน
+    if (!askUploadPasscode()) {
       log.innerHTML = '<span class="sun-warn">ยกเลิก: ต้องใส่รหัสอัปโหลดก่อน</span>';
       return false;
     }
+    const passcode = uploadPasscode;
 
     try {
       let msg = 'อัปโหลดสำเร็จ: ';
@@ -1165,7 +1171,13 @@
       if (started) loadData(currentMode);
       return true;
     } catch (err) {
-      if (/รหัสอัปโหลด/.test(err.message)) uploadPasscode = ''; // รหัสผิด: ถามใหม่ครั้งหน้า
+      if (/รหัสอัปโหลด/.test(err.message)) {
+        // ฐานข้อมูลยังต้องการรหัส (หรือรหัสผิด): ครั้งหน้าถามรหัส ไม่มีอะไรถูกเขียนลงตาราง เพราะเช็กรหัสก่อนเขียน
+        uploadPasscode = '';
+        needUploadPasscode = true;
+        log.innerHTML = '<span class="sun-warn">ฐานข้อมูลยังตั้งรหัสอัปโหลดไว้ กดอัปโหลดอีกครั้งเพื่อใส่รหัส</span>';
+        return false;
+      }
       log.innerHTML = '<span class="sun-warn">ผิดพลาด: ' + esc(err.message) + '</span>';
       return false;
     }
@@ -1714,15 +1726,16 @@
       const skuCount = new Set(rows.map(function (r) { return r.sku; })).size;
       if (!confirm('พบ ' + skuCount.toLocaleString() + ' SKU รวม ' + totalQty.toLocaleString() + ' ชิ้น จากไฟล์ "' + file.name + '"\n\nจะ "บวกเพิ่ม" เข้ากับสั่งเป้า (op_com) ของ SKU เหล่านี้ (ไม่เขียนทับของเดิม)\nกด "ตกลง" เพื่อดำเนินการต่อ')) return;
 
-      if (!uploadPasscode) {
-        const typed = window.prompt('ใส่รหัสอัปโหลด');
-        uploadPasscode = (typed || '').trim();
-      }
-      if (!uploadPasscode) { alert('ยกเลิก: ต้องใส่รหัสอัปโหลดก่อน'); return; }
+      if (!askUploadPasscode()) { alert('ยกเลิก: ต้องใส่รหัสอัปโหลดก่อน'); return; }
 
       const res = await sb().rpc('op_com_increment', { p_passcode: uploadPasscode, p_rows: rows });
       if (res.error) {
-        if (/รหัสอัปโหลด/.test(res.error.message)) uploadPasscode = '';
+        if (/รหัสอัปโหลด/.test(res.error.message)) {
+          uploadPasscode = '';
+          needUploadPasscode = true;
+          alert('ฐานข้อมูลยังตั้งรหัสอัปโหลดไว้ กดนำเข้าอีกครั้งเพื่อใส่รหัส');
+          return;
+        }
         alert('นำเข้าไม่สำเร็จ: ' + res.error.message);
         return;
       }
