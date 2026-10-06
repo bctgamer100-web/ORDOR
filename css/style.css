@@ -1365,6 +1365,11 @@ button:disabled{opacity:.45!important;cursor:not-allowed!important;transform:non
   margin-bottom:14px!important;
   border-bottom:1px dashed #253443!important;
 }
+/* รายการเยอะจนใบปริ้นเปลี่ยนเป็น 3 คอลัมน์ต่อหน้า ให้หน้าจอตรงกับกระดาษ */
+#beforeOrderTool #beforeOrderPreview .before-order-page.is-3col{
+  grid-template-columns:1fr 1fr 1fr!important;
+  gap:0 16px!important;
+}
 #beforeOrderTool #beforeOrderPreview .before-order-page:last-child{
   border-bottom:0!important;
   margin-bottom:0!important;
@@ -1429,7 +1434,8 @@ button:disabled{opacity:.45!important;cursor:not-allowed!important;transform:non
     max-height:410px!important;
   }
   /* จอแคบ: 2 คอลัมน์ชิดกันเกินไป เหลือคอลัมน์เดียวต่อหน้าแทน */
-  #beforeOrderTool #beforeOrderPreview .before-order-page{
+  #beforeOrderTool #beforeOrderPreview .before-order-page,
+  #beforeOrderTool #beforeOrderPreview .before-order-page.is-3col{
     grid-template-columns:1fr!important;
     gap:0!important;
   }

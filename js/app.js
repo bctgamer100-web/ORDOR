@@ -3433,57 +3433,78 @@ function printOrderPDF() {
     });
 }
 
-// จัดหน้าใบปริ้น: คืนค่าเป็นคอลัมน์ (ทีละ 2 คอลัมน์ = 1 หน้า) ของรายการ Pivot และช่องว่างระหว่างกลุ่ม
-// ใช้ร่วมกันระหว่างการปริ้นและหน้า "ตรวจใบปริ้น" เพื่อให้ลำดับ/การแบ่งหน้าตรงกันเสมอ
+// จัดหน้าใบปริ้น: คืนค่าเป็นคอลัมน์ของรายการ Pivot และช่องว่างระหว่างกลุ่ม (ทีละ layout.cols คอลัมน์ = 1 หน้า)
+// ใช้ร่วมกันระหว่างการปริ้น, PDF ที่เก็บไว้, หน้า "ก่อนสั่ง" และ "ตรวจใบปริ้น" เพื่อให้ลำดับ/การแบ่งหน้าตรงกันเสมอ
+// ปกติ 2 คอลัมน์ Tahoma 10pt ตามไฟล์ Word ถ้ารายการเยอะจนเกิน 2 หน้า เปลี่ยนเป็น 3 คอลัมน์ (ตัวอักษร/บรรทัดขนาดเดิม)
+// ความกว้างเนื้อหา A4 = 210 - 19.05×2 = 171.9 มม. → 2×79.6 + 12.7 = 3×54.3 + 2×4.5
+// (3 คอลัมน์เว้นช่องแคบลง ให้ SKU ยาวสุดในคลังที่ 10pt เช่น 012785-เขียวมิ้นท์-เทาอ่อน-XL ไม่ล้น)
 const ORDER_SHEET_CONTENT_H = 246.2;
-const ORDER_SHEET_ROW_H = 5.32;
-// เว้นระหว่างกลุ่ม 3 บรรทัดว่าง (บรรทัดละ 4.26 มม.) ตามไฟล์ Word
-const ORDER_SHEET_SPACER_H = 4.26 * 3;
+const ORDER_SHEET_LAYOUT_2 = { cols: 2, colW: 79.6, gap: 12.7, qtyX: 68.8, rowH: 5.32, spacerH: 4.26 * 3, fontPt: 10 }; // เว้นระหว่างกลุ่ม 3 บรรทัดว่างตามไฟล์ Word
+const ORDER_SHEET_LAYOUT_3 = { cols: 3, colW: 54.3, gap: 4.5, qtyX: 53.3, rowH: 5.32, spacerH: 4.26 * 3, fontPt: 10 };
+const ORDER_SHEET_MAX_PAGES_2COL = 2;
+// ค่าเดิม (เลย์เอาต์ 2 คอลัมน์) เผื่อโค้ดอื่นยังอ้างอยู่
+const ORDER_SHEET_ROW_H = ORDER_SHEET_LAYOUT_2.rowH;
+const ORDER_SHEET_SPACER_H = ORDER_SHEET_LAYOUT_2.spacerH;
 
-function layoutOrderSheetColumns(rows = orderPivotRows) {
+function packOrderSheetColumns(sortedRows, L) {
   const columns = [[]];
   let used = 0;
   let previousGroup = null;
   const pushColumn = () => { columns.push([]); used = 0; };
-  [...rows].sort(compareOrderPivotRows).forEach((r) => {
+  sortedRows.forEach((r) => {
     const group = normalizeOrderGroupName(r?.groupName);
     if (previousGroup !== null && group !== previousGroup && used > 0) {
-      if (used + ORDER_SHEET_SPACER_H + ORDER_SHEET_ROW_H > ORDER_SHEET_CONTENT_H) pushColumn();
-      else { columns[columns.length - 1].push({ spacer: true }); used += ORDER_SHEET_SPACER_H; }
+      if (used + L.spacerH + L.rowH > ORDER_SHEET_CONTENT_H) pushColumn();
+      else { columns[columns.length - 1].push({ spacer: true }); used += L.spacerH; }
     }
-    if (used + ORDER_SHEET_ROW_H > ORDER_SHEET_CONTENT_H) pushColumn();
+    if (used + L.rowH > ORDER_SHEET_CONTENT_H) pushColumn();
     columns[columns.length - 1].push({ row: r });
-    used += ORDER_SHEET_ROW_H;
+    used += L.rowH;
     previousGroup = group;
   });
+  columns.layout = L;
   return columns;
 }
 
-// เลย์เอาต์เดียวกับไฟล์ Word: A4, ขอบ 25.4/19.05 มม., 2 คอลัมน์ (ช่องว่าง 12.7 มม.),
-// Tahoma 10pt, ตัวเลขจำนวนชิดขวาที่ 68.8 มม. จากขอบซ้ายของคอลัมน์ ไม่มีหัว/ท้ายกระดาษ
-// (ตั้ง @page margin เป็น 0 เพื่อไม่ให้เบราว์เซอร์พิมพ์วันที่/ชื่อไฟล์/เลขหน้า แล้วจัดหน้าเอง)
-function orderSheetCss(scope) {
+// คืนค่าคอลัมน์ + columns.layout (เลย์เอาต์ที่ใช้จริง) ผู้เรียกต้องจัดหน้าละ columns.layout.cols คอลัมน์
+function layoutOrderSheetColumns(rows = orderPivotRows) {
+  const sorted = [...rows].sort(compareOrderPivotRows);
+  const two = packOrderSheetColumns(sorted, ORDER_SHEET_LAYOUT_2);
+  if (Math.ceil(two.length / 2) <= ORDER_SHEET_MAX_PAGES_2COL) return two;
+  return packOrderSheetColumns(sorted, ORDER_SHEET_LAYOUT_3);
+}
+
+// จัดคอลัมน์เป็นหน้า: [[col, col(, col)], ...]
+function orderSheetPages(columns) {
+  const per = (columns.layout || ORDER_SHEET_LAYOUT_2).cols;
+  const pages = [];
+  for (let i = 0; i < columns.length; i += per) {
+    pages.push(Array.from({ length: per }, (_, k) => columns[i + k] || []));
+  }
+  return pages;
+}
+
+// เลย์เอาต์เดียวกับไฟล์ Word: A4, ขอบ 25.4/19.05 มม., Tahoma, ตัวเลขจำนวนชิดขวาที่ qtyX มม. จากขอบซ้ายของคอลัมน์
+// ไม่มีหัว/ท้ายกระดาษ (ตั้ง @page margin เป็น 0 เพื่อไม่ให้เบราว์เซอร์พิมพ์วันที่/ชื่อไฟล์/เลขหน้า แล้วจัดหน้าเอง)
+function orderSheetCss(scope, L = ORDER_SHEET_LAYOUT_2) {
   const s = scope ? scope + ' ' : '';
   return `
-    ${s}.page { width: 210mm; height: 296mm; padding: 25.4mm 19.05mm 24.4mm; display: grid; grid-template-columns: 79.6mm 79.6mm; column-gap: 12.7mm; overflow: hidden; page-break-after: always; break-after: page; }
+    ${s}.page { width: 210mm; height: 296mm; padding: 25.4mm 19.05mm 24.4mm; display: grid; grid-template-columns: repeat(${L.cols}, ${L.colW}mm); column-gap: ${L.gap}mm; font-size: ${L.fontPt}pt; overflow: hidden; page-break-after: always; break-after: page; }
     ${s}.page:last-child { page-break-after: auto; break-after: auto; }
-    ${s}.row { display: flex; justify-content: space-between; align-items: center; gap: 3mm; width: 68.8mm; min-width: 68.8mm; height: ${ORDER_SHEET_ROW_H}mm; line-height: 1; white-space: nowrap; }
+    ${s}.row { display: flex; justify-content: space-between; align-items: center; gap: 2mm; width: ${L.qtyX}mm; min-width: ${L.qtyX}mm; height: ${L.rowH}mm; line-height: 1; white-space: nowrap; }
+    ${s}.row span:first-child { overflow: hidden; text-overflow: clip; }
     ${s}.row .qty { text-align: right; }
-    ${s}.spacer { height: ${ORDER_SHEET_SPACER_H}mm; }`;
+    ${s}.spacer { height: ${L.spacerH}mm; }`;
 }
 
 function buildOrderSheetPagesHtml(rows = orderPivotRows) {
   const esc = (v) => String(v ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  const columns = layoutOrderSheetColumns(rows).map(col => col.map(e => e.spacer
+  const columns = layoutOrderSheetColumns(rows);
+  return orderSheetPages(columns).map(page => '<section class="page">' + page.map(col => '<div class="col">' + col.map(e => e.spacer
     ? '<div class="spacer"></div>'
-    : `<div class="row"><span>${esc(e.row?.sku)}</span><span class="qty">${esc(formatPivotNumber(e.row?.qty ?? 0))}</span></div>`));
-  let pagesHtml = '';
-  for (let i = 0; i < columns.length; i += 2) {
-    pagesHtml += `<section class="page"><div class="col">${columns[i].join('')}</div><div class="col">${(columns[i + 1] || []).join('')}</div></section>`;
-  }
-  return pagesHtml;
+    : `<div class="row"><span>${esc(e.row?.sku)}</span><span class="qty">${esc(formatPivotNumber(e.row?.qty ?? 0))}</span></div>`).join('') + '</div>').join('') + '</section>').join('');
 }
 
 function printOrderSheet() {
@@ -3500,6 +3521,7 @@ function printOrderSheet() {
   }
 
   const pagesHtml = buildOrderSheetPagesHtml();
+  const sheetLayout = layoutOrderSheetColumns().layout;
 
   const title = `ORDER_Pivot_${new Date().toISOString().slice(0, 10)}`;
   const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${title}</title><style>
@@ -3507,7 +3529,7 @@ function printOrderSheet() {
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: #fff; }
     body { color: #000; font-family: Tahoma, "Noto Sans Thai", sans-serif; font-size: 10pt; }
-    ${orderSheetCss('')}
+    ${orderSheetCss('', sheetLayout)}
   </style></head><body>${pagesHtml}</body></html>`;
 
   // เก็บรายการที่ปริ้นจริง + ไฟล์ PDF ไว้ในเว็บ (ใช้ต่อในหน้า "ตรวจใบปริ้น")
@@ -3516,7 +3538,7 @@ function printOrderSheet() {
       window.SavedPrints.saveFromPrint({
         rows: [...orderPivotRows].sort(compareOrderPivotRows).map(r => ({ sku: r.sku, qty: r.qty, groupName: r.groupName, merchantNames: r.merchantNames || [] })),
         pagesHtml,
-        css: orderSheetCss('#__pdfSnap'),
+        css: orderSheetCss('#__pdfSnap', sheetLayout),
         title
       });
     } catch (e) { console.error('save print error:', e); }
@@ -4261,13 +4283,11 @@ function renderBeforeOrderTable() {
   }).join('');
 
   const cols = layoutOrderSheetColumns(rows);
+  const pageCls = cols.layout.cols === 3 ? 'before-order-page is-3col' : 'before-order-page';
   let h = '<div class="before-order-legend"><span class="before-order-check-col">เลือก</span><span>SKU Merchant</span><span>จำนวน</span></div>';
-  for (let i = 0; i < cols.length; i += 2) {
-    h += '<div class="before-order-page">';
-    h += '<div class="before-order-col">' + renderEntries(cols[i]) + '</div>';
-    h += '<div class="before-order-col">' + renderEntries(cols[i + 1] || []) + '</div>';
-    h += '</div>';
-  }
+  orderSheetPages(cols).forEach(page => {
+    h += `<div class="${pageCls}">` + page.map(col => '<div class="before-order-col">' + renderEntries(col) + '</div>').join('') + '</div>';
+  });
   box.innerHTML = h;
   updateBeforeOrderSelectionUI();
 }

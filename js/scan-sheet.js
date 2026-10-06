@@ -789,14 +789,14 @@
     const total = pivot().length;
     if (count === total && !taken.length) return 1;
     if (typeof layoutOrderSheetColumns !== 'function') return null;
-    const cols = layoutOrderSheetColumns(pivot()).map(col => col.filter(e => !e.spacer).length);
+    // หน้าละ 2 หรือ 3 คอลัมน์ ตามเลย์เอาต์ที่ใช้ตอนปริ้น
     const pages = [];
     let acc = 0;
-    for (let i = 0; i < cols.length; i += 2) {
-      const cnt = cols[i] + (cols[i + 1] || 0);
+    orderSheetPages(layoutOrderSheetColumns(pivot())).forEach(page => {
+      const cnt = page.reduce((sum, col) => sum + col.filter(e => !e.spacer).length, 0);
       pages.push({ start: acc + 1, cnt });
       acc += cnt;
-    }
+    });
     const free = pages.filter(p => !taken.some(t => t >= p.start && t < p.start + p.cnt));
     const ranked = free
       .map(p => ({ start: p.start, d: Math.abs(p.cnt - count) }))

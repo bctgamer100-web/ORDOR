@@ -195,11 +195,12 @@
     if (typeof window.html2pdf !== 'function' || typeof layoutOrderSheetColumns !== 'function') return null;
     const PXMM = 8;                       // ~203 dpi
     const W = 210 * PXMM, H = 296 * PXMM;
-    const LEFT = 19.05, TOP = 25.4, COL_W = 79.6, GAP = 12.7, QTY_X = 68.8;
+    const LEFT = 19.05, TOP = 25.4;
 
+    // เลย์เอาต์เดียวกับตอนปริ้น (2 คอลัมน์ หรือ 3 คอลัมน์เมื่อรายการเกิน 2 หน้า)
     const cols = layoutOrderSheetColumns(rows);
-    const pages = [];
-    for (let i = 0; i < cols.length; i += 2) pages.push([cols[i], cols[i + 1] || []]);
+    const L = cols.layout;
+    const pages = orderSheetPages(cols);
 
     const style = document.createElement('style');
     style.textContent = '.html2pdf__overlay{opacity:0!important;pointer-events:none!important}';
@@ -211,7 +212,7 @@
       const opt = { margin: 0, image: { type: 'jpeg', quality: 0.5 }, html2canvas: { scale: 1, logging: false }, jsPDF: { unit: 'mm', format: [210, 296], orientation: 'portrait', compress: true } };
       const pdf = await html2pdf().set(opt).from(tiny).toPdf().get('pdf');
 
-      const fontPx = (10 * 25.4 / 72) * PXMM;   // 10pt
+      const fontPx = (L.fontPt * 25.4 / 72) * PXMM;
       for (const pageCols of pages) {
         const c = document.createElement('canvas');
         c.width = W; c.height = H;
@@ -222,16 +223,16 @@
         g.font = `${fontPx}px Tahoma, "Noto Sans Thai", sans-serif`;
         g.textBaseline = 'middle';
         pageCols.forEach((col, ci) => {
-          const x0 = (LEFT + ci * (COL_W + GAP)) * PXMM;
+          const x0 = (LEFT + ci * (L.colW + L.gap)) * PXMM;
           let y = TOP * PXMM;
           for (const e of col) {
-            if (e.spacer) { y += ORDER_SHEET_SPACER_H * PXMM; continue; }
-            const cy = y + (ORDER_SHEET_ROW_H * PXMM) / 2;
+            if (e.spacer) { y += L.spacerH * PXMM; continue; }
+            const cy = y + (L.rowH * PXMM) / 2;
             g.textAlign = 'left';
             g.fillText(String(e.row?.sku ?? ''), x0, cy);
             g.textAlign = 'right';
-            g.fillText(formatPivotNumber(e.row?.qty ?? 0), x0 + QTY_X * PXMM, cy);
-            y += ORDER_SHEET_ROW_H * PXMM;
+            g.fillText(formatPivotNumber(e.row?.qty ?? 0), x0 + L.qtyX * PXMM, cy);
+            y += L.rowH * PXMM;
           }
         });
         pdf.addPage([210, 296], 'portrait');
