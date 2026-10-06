@@ -2165,24 +2165,30 @@ button:disabled{opacity:.45!important;cursor:not-allowed!important;transform:non
 /* Give the SKU column more room; numeric columns stay compact. */
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(1),
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(1){
-  width:24%!important;
+  width:26%!important;
 }
+/* ORDER / STOCK */
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(2),
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(2),
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(3),
-#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(3),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(3){
+  width:11%!important;
+  word-break:keep-all!important;
+  overflow-wrap:normal!important;
+}
+/* จำนวนเบิก (ช่องแก้ตัวเลข) */
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(4),
-#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(4),
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(4){
+  width:14%!important;
+}
+/* ตำแหน่ง (มีจำนวนต่อท้าย เช่น C=20, H=50) */
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(5),
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(5){
-  width:12%!important;
+  width:20%!important;
 }
+/* สถานะ */
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(6),
 #compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(6){
-  width:10%!important;
-}
-#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:nth-child(7),
-#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:nth-child(7){
   width:18%!important;
 }
 

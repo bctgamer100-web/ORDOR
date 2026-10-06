@@ -1146,7 +1146,7 @@ function updateComparePreviewTables(){
   }) : [];
   const plan=buildMovePlan();
   const deducted=deductedFiltered.map(item=>[
-    compareSkuLabel(item),item.orderQty,item.stockQty,Math.min(item.orderQty,item.stockQty),
+    compareSkuLabel(item),item.orderQty,item.stockQty,
     moveQtyCell(item,plan),compareLocQtyLabel(item),item.status
   ]);
 
@@ -1156,7 +1156,7 @@ function updateComparePreviewTables(){
   if(remCount) remCount.textContent=`${remaining.length.toLocaleString()} รายการ`;
 
   const dedWrap=document.querySelector('[data-preview-table="deducted"]');
-  if(dedWrap) dedWrap.innerHTML=previewCompareTable(['SKU Merchant','จำนวนไฟล์ที่ 1','จำนวนไฟล์ที่ 2','จำนวนที่ถูกลบ','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted);
+  if(dedWrap) dedWrap.innerHTML=previewCompareTable(['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted);
   const dedCount=document.querySelector('[data-preview-count="deducted"]');
   if(dedCount) dedCount.textContent=`${deducted.length.toLocaleString()} รายการ`;
 }
@@ -1200,7 +1200,6 @@ function renderCompareWebPreview(mode='all'){
         compareSkuLabel(item),
         item.orderQty,
         item.stockQty,
-        Math.min(item.orderQty,item.stockQty),
         moveQtyCell(item,plan),
         compareLocQtyLabel(item),
         item.status
@@ -1215,7 +1214,7 @@ function renderCompareWebPreview(mode='all'){
     html += `<details class="compare-preview-section" open>
       <summary>📋 รายการที่ถูกลบ-ถูกหัก <span class="preview-count" data-preview-count="deducted">${deducted.length.toLocaleString()} รายการ</span></summary>
       ${copyControlHtml('location', getCompareLocationOptions(compareResults.filter(item=>item.stockQty>0)), compareCopyLocationSelection)}
-      <div data-preview-table="deducted">${previewCompareTable(['SKU Merchant','จำนวนไฟล์ที่ 1','จำนวนไฟล์ที่ 2','จำนวนที่ถูกลบ','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted)}</div>
+      <div data-preview-table="deducted">${previewCompareTable(['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted)}</div>
     </details>`;
   }else if(mode==='short'){
     title.textContent='⚠️ รายการที่ขาด';
@@ -1269,14 +1268,13 @@ function downloadStockCheckResult(){
   // Sheet 2: รายละเอียดการตรวจ พร้อมตำแหน่งและสถานะว่าพอ/ขาด
   const plan=buildMovePlan();
   const deductedData=[
-    ["SKU Merchant","จำนวนไฟล์ที่ 1","จำนวนไฟล์ที่ 2","จำนวนที่ถูกลบ","จำนวนเบิก","ตำแหน่ง","สถานะ"],
+    ["SKU Merchant","ORDER","STOCK","จำนวนเบิก","ตำแหน่ง","สถานะ"],
     ...compareResults
       .filter(item=>item.stockQty > 0)
       .map(item=>[
         compareSkuLabel(item),
         item.orderQty,
         item.stockQty,
-        Math.min(item.orderQty,item.stockQty),
         (plan.get(moveKeyOf(item))||{total:0}).total,
         compareLocQtyLabel(item),
         item.status
@@ -1288,7 +1286,7 @@ function downloadStockCheckResult(){
 
   const wsDeducted=XLSX.utils.aoa_to_sheet(deductedData);
   wsDeducted["!cols"]=[
-    {wch:28},{wch:18},{wch:18},{wch:16},{wch:16},{wch:18},{wch:18}
+    {wch:28},{wch:10},{wch:10},{wch:12},{wch:24},{wch:18}
   ];
 
   const wb=XLSX.utils.book_new();
