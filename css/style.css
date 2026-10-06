@@ -2204,6 +2204,16 @@ button:disabled{opacity:.45!important;cursor:not-allowed!important;transform:non
   white-space:normal!important;
   overflow-wrap:anywhere!important;
   word-break:break-word!important;
+  text-align:center!important;
+}
+/* ให้ข้อมูลอยู่ตรงใต้หัวคอลัมน์: SKU ชิดซ้ายทั้งหัวและข้อมูล คอลัมน์อื่นจัดกลางทั้งหัวและข้อมูล */
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table th:first-child,
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td:first-child{
+  text-align:left!important;
+}
+#compareTool #compareWebPreviewBody > .compare-preview-section:nth-child(2) .compare-preview-table td .move-qty-input{
+  text-align:center!important;
+  margin:0 auto!important;
 }
 
 /* Remaining table can use its narrower column without affecting the second. */
