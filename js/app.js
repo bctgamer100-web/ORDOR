@@ -1303,9 +1303,15 @@ function getMovePriority(){
 // รวมกับตำแหน่งที่ขึ้นต้นด้วย J (J-W-01 ...) ซึ่งได้ไฟล์ J ตามกลุ่มอยู่แล้ว
 // ยกเว้นตำแหน่ง H (เช่น H-03-09-34 J) ยังอยู่ไฟล์ H ตามเดิม ที่เหลือแยกไฟล์ตามกลุ่มตำแหน่ง (ตัวหน้า "-")
 const MOVE_J_FILE = 'J';
+// ไฟล์ใบย้ายมีแค่ 4 ไฟล์: H, KT, C, J — กลุ่มตำแหน่งอื่นรวมเข้าไฟล์เหล่านี้
+//   K → KT · F, D, M → C · R, P, SD, EQ001–EQ007/EQB… → J
+// กลุ่มที่ไม่อยู่ในรายการนี้ ได้ไฟล์ตามชื่อกลุ่มของตัวเอง
+const MOVE_FILE_ALIAS = { K: 'KT', F: 'C', D: 'C', M: 'C', R: MOVE_J_FILE, P: MOVE_J_FILE, SD: MOVE_J_FILE };
 function moveFileKey(place){
-  if(place.prefix!==MOVE_FULL_BOX_PREFIX && /\sJ$/i.test(String(place.loc||'').trim())) return MOVE_J_FILE;
-  return place.prefix;
+  const prefix=String(place.prefix||'').toUpperCase();
+  if(prefix!==MOVE_FULL_BOX_PREFIX && /\sJ$/i.test(String(place.loc||'').trim())) return MOVE_J_FILE;
+  if(/^EQ/.test(prefix)) return MOVE_J_FILE;
+  return MOVE_FILE_ALIAS[prefix] || prefix;
 }
 
 function moveRank(prefix, priority){
