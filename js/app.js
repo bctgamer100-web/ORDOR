@@ -1121,7 +1121,7 @@ function updateComparePreviewTables(){
   const plan=buildMovePlan();
   const deducted=deductedFiltered.map(item=>[
     compareSkuLabel(item),item.orderQty,item.stockQty,Math.min(item.orderQty,item.stockQty),
-    moveQtyCell(item,plan),item.locations||'-',item.status
+    moveQtyCell(item,plan),compareLocQtyLabel(item),item.status
   ]);
 
   const remWrap=document.querySelector('[data-preview-table="remaining"]');
@@ -1182,7 +1182,7 @@ function renderCompareWebPreview(mode='all'){
         item.stockQty,
         Math.min(item.orderQty,item.stockQty),
         moveQtyCell(item,plan),
-        item.locations || '-',
+        compareLocQtyLabel(item),
         item.status
       ]);
 
@@ -1263,7 +1263,7 @@ function downloadStockCheckResult(){
         item.stockQty,
         Math.min(item.orderQty,item.stockQty),
         (plan.get(moveKeyOf(item))||{total:0}).total,
-        item.locations || "-",
+        compareLocQtyLabel(item),
         item.status
       ])
   ];
@@ -1375,6 +1375,15 @@ function findInterchangeableStock(sku, stockMap){
     if(alts.includes(key.slice(0,j).replace(/^0+/,''))) return item;
   }
   return null;
+}
+
+// ตำแหน่งพร้อมจำนวนสต็อกรวมของแต่ละกลุ่ม เช่น "C=20, H=50, KT=10" (เรียงตามคอลัมน์ตำแหน่งเดิม)
+function compareLocQtyLabel(item){
+  const sum=new Map();
+  (item.places||[]).forEach(p=>{ if(p.prefix) sum.set(p.prefix,(sum.get(p.prefix)||0)+p.qty); });
+  const order=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
+  const label=order.map(loc=>sum.has(loc) ? `${loc}=${formatPivotNumber(sum.get(loc))}` : loc).join(', ');
+  return label || '-';
 }
 
 // SKU ที่แสดงในตาราง: ถ้าเบิกรหัสแทน ให้เห็นว่าเบิกตัวไหน
@@ -1525,18 +1534,30 @@ function downloadPickListsByLocation(){
     zip.file(prefix.replace(/[\\/:*?"<>|]/g,"_")+".xlsx",XLSX.write(wb,{type:"array",bookType:"xlsx"}));
   });
 
-  const d=new Date(), pad=n=>String(n).padStart(2,"0");
-  const zipName=`ใบย้าย_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.zip`;
-  zip.generateAsync({type:"blob"}).then(blob=>{
+  const saveBlob=(blob,name)=>{
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
-    a.download=zipName;
+    a.download=name;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),10000);
-    if(typeof window.fxToast==="function") window.fxToast(`ดาวน์โหลดใบย้าย ${prefixes.length} ตำแหน่ง (${prefixes.join(", ")})`,"success");
-  }).catch(e=>alert("สร้างไฟล์ ZIP ไม่สำเร็จ\n\n"+e.message));
+    if(typeof window.fxToast==="function") window.fxToast(`ดาวน์โหลดใบย้าย ${prefixes.length} ไฟล์ (${prefixes.join(", ")})`,"success");
+  };
+
+  // มีไฟล์เดียว (เช่น เบิกแค่ C) ดาวน์โหลดเป็น Excel ตรงๆ ไม่ต้องแตก ZIP
+  if(prefixes.length===1){
+    const name=Object.keys(zip.files)[0];
+    zip.file(name).async("uint8array").then(bytes=>{
+      saveBlob(new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),name);
+    }).catch(e=>alert("สร้างไฟล์ Excel ไม่สำเร็จ\n\n"+e.message));
+    return;
+  }
+
+  const d=new Date(), pad=n=>String(n).padStart(2,"0");
+  const zipName=`ใบย้าย_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.zip`;
+  zip.generateAsync({type:"blob"}).then(blob=>saveBlob(blob,zipName))
+    .catch(e=>alert("สร้างไฟล์ ZIP ไม่สำเร็จ\n\n"+e.message));
 }
 
 function downloadCompareSubset(type){
