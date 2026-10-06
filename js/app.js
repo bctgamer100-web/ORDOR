@@ -666,6 +666,8 @@ function compareFiles(){
 
     // รวม Stock ตาม SKU และเก็บตำแหน่งที่ไม่ซ้ำ
     const stockMap=new Map();
+    const hBoxContents=new Map();
+    compareHBoxContents=hBoxContents;
 
     data1.forEach(row=>{
       const displaySku=norm(row[stockSkuCol]);
@@ -723,7 +725,15 @@ function compareFiles(){
 
       // เก็บจำนวนรายตำแหน่งไว้ใช้ทำไฟล์เบิกของแยกตำแหน่ง (downloadPickListsByLocation)
       if(locationPrefixes.length){
-        item.places.push({ loc: stockPosCol ? norm(row[stockPosCol]) : '', prefix: locationPrefixes[0], qty });
+        const fullLoc = stockPosCol ? norm(row[stockPosCol]) : '';
+        item.places.push({ loc: fullLoc, prefix: locationPrefixes[0], qty });
+        // ของทุก SKU ในลัง H แต่ละลัง: ย้ายลังไหน SKU อื่นในลังนั้นต้องติดไปด้วย
+        if(fullLoc && locationPrefixes[0]===MOVE_FULL_BOX_PREFIX && qty>0){
+          const boxKey=fullLoc.toUpperCase();
+          if(!hBoxContents.has(boxKey)) hBoxContents.set(boxKey,new Map());
+          const box=hBoxContents.get(boxKey);
+          box.set(displaySku,(box.get(displaySku)||0)+qty);
+        }
       }
     });
 
@@ -1411,6 +1421,28 @@ const MOVE_HEADERS = [
 
 // จำนวนเบิกที่ผู้ใช้แก้เองในตาราง "รายการที่ถูกลบ-ถูกหัก" (คีย์ = SKU ที่เบิกจริง) ล้างทุกครั้งที่ตรวจชุดใหม่
 const moveQtyOverrides=new Map();
+// ลัง H → Map(SKU → จำนวน) ของทุก SKU ในลังนั้น (สร้างใหม่ทุกครั้งที่ตรวจ ORDER กับ Stock)
+let compareHBoxContents=new Map();
+
+// ลัง H ที่ย้ายทั้งลัง: SKU อื่นที่อยู่ในลังเดียวกันต้องย้ายไปด้วย ใส่เฉพาะในไฟล์ใบย้าย ไม่แสดงในตารางหน้าเว็บ
+function moveBoxCompanions(plan){
+  const have=new Set();
+  plan.forEach(p=>p.rows.forEach(r=>have.add(normalizeOrderSku(p.sku)+'@'+String(r.place.loc).trim().toUpperCase())));
+  const extra=[];
+  plan.forEach(p=>p.rows.forEach(({place})=>{
+    if(place.prefix!==MOVE_FULL_BOX_PREFIX) return;
+    const boxKey=String(place.loc||'').trim().toUpperCase();
+    const box=compareHBoxContents.get(boxKey);
+    if(!box) return;
+    box.forEach((qty,sku)=>{
+      const k=normalizeOrderSku(sku)+'@'+boxKey;
+      if(have.has(k)) return;
+      have.add(k);
+      extra.push({sku,place,qty});
+    });
+  }));
+  return extra;
+}
 
 // รวมความต้องการตาม SKU ที่จะเบิกจริง: ORDER ที่เบิกรหัสแทน (004318 → 004309) กับ ORDER ของ 004309 เอง
 // ใช้สต็อกตัวเดียวกัน ต้องคิดรวมกันครั้งเดียว ไม่อย่างนั้นใบย้ายจะมีแถวซ้ำ
@@ -1508,14 +1540,15 @@ function downloadPickListsByLocation(){
   if(!selected.size) return alert("ยังไม่ได้เลือกตำแหน่ง (📍 เลือกตำแหน่ง)");
 
   const byPrefix=new Map();
-  buildMovePlan().forEach(item=>{
-    item.rows.forEach(({place:p,qty})=>{
-      if(!selected.has(p.prefix)) return;
-      const fileKey=moveFileKey(p);
-      if(!byPrefix.has(fileKey)) byPrefix.set(fileKey,[]);
-      byPrefix.get(fileKey).push([item.sku,'',p.loc||p.prefix,qty,MOVE_TO_LOCATION,qty]);
-    });
-  });
+  const addRow=(sku,p,qty)=>{
+    if(!selected.has(p.prefix)) return;
+    const fileKey=moveFileKey(p);
+    if(!byPrefix.has(fileKey)) byPrefix.set(fileKey,[]);
+    byPrefix.get(fileKey).push([sku,'',p.loc||p.prefix,qty,MOVE_TO_LOCATION,qty]);
+  };
+  const plan=buildMovePlan();
+  plan.forEach(item=>item.rows.forEach(({place,qty})=>addRow(item.sku,place,qty)));
+  moveBoxCompanions(plan).forEach(({sku,place,qty})=>addRow(sku,place,qty));
 
   const prefixes=uniqueSorted([...byPrefix.keys()]);
   if(!prefixes.length) return alert("ไม่มีรายการที่ต้องเบิกในตำแหน่งที่เลือก");
