@@ -18,18 +18,21 @@ body.collapse-right .side-right.top{display:none!important}
 /* เว้นที่ให้ปุ่มเปิดเมนู ไม่ทับหัวข้อหน้า */
 body.collapse-left .shell>.panel-wrap{padding-left:34px!important}
 body.collapse-right .shell>.panel-wrap{padding-right:34px!important}
+body.collapse-left .shell>.panel-wrap>.page-heading{padding-left:62px!important}
 body.collapse-left .side-peek-left,
 body.collapse-right .side-peek-right{display:flex}
 }
 
 /* ปุ่มเปิดเมนูที่ซ่อนอยู่ (แสดงเฉพาะตอนฝั่งนั้นย่อ) */
+/* สีเดียวกับปุ่มหลัก (--accent) ให้เห็นชัดทั้งโหมดสว่าง/มืด */
 .side-peek{
   position:fixed;top:12px;z-index:60;display:none;align-items:center;justify-content:center;
-  width:24px;height:28px;padding:0;border:1px solid var(--border);background:var(--sidebar,var(--surface));color:var(--muted);
-  box-shadow:0 1px 4px rgba(0,0,0,.12);cursor:pointer;transition:background .15s,color .15s,border-color .15s;
+  width:30px;height:38px;padding:0!important;border:0!important;
+  background:var(--accent)!important;color:var(--accent-fg,#fff)!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:pointer;transition:filter .15s,width .15s;
 }
-.side-peek svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.side-peek:hover{background:var(--accent-soft);color:var(--foreground);border-color:var(--accent)}
+.side-peek svg{display:block!important;width:18px!important;height:18px!important;min-width:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.side-peek:hover{filter:brightness(1.12);width:36px}
 .side-peek-left{left:0;border-left:0;border-radius:0 7px 7px 0}
 .side-peek-right{right:0;border-right:0;border-radius:7px 0 0 7px}
 
