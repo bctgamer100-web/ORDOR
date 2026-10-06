@@ -1456,9 +1456,10 @@ function buildMovePlan(){
     // ตามเงื่อนไข: เพิ่มตำแหน่งถัดไปเฉพาะเมื่อยังไม่พอจำนวนที่จะเบิกจริง ส่วนเผื่อเอาเท่าที่ตำแหน่งที่ใช้อยู่มีให้
     const autoRows=allocate(item.pick,Math.max(item.pick,moveBufferQty(item.sku)),true);
     const auto=autoRows.reduce((s,r)=>s+r.qty,0);
-    // แก้ตัวเลขเอง: เบิกตามตัวเลขนั้นพอดี (ไม่บังคับทั้งลัง) ตามลำดับตำแหน่งเดิม ไม่เกินสต็อกที่มี
+    // แก้ตัวเลขเอง: เบิกตามตัวเลขนั้นตามลำดับตำแหน่งเดิม ไม่เกินสต็อกที่มี
+    // แต่ลัง H ยังบังคับทั้งลังเสมอ ถ้าต้องเปิดลัง H ยอดรวมจึงอาจมากกว่าตัวเลขที่พิมพ์
     const manual=moveQtyOverrides.has(key) ? moveQtyOverrides.get(key) : null;
-    const rows=manual===null ? autoRows : allocate(manual,manual,false);
+    const rows=manual===null ? autoRows : allocate(manual,manual,true);
     plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto});
   });
   return plan;
