@@ -1,5 +1,6 @@
-/* ปุ่มย่อ/ขยายแถบเมนูด้านซ้าย (เมนูหลัก) และด้านขวา (Sunshine) — ย่อแล้วเหลือแต่ไอคอน เริ่มเข้าเว็บ: ซ้ายขยาย ขวาย่อ ใช้ฝั่งไหน อีกฝั่งย่ออัตโนมัติ
-   ปุ่มอยู่ในแถบเมนูแต่ละฝั่ง (ซ้าย/ขวา) */
+/* ปุ่มย่อ/ขยายแถบเมนูด้านซ้าย (เมนูหลัก) และด้านขวา (Sunshine) — ย่อแล้วซ่อนทั้งแถบ เหลือปุ่มเล็กติดขอบจอ (.side-peek) ไว้เปิดกลับ
+   เริ่มเข้าเว็บ: ซ้ายขยาย ขวาย่อ ใช้ฝั่งไหน อีกฝั่งย่ออัตโนมัติ
+   ปุ่มย่ออยู่ในแถบเมนูแต่ละฝั่ง (ซ้าย/ขวา) */
 (function () {
   'use strict';
 
@@ -40,6 +41,11 @@
   };
   sideL.addEventListener('click', toggleL);
   sideR.addEventListener('click', toggleR);
+  // ปุ่มติดขอบจอ (เห็นเฉพาะตอนฝั่งนั้นซ่อน) กด = เปิดฝั่งนั้น เหมือนกดปุ่มขยายเดิม
+  const peekL = document.getElementById('sidePeekLeft');
+  const peekR = document.getElementById('sidePeekRight');
+  if (peekL) peekL.addEventListener('click', toggleL);
+  if (peekR) peekR.addEventListener('click', toggleR);
 
   document.querySelectorAll('.top:not(.side-right) .tab').forEach(function (t) {
     t.addEventListener('click', function () { state.l = false; state.r = true; apply(); });

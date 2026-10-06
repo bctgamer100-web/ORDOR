@@ -10,30 +10,30 @@ body .shell>.top:not(.side-right){grid-column:1;grid-row:1}
 body .shell>.panel-wrap{grid-column:2;grid-row:1}
 body .shell>.side-right{grid-column:3;grid-row:1}
 @media(min-width:761px){
-/* ย่อแถบเมนู: เหลือแต่ไอคอน (ซ้ายและขวาย่อแยกกันได้) */
-body.collapse-left{--lw:68px}
-body.collapse-right{--rw:68px}
+/* ย่อแถบเมนู: ซ่อนทั้งแถบ (แบบ BigSeller) เหลือปุ่มเล็กติดขอบจอ (.side-peek) ไว้กดเปิดกลับ ซ้ายและขวาย่อแยกกันได้ */
+body.collapse-left{--lw:0px}
+body.collapse-right{--rw:0px}
 body.collapse-left .top:not(.side-right),
-body.collapse-right .side-right.top{width:68px!important;padding:18px 8px!important}
-body.collapse-left .top:not(.side-right) .brand-copy,
-body.collapse-right .side-right .brand-copy,
-body.collapse-left .top:not(.side-right) .tab>span:not(.nav-ico),
-body.collapse-right .side-right .tab>span:not(.nav-ico),
-body.collapse-right .side-right .sun-nav-btn>span:not(.nav-ico),
-body.collapse-left .top:not(.side-right) .side-collapse .side-collapse-text,
-body.collapse-right .side-right .side-collapse .side-collapse-text,
-body.collapse-left .top:not(.side-right) .theme-switch,
-body.collapse-left .top:not(.side-right) .fx-system{display:none!important}
-body.collapse-left .top:not(.side-right) h1,
-body.collapse-right .side-right h1{justify-content:center;padding:5px 0 16px!important}
-body.collapse-left .top:not(.side-right) .tab,
-body.collapse-right .side-right .tab,
-body.collapse-right .side-right .sun-nav-btn,
-body.collapse-left .top:not(.side-right) .side-collapse,
-body.collapse-right .side-right .side-collapse{justify-content:center;padding-left:0!important;padding-right:0!important}
+body.collapse-right .side-right.top{display:none!important}
+/* เว้นที่ให้ปุ่มเปิดเมนู ไม่ทับหัวข้อหน้า */
+body.collapse-left .shell>.panel-wrap{padding-left:34px!important}
+body.collapse-right .shell>.panel-wrap{padding-right:34px!important}
+body.collapse-left .side-peek-left,
+body.collapse-right .side-peek-right{display:flex}
 }
 
-@media(max-width:760px){.side-collapse{display:none!important}}
+/* ปุ่มเปิดเมนูที่ซ่อนอยู่ (แสดงเฉพาะตอนฝั่งนั้นย่อ) */
+.side-peek{
+  position:fixed;top:12px;z-index:60;display:none;align-items:center;justify-content:center;
+  width:24px;height:28px;padding:0;border:1px solid var(--border);background:var(--sidebar,var(--surface));color:var(--muted);
+  box-shadow:0 1px 4px rgba(0,0,0,.12);cursor:pointer;transition:background .15s,color .15s,border-color .15s;
+}
+.side-peek svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.side-peek:hover{background:var(--accent-soft);color:var(--foreground);border-color:var(--accent)}
+.side-peek-left{left:0;border-left:0;border-radius:0 7px 7px 0}
+.side-peek-right{right:0;border-right:0;border-radius:7px 0 0 7px}
+
+@media(max-width:760px){.side-collapse,.side-peek{display:none!important}}
 /* ปุ่มย่อ/ขยายในแถบเมนู */
 .side-collapse{
   width:100%;min-height:36px;display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:0 12px;
