@@ -857,7 +857,7 @@ function compareFiles(){
     $("deletedSku").textContent=shortCount.toLocaleString();
     $("remainingQty").textContent=noneCount.toLocaleString();
 
-    $("compareExtra").style.display="block";
+    // กล่อง "ค้นหา SKU และกรองสถานะ" ซ่อนไว้ตลอด (ไม่ใช้แล้ว) แต่คง element ไว้เพราะโค้ดส่วนอื่นยังอ่านค่าช่องค้นหา/ตัวกรอง
     $("resultBox").style.display="block";
     $("downloadBox").style.display="flex";
     setCompareResultVisible(true);
