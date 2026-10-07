@@ -64,7 +64,8 @@
   const MODE_TITLES = {
     purchase: 'ใบสั่งซื้อล่วงหน้า',
     best: 'สินค้าขายดี ABC',
-    stockin: 'ประวัติเคลื่อนไหวสต๊อก'
+    stockin: 'ประวัติเคลื่อนไหวสต๊อก',
+    idle: 'ตำแหน่งไม่เคลื่อนไหว'
   };
 
   const $ = id => document.getElementById(id);
@@ -523,6 +524,7 @@
 
       if (mode === 'purchase') renderPurchase(hist, st, skuNames, moveMap, buildComMap(CACHE['COM']), buildComMap(CACHE['FRONTSALE']));
       else if (mode === 'stockin') renderStockIn(CACHE['SI']);
+      else if (mode === 'idle') renderIdleLocations(hist, st);
       else renderBestSellers(hist, skuNames);
 
       let comNote = '';
@@ -844,6 +846,106 @@
       ['text', 'text', 'text', 'text', 'number', 'text'], viewRows);
     mountView(cards([{ label: 'รายการทั้งหมด', value: rows.length }]));
     setPendingChecklist('', []);
+  }
+
+  // ตำแหน่งไม่เคลื่อนไหว: ตำแหน่งที่ไม่ใช่ลัง H เรียงจากยอดขาย 3 เดือนของ SKU ในตำแหน่งนั้น น้อย → มาก
+  // ใช้หาตำแหน่งที่ของไม่ค่อยถูกเบิก จะได้ย้ายของจากลัง H มาสลับแทน
+  // (ประมาณจากยอดขายต่อ SKU เพราะฐานข้อมูลไม่มีประวัติเบิกออกแยกตามตำแหน่ง)
+  const IDLE_LOW_SOLD = 5; // ขาย 3 เดือนรวมไม่เกินนี้ = "เบิกน้อย" (0 = "ไม่เคลื่อนไหว")
+  function renderIdleLocations(hist, st) {
+    const sold = {};
+    (hist || []).forEach(function (r) {
+      const sku = norm(r['SKU Merchant']).toUpperCase();
+      if (sku) sold[sku] = (sold[sku] || 0) + num(r['จำนวน']);
+    });
+    // ยอดขายของ SKU: ชื่อรวมรหัสในสต็อก (เช่น 010223/010234-กรม-XL) ยอดขายบันทึกแยกตามรหัสเดี่ยว ต้องรวมของทุกรหัส
+    // เทียบรหัสตัวเลขแบบไม่สน 0 นำหน้า (072083 = 72083)
+    const soldByCode = {};
+    Object.keys(sold).forEach(function (k) {
+      const i = k.indexOf('-');
+      if (i < 1) return;
+      const c = k.slice(0, i), key = (/^\d+$/.test(c) ? c.replace(/^0+/, '') : c) + k.slice(i);
+      soldByCode[key] = (soldByCode[key] || 0) + sold[k];
+    });
+    function soldOf(sku) {
+      const s = sku.toUpperCase();
+      const i = s.indexOf('-');
+      if (i < 1 || s.slice(0, i).indexOf('/') === -1) return sold[s] || 0;
+      const rest = s.slice(i);
+      return s.slice(0, i).split('/').reduce(function (sum, c) {
+        c = c.trim();
+        return sum + (soldByCode[(/^\d+$/.test(c) ? c.replace(/^0+/, '') : c) + rest] || 0);
+      }, 0) + (sold[s] || 0);
+    }
+
+    const locs = {};
+    (st || []).forEach(function (r) {
+      const loc = norm(r['ตำแหน่ง']);
+      const up = loc.toUpperCase();
+      const qty = num(r['สต็อกที่มีอยู่ของตำแหน่ง']);
+      const sku = norm(r['ชื่อSKU']);
+      if (!loc || !sku || qty <= 0) return;
+      if (/^H-/.test(up)) return; // ลัง H ไม่นับ (เป็นที่มาของของที่จะสลับเข้า)
+      if (EXCLUDED_LOCATIONS.indexOf(up) !== -1 || up.indexOf('FRONT') === 0) return;
+      if (!locs[loc]) locs[loc] = { loc: loc, group: up.split('-')[0], qty: 0, skus: {}, sold: 0 };
+      const L = locs[loc];
+      L.qty += qty;
+      if (!L.skus[sku]) { L.skus[sku] = 0; L.sold += soldOf(sku); }
+      L.skus[sku] += qty;
+    });
+    const list = Object.keys(locs).map(function (k) { return locs[k]; })
+      .sort(function (a, b) { return a.sold - b.sold || b.qty - a.qty || a.loc.localeCompare(b.loc, 'th', { numeric: true }); });
+
+    let idle = 0, low = 0;
+    const viewRows = list.map(function (L) {
+      const skuNames = Object.keys(L.skus);
+      const status = L.sold === 0 ? 'ไม่เคลื่อนไหว' : L.sold <= IDLE_LOW_SOLD ? 'เบิกน้อย' : 'ปกติ';
+      if (status === 'ไม่เคลื่อนไหว') idle++; else if (status === 'เบิกน้อย') low++;
+      const stCls = status === 'ไม่เคลื่อนไหว' ? 'sun-warn' : status === 'เบิกน้อย' ? '' : 'sun-good';
+      const skuText = skuNames.map(function (s) { return s + ' (' + L.skus[s] + ')'; }).join(', ');
+      return mkRow([
+        cell(L.loc, 'sun-loc sun-copy'), cell(L.group), cell(skuNames.length, 'sun-num'), cell(L.qty, 'sun-num'),
+        cell(L.sold, 'sun-num'), cell((L.sold / 3).toFixed(1), 'sun-num'),
+        cell(status, stCls, '<b>' + esc(status) + '</b>'), cell(skuText)
+      ], { search: (L.loc + ' ' + skuNames.join(' ')).toLowerCase() });
+    });
+
+    setView(['ตำแหน่ง', 'กลุ่ม', 'จำนวน SKU', 'ของในตำแหน่ง', 'ขาย 3 ด.', 'ขาย/เดือน', 'สถานะ', 'SKU ในตำแหน่ง (จำนวน)'],
+      ['text', 'text', 'number', 'number', 'number', 'number', 'text', 'text'], viewRows);
+    mountView(
+      cards([
+        { label: 'ตำแหน่งทั้งหมด (ไม่รวมลัง H)', value: list.length.toLocaleString() },
+        { label: 'ไม่เคลื่อนไหว (ขาย 3 ด. = 0)', value: idle.toLocaleString(), type: 'warn' },
+        { label: 'เบิกน้อย (ขาย 3 ด. 1–' + IDLE_LOW_SOLD + ')', value: low.toLocaleString() }
+      ]) +
+      '<div class="sun-idle-bar"><span class="sun-hint">เรียงจากขายน้อยสุด · ค้นหาด้วยชื่อตำแหน่ง (เช่น C-G) หรือ SKU ได้ที่ช่องค้นหาด้านบน · ยอดขายประมาณจาก SKU ในตำแหน่ง (ถ้า SKU อยู่หลายตำแหน่ง นับให้ทุกตำแหน่ง)</span>' +
+      '<button type="button" class="sun-primary" data-sun-idle-xlsx>⬇ ดาวน์โหลด Excel</button></div>'
+    );
+    setPendingChecklist('', []);
+  }
+  root.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    if (e.target.closest('[data-sun-idle-xlsx]')) { exportExcel(); return; }
+    // กดชื่อตำแหน่ง = คัดลอกทันที
+    const td = e.target.closest('td.sun-copy');
+    if (!td) return;
+    const text = td.textContent.trim();
+    if (!text) return;
+    const done = function () {
+      if (typeof window.fxToast === 'function') window.fxToast('คัดลอก ' + text + ' แล้ว', 'success');
+      td.classList.add('is-copied');
+      setTimeout(function () { td.classList.remove('is-copied'); }, 700);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  });
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (err) { /* ไม่กระทบ */ }
+    ta.remove();
   }
 
   /* ---------------------------------------------------------------- */

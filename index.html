@@ -8,7 +8,7 @@
 <script>try{document.documentElement.setAttribute('data-prod-theme',localStorage.getItem('order_ui_theme_v1')==='light'?'light':'dark');}catch(e){}</script>
 <link rel="stylesheet" href="css/style.css?v=20261147">
 <link rel="stylesheet" href="css/theme-light.css?v=20261133">
-<link rel="stylesheet" href="css/sunshine.css?v=20261136">
+<link rel="stylesheet" href="css/sunshine.css?v=20261139">
 <title>ORDER Workspace — จัดการออเดอร์และสต็อก</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1">
 <link rel="alternate icon" href="favicon.svg?v=1">
@@ -541,7 +541,9 @@
     <div class="tabs">
       <button class="tab" data-tool="sunTool" data-sun-mode="purchase"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/><path d="M3 4h2l2.2 11.4a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L21 8H6"/></svg></span><span>ใบสั่งซื้อล่วงหน้า</span></button>
       <button class="tab" data-tool="sunTool" data-sun-mode="best"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18l5-6 4 3 6-8"/><path d="M14 6h5v5"/></svg></span><span>สินค้าขายดี ABC</span></button>
-      <button class="tab" data-tool="sunTool" data-sun-mode="stockin"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span><span>ประวัติเคลื่อนไหวสต๊อก</span></button>    </div>
+      <button class="tab" data-tool="sunTool" data-sun-mode="stockin"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></span><span>ประวัติเคลื่อนไหวสต๊อก</span></button>
+      <button class="tab" data-tool="sunTool" data-sun-mode="idle"><span class="nav-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 15h6"/></svg></span><span>ตำแหน่งไม่เคลื่อนไหว</span></button>
+    </div>
   </aside>
 </div>
 
@@ -570,13 +572,13 @@
 </script>
 <script src="js/lazy-lib.js?v=20261134"></script>
 <script src="js/move-rules.js?v=20261142"></script>
-<script src="js/app.js?v=20261179"></script>
+<script src="js/app.js?v=20261181"></script>
 <script src="js/scan-sheet.js?v=20261134"></script>
 <script src="js/saved-files.js?v=20261137"></script>
 <script src="js/layout.js?v=20261134"></script>
 <!-- Sunshine: ไลบรารี Supabase เก็บในเครื่องแล้ว แต่การดึง/อัปโหลดข้อมูลยังต้องต่ออินเทอร์เน็ต -->
 <script src="js/vendor/supabase.min.js"></script>
-<script src="js/sunshine.js?v=20261140"></script>
+<script src="js/sunshine.js?v=20261143"></script>
 </body>
 
 </html>

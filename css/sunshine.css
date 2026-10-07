@@ -375,3 +375,11 @@ html[data-prod-theme="light"] .side-right.top{
 #sunImportTool .sun-imp-bar-status{margin-top:4px;font-size:13px;color:var(--muted);word-break:break-word}
 #sunImportTool .sun-imp-bar .sun-primary{flex:0 0 auto;width:auto;min-width:260px;padding:0 22px}
 #sunImportTool .sun-imp-bar .sun-primary:disabled{opacity:.45;cursor:not-allowed}
+/* หน้า ตำแหน่งไม่เคลื่อนไหว: แถบคำอธิบาย + ปุ่มดาวน์โหลด */
+#sunTool .sun-idle-bar{display:flex;align-items:center;gap:12px;margin:4px 0 10px}
+#sunTool .sun-idle-bar .sun-hint{flex:1 1 auto;min-width:0;margin:0;padding:0;font-size:12px}
+#sunTool .sun-idle-bar .sun-primary{flex:0 0 auto;width:auto!important;min-height:36px;padding:0 16px;font-size:13px;white-space:nowrap}
+/* หน้า ตำแหน่งไม่เคลื่อนไหว: กดชื่อตำแหน่งเพื่อคัดลอก */
+#sunTool td.sun-copy{cursor:copy}
+#sunTool td.sun-copy:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+#sunTool td.sun-copy.is-copied{color:var(--success,#22c55e)}
