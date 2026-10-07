@@ -1631,7 +1631,7 @@ function downloadPickListsByLocation(){
 }
 
 // สร้างไฟล์ใบย้าย (ฟอร์ม BigSeller) จาก Map(ชื่อไฟล์ → แถว) แล้วดาวน์โหลด: ไฟล์เดียว = .xlsx หลายไฟล์ = .zip
-// ใช้ร่วมกันระหว่างปุ่ม "ไฟล์ย้ายสินค้าแยกตำแหน่ง" และช่องค้นหาสต็อก (Shift)
+// ใช้ร่วมกันระหว่างปุ่ม "ไฟล์ย้ายสินค้าแยกตำแหน่ง" และช่องค้นหาสต็อก (Tab)
 function exportMoveFiles(byPrefix){
   const prefixes=uniqueSorted([...byPrefix.keys()]);
   if(!prefixes.length) return;
@@ -4831,7 +4831,7 @@ renderBeforeOrderTable();
   applyAll();
 })();
 
-/* ช่องค้นหาสต็อกแบบซ่อน (ใช้ได้ทุกหน้า): กด Shift แล้วปล่อย (ไม่กดปุ่มอื่นร่วม) = เปิด/ปิด
+/* ช่องค้นหาสต็อกแบบซ่อน (ใช้ได้ทุกหน้า): กด Tab = เปิด/ปิด
    พิมพ์รหัส SKU (บางส่วนก็ได้ หลายรหัสคั่นด้วยเว้นวรรค/,) เพื่อดูว่ามีของอยู่ตำแหน่งไหนบ้าง
    ใช้ Stock ชุดเดียวกับหน้า ตรวจ ORDER กับ Stock (data1) ถ้ายังไม่มี ดึงจากฐานข้อมูล (op_stock) มาค้นเอง โดยไม่แตะหน้านั้น */
 (function stockPeek(){
@@ -4974,20 +4974,15 @@ renderBeforeOrderTable();
   input.addEventListener('input',render);
   input.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
 
-  // Shift เดี่ยว: นับเฉพาะกด Shift แล้วปล่อย โดยระหว่างนั้นไม่ได้กดปุ่มอื่น (พิมพ์ตัวพิมพ์ใหญ่ด้วย Shift+ตัวอักษร ไม่นับ)
-  let shiftAlone=false;
+  // ปุ่ม Tab (ไม่กด Shift/Ctrl/Alt ร่วม) = เปิด/ปิด
+  // ตอนกำลังพิมพ์ในช่องอื่นนอกกล่องนี้ (เช่น ช่องวาง ORDER) Tab ยังเลื่อนไปช่องถัดไปตามปกติ ไม่เปิดกล่องทับ
   document.addEventListener('keydown',e=>{
-    if(e.key==='Shift'){ if(!e.repeat) shiftAlone=true; }
-    else shiftAlone=false;
-  },true);
-  document.addEventListener('mousedown',()=>{ shiftAlone=false; },true);
-  document.addEventListener('keyup',e=>{
-    if(e.key!=='Shift' || !shiftAlone) return;
-    shiftAlone=false;
-    // กำลังพิมพ์ในช่องอื่น (เช่น ช่องวาง ORDER) ไม่เปิดทับ ยกเว้นช่องค้นหานี้เอง
+    if(e.key!=='Tab' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
     const a=document.activeElement;
-    const typingElsewhere=a && a!==input && (a.tagName==='TEXTAREA' || (a.tagName==='INPUT' && !/^(checkbox|radio|button|submit)$/i.test(a.type)) || a.isContentEditable);
-    if(box.hidden){ if(!typingElsewhere) open(); }
-    else close();
+    if(!box.hidden){ e.preventDefault(); close(); return; }
+    const typingElsewhere=a && !box.contains(a) && (a.tagName==='TEXTAREA' || a.tagName==='SELECT' || (a.tagName==='INPUT' && !/^(checkbox|radio|button|submit)$/i.test(a.type)) || a.isContentEditable);
+    if(typingElsewhere) return;
+    e.preventDefault();
+    open();
   },true);
 })();
