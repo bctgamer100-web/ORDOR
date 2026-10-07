@@ -1153,13 +1153,23 @@ function updateComparePreviewTables(){
     moveQtyCell(item,plan),moveLocCell(item),item.status
   ]);
 
-  const remWrap=document.querySelector('[data-preview-table="remaining"]');
-  if(remWrap) remWrap.innerHTML=previewCompareTable(['SKU Merchant','จำนวน'],remaining);
+  // วาดตารางใหม่แล้วคงตำแหน่งที่เลื่อนไว้ (กดเลือกตำแหน่ง/แก้จำนวนเบิกแล้วไม่เด้งกลับไปบนสุด)
+  // คืนค่า 2 รอบ: ทันที และหลังตัวเรียงลำดับคอลัมน์ (MutationObserver) จัดแถวเสร็จ
+  const keepScroll=(holder,html)=>{
+    if(!holder) return;
+    const els=()=>[holder,...holder.querySelectorAll('.compare-preview-table-wrap')];
+    const saved=els().map(el=>[el.scrollTop,el.scrollLeft]);
+    holder.innerHTML=html;
+    const restore=()=>els().forEach((el,i)=>{ if(saved[i]){ el.scrollTop=saved[i][0]; el.scrollLeft=saved[i][1]; } });
+    restore();
+    setTimeout(restore,0);
+  };
+
+  keepScroll(document.querySelector('[data-preview-table="remaining"]'),previewCompareTable(['SKU Merchant','จำนวน'],remaining));
   const remCount=document.querySelector('[data-preview-count="remaining"]');
   if(remCount) remCount.textContent=`${remaining.length.toLocaleString()} รายการ`;
 
-  const dedWrap=document.querySelector('[data-preview-table="deducted"]');
-  if(dedWrap) dedWrap.innerHTML=previewCompareTable(['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted);
+  keepScroll(document.querySelector('[data-preview-table="deducted"]'),previewCompareTable(['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted));
   const dedCount=document.querySelector('[data-preview-count="deducted"]');
   if(dedCount) dedCount.textContent=`${deducted.length.toLocaleString()} รายการ`;
 }
