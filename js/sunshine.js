@@ -864,9 +864,9 @@
       ? VIEW.shown.filter(function (r) { return sortKey(r.cells[orderCol], 'number') > 0; })
       : VIEW.shown;
     if (!exportRows.length) { alert('ไม่มีแถวที่สั่งเพิ่มมากกว่า 0 ให้ดาวน์โหลด'); return; }
-    // หน้าใบสั่งซื้อล่วงหน้า: ไฟล์ Excel เหลือเฉพาะคอลัมน์ SKU, ขาย 3 ด., คลัง, เคลื่อนไหว, สั่งเพิ่ม
+    // หน้าใบสั่งซื้อล่วงหน้า: ไฟล์ Excel เหลือเฉพาะคอลัมน์ SKU, ขาย 3 ด., คลัง, ขาย (หน้าร้าน), สั่งเป้า, เคลื่อนไหว, สั่งเพิ่ม
     // (เกรด/ชื่อสินค้ายังใช้แยกชีตอยู่ แต่ไม่ต้องใส่ในชีต เพราะอยู่ในชื่อชีตแล้ว)
-    const EXPORT_KEEP = ['SKU', 'ขาย 3 ด.', 'คลัง', 'สั่งเป้า', 'เคลื่อนไหว', 'สั่งเพิ่ม'];
+    const EXPORT_KEEP = ['SKU', 'ขาย 3 ด.', 'คลัง', 'ขาย', 'สั่งเป้า', 'เคลื่อนไหว', 'สั่งเพิ่ม'];
     let keep = VIEW.head.map(function (h, i) { return i; });
     if (orderCol >= 0) {
       const idx = EXPORT_KEEP.map(function (h) { return VIEW.head.indexOf(h); }).filter(function (i) { return i >= 0; });
