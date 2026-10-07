@@ -635,7 +635,7 @@ function isDamagedStockRow(row){
 const COMPARE_SI_MIN_QTY = 4; // เอาเฉพาะจำนวนใน SI ที่ตั้งแต่ค่านี้ขึ้นไป (มากกว่าหรือเท่ากับ 4) ไปหักลบกับ ORDER
 
 // กล่อง "หักลบกับไฟล์ที่ 3 (SI)": บอกว่า SKU Merchant ไหนถูกหักลบ ORDER เดิม / SI / ORDER หลังหัก
-function renderSiDeductions(list, siData){
+function renderSiDeductions(list, siData, stockMap){
   const box=document.getElementById('siDeductBox');
   if(!box)return;
   if(!siData || !Array.isArray(siData.rows) || !siData.rows.length){ box.hidden=true; box.innerHTML=''; return; }
@@ -646,11 +646,17 @@ function renderSiDeductions(list, siData){
   }
   const totalSi=list.reduce((s,x)=>s+(x.before-x.after),0);
   const covered=list.filter(x=>x.after<=0).length;
-  const rows=list.map(x=>`<tr><td>${escapeHtml(x.sku)}</td><td class="num">${formatPivotNumber(x.before)}</td><td class="num">${formatPivotNumber(x.si)}</td><td class="num">${formatPivotNumber(x.before-x.after)}</td><td class="num"><b>${formatPivotNumber(x.after)}</b></td></tr>`).join('');
+  // ตำแหน่งในสต็อกของ SKU ที่ถูกหักด้วย SI (เช่น C=20, H=50) เวลาเบิกจะได้รู้ว่าของอยู่ไหน
+  const locOf=sku=>{
+    const st=stockMap && stockMap.get(normalizeOrderSku(sku));
+    if(!st || st.qty<=0) return '-';
+    return compareLocQtyLabel({places:st.places, locations:(st.locations||[]).join(', ')});
+  };
+  const rows=list.map(x=>`<tr><td>${escapeHtml(x.sku)}</td><td class="num">${formatPivotNumber(x.before)}</td><td class="num">${formatPivotNumber(x.si)}</td><td class="num">${formatPivotNumber(x.before-x.after)}</td><td class="num"><b>${formatPivotNumber(x.after)}</b></td><td>${escapeHtml(locOf(x.sku))}</td></tr>`).join('');
   box.innerHTML=
     `<b>🗂️ หักลบกับไฟล์ที่ 3 (SI)</b>`+
     `<div class="compare-si-deduct-note">หัก ${list.length.toLocaleString()} SKU Merchant | รวมที่หักออก ${formatPivotNumber(totalSi)} ชิ้น | เหลือ 0 (ไม่นำไปเทียบ Stock) ${covered.toLocaleString()} SKU | เอาเฉพาะจำนวน SI ตั้งแต่ ${COMPARE_SI_MIN_QTY} ขึ้นไป แล้วเทียบกับ Stock ต่อ</div>`+
-    `<div class="compare-si-deduct-wrap"><table><thead><tr><th>SKU Merchant</th><th class="num">ORDER เดิม</th><th class="num">SI (≥ ${COMPARE_SI_MIN_QTY})</th><th class="num">หักออก</th><th class="num">ORDER หลังหัก</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    `<div class="compare-si-deduct-wrap"><table><thead><tr><th>SKU Merchant</th><th class="num">ORDER เดิม</th><th class="num">SI (≥ ${COMPARE_SI_MIN_QTY})</th><th class="num">หักออก</th><th class="num">ORDER หลังหัก</th><th>ตำแหน่ง</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 function compareFiles(){
@@ -781,7 +787,7 @@ function compareFiles(){
         if(cur.orderQty<=0)orderMap.delete(key);
       });
     }
-    renderSiDeductions(siDeductions,siData);
+    renderSiDeductions(siDeductions,siData,stockMap);
 
     setProgress(65);
 
