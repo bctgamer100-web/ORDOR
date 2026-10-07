@@ -6,7 +6,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <script>try{document.documentElement.setAttribute('data-prod-theme',localStorage.getItem('order_ui_theme_v1')==='light'?'light':'dark');}catch(e){}</script>
-<link rel="stylesheet" href="css/style.css?v=20261143">
+<link rel="stylesheet" href="css/style.css?v=20261146">
 <link rel="stylesheet" href="css/theme-light.css?v=20261133">
 <link rel="stylesheet" href="css/sunshine.css?v=20261136">
 <title>ORDER Workspace — จัดการออเดอร์และสต็อก</title>
@@ -509,9 +509,16 @@
 
       <!-- ช่องค้นหาสต็อกแบบซ่อน ใช้ได้ทุกหน้า: กด Tab เปิด/ปิด ดู js/app.js stockPeek -->
       <div class="stock-peek" id="stockPeek" hidden role="dialog" aria-label="ค้นหาตำแหน่งในสต็อก">
+        <div class="stock-peek-title" id="stockPeekDrag" title="ลากเพื่อย้ายหน้าต่าง">
+          <span class="stock-peek-name">🔍 ค้นหาสต็อก</span>
+          <span class="stock-peek-hint">กดตำแหน่งเพื่อเลือก · Tab = ปิด · ลากมุม ◢ เพื่อย่อ/ขยาย</span>
+          <button type="button" class="stock-peek-x" id="stockPeekClose" title="ปิด (Tab)" aria-label="ปิด">✕</button>
+        </div>
         <div class="stock-peek-head">
-          <input type="search" id="stockPeekInput" placeholder="พิมพ์รหัส SKU เพื่อดูตำแหน่งในสต็อก (หลายรหัสคั่นด้วยเว้นวรรคหรือ ,)" autocomplete="off" spellcheck="false">
-          <span class="stock-peek-hint">กดตำแหน่งเพื่อเลือก · Tab = ปิด</span>
+          <button type="button" class="stock-peek-bulk" id="stockPeekBulk" title="วางหลาย SKU พร้อมกัน" aria-label="วางหลาย SKU พร้อมกัน" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </button>
+          <textarea id="stockPeekInput" rows="1" placeholder="พิมพ์รหัส SKU เพื่อดูตำแหน่งในสต็อก (หลายรหัสคั่นด้วยเว้นวรรคหรือ ,)" autocomplete="off" spellcheck="false"></textarea>
         </div>
         <div class="stock-peek-body" id="stockPeekBody"></div>
       </div>
@@ -563,7 +570,7 @@
 </script>
 <script src="js/lazy-lib.js?v=20261134"></script>
 <script src="js/move-rules.js?v=20261141"></script>
-<script src="js/app.js?v=20261174"></script>
+<script src="js/app.js?v=20261178"></script>
 <script src="js/scan-sheet.js?v=20261134"></script>
 <script src="js/saved-files.js?v=20261137"></script>
 <script src="js/layout.js?v=20261134"></script>

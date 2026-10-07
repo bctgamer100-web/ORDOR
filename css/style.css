@@ -2992,7 +2992,7 @@ html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:
 #compareTool .saved-file .saved-file-del{background:transparent!important;color:var(--muted)!important}
 
 /* ช่องค้นหาสต็อกแบบซ่อน (กด Shift เปิด/ปิด) */
-#stockPeek{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:80;width:min(720px,calc(100vw - 32px));max-height:min(70vh,560px);display:flex;flex-direction:column;background:var(--sidebar,var(--surface));border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.45);overflow:hidden}
+#stockPeek{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:80;width:min(720px,calc(100vw - 32px));height:min(60vh,520px);min-width:340px;min-height:180px;max-width:calc(100vw - 8px);max-height:calc(100vh - 8px);display:flex;flex-direction:column;background:var(--sidebar,var(--surface));border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.45);overflow:hidden}
 #stockPeek[hidden]{display:none!important}
 #stockPeek .stock-peek-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)}
 #stockPeek .stock-peek-head input{flex:1;min-height:38px;padding:0 12px;font-size:14px}
@@ -3020,3 +3020,19 @@ html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:
 #stockPeek .stock-peek-bar button{min-height:30px!important;padding:0 12px!important;font-size:12px;border-radius:8px!important;box-shadow:none!important}
 #stockPeek .stock-peek-bar .stock-peek-dl{background:var(--accent)!important;color:var(--accent-fg)!important;border-color:var(--accent)!important;font-weight:600}
 #stockPeek .stock-peek-bar .stock-peek-clear{background:transparent!important;color:var(--muted)!important}
+/* หน้าต่างลอย: แถบหัวไว้ลากย้าย */
+#stockPeek .stock-peek-title{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--border);cursor:move;user-select:none;touch-action:none;background:var(--accent-soft)}
+#stockPeek .stock-peek-name{font-size:12.5px;font-weight:700}
+#stockPeek .stock-peek-title .stock-peek-hint{flex:1;overflow:hidden;text-overflow:ellipsis}
+#stockPeek .stock-peek-x{min-height:26px!important;width:28px;padding:0!important;border-radius:7px!important;background:transparent!important;color:var(--muted)!important;box-shadow:none!important;cursor:pointer}
+#stockPeek .stock-peek-x:hover{color:var(--foreground)!important;background:var(--accent-soft)!important}
+#stockPeek.is-dragging{opacity:.92;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+#stockPeek .stock-peek-body{flex:1;min-height:0}
+#stockPeek .stock-peek-grip{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;z-index:2;background:linear-gradient(135deg,transparent 0 50%,var(--accent) 50% 60%,transparent 60% 70%,var(--accent) 70% 80%,transparent 80%)}
+/* ช่องค้นหาเดียว: ปกติ 1 บรรทัด กดปุ่มรายการเพื่อขยายวางได้หลายบรรทัด */
+#stockPeek .stock-peek-bulk{flex:0 0 auto;width:38px;min-height:38px!important;padding:0!important;display:flex;align-items:center;justify-content:center;border-radius:8px!important;background:transparent!important;color:var(--muted)!important;border:1px solid var(--border)!important;box-shadow:none!important;cursor:pointer}
+#stockPeek .stock-peek-bulk svg{width:17px!important;height:17px!important;display:block!important}
+#stockPeek .stock-peek-bulk:hover,#stockPeek .stock-peek-bulk[aria-pressed="true"]{color:var(--accent)!important;border-color:var(--accent)!important}
+#stockPeek .stock-peek-head{align-items:flex-start}
+#stockPeek #stockPeekInput{flex:1;min-height:38px;height:38px;padding:9px 12px;font-size:14px;line-height:1.4;resize:none;overflow:hidden;white-space:nowrap}
+#stockPeek.is-multi #stockPeekInput{height:130px;overflow:auto;white-space:pre-wrap}

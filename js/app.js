@@ -4969,18 +4969,99 @@ renderBeforeOrderTable();
     renderBar();
   });
 
-  function open(){ box.hidden=false; render(); renderBar(); input.focus(); input.select(); }
+  // หน้าต่างลอย: ลากแถบหัวเพื่อย้าย ลากมุมขวาล่างเพื่อย่อ/ขยาย (CSS resize) จำตำแหน่ง/ขนาดไว้ในเบราว์เซอร์
+  const GEO_KEY='stock_peek_geo_v1';
+  const drag=document.getElementById('stockPeekDrag');
+  const closeBtn=document.getElementById('stockPeekClose');
+  function saveGeo(){
+    if(box.hidden) return;
+    const r=box.getBoundingClientRect();
+    try{ localStorage.setItem(GEO_KEY,JSON.stringify({x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height)})); }catch(e){}
+  }
+  function place(x,y){
+    // ไม่ให้หลุดขอบจอ (ทั้งหน้าต่างอยู่ในจอ มุมย่อ/ขยายจะได้จับถึงเสมอ)
+    const r=box.getBoundingClientRect();
+    const nx=Math.min(Math.max(0,x),Math.max(0,window.innerWidth-r.width));
+    const ny=Math.min(Math.max(0,y),Math.max(0,window.innerHeight-r.height));
+    box.style.left=nx+'px'; box.style.top=ny+'px'; box.style.transform='none';
+  }
+  function applyGeo(){
+    let g=null;
+    try{ g=JSON.parse(localStorage.getItem(GEO_KEY)||'null'); }catch(e){ g=null; }
+    if(!g) return;
+    box.style.width=Math.min(g.w,window.innerWidth-16)+'px';
+    box.style.height=Math.min(g.h,window.innerHeight-16)+'px';
+    place(g.x,g.y);
+  }
+  if(drag){
+    drag.addEventListener('pointerdown',e=>{
+      if(e.button!==0 || e.target.closest('button')) return;
+      const r=box.getBoundingClientRect();
+      const dx=e.clientX-r.left, dy=e.clientY-r.top;
+      drag.setPointerCapture(e.pointerId);
+      box.classList.add('is-dragging');
+      const move=ev=>place(ev.clientX-dx,ev.clientY-dy);
+      const up=()=>{ drag.removeEventListener('pointermove',move); drag.removeEventListener('pointerup',up); drag.removeEventListener('pointercancel',up); box.classList.remove('is-dragging'); saveGeo(); };
+      drag.addEventListener('pointermove',move);
+      drag.addEventListener('pointerup',up);
+      drag.addEventListener('pointercancel',up);
+      e.preventDefault();
+    });
+  }
+  // ย่อ/ขยาย: ลากมุมขวาล่าง (◢) จำขนาดใหม่เมื่อปล่อยเมาส์
+  const grip=document.createElement('div');
+  grip.className='stock-peek-grip';
+  grip.title='ลากเพื่อย่อ/ขยาย';
+  box.appendChild(grip);
+  grip.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    const r=box.getBoundingClientRect();
+    // ล็อกตำแหน่งมุมซ้ายบนไว้ก่อน (เผื่อยังจัดกลางด้วย transform อยู่)
+    box.style.left=r.left+'px'; box.style.top=r.top+'px'; box.style.transform='none';
+    const sx=e.clientX, sy=e.clientY, sw=r.width, sh=r.height;
+    grip.setPointerCapture(e.pointerId);
+    const move=ev=>{
+      box.style.width=Math.min(window.innerWidth-r.left-4,Math.max(340,sw+ev.clientX-sx))+'px';
+      box.style.height=Math.min(window.innerHeight-r.top-4,Math.max(180,sh+ev.clientY-sy))+'px';
+    };
+    const up=()=>{ grip.removeEventListener('pointermove',move); grip.removeEventListener('pointerup',up); grip.removeEventListener('pointercancel',up); saveGeo(); };
+    grip.addEventListener('pointermove',move);
+    grip.addEventListener('pointerup',up);
+    grip.addEventListener('pointercancel',up);
+    e.preventDefault();
+  });
+  if(closeBtn) closeBtn.addEventListener('click',()=>close());
+
+  function open(){ box.hidden=false; applyGeo(); render(); renderBar(); input.focus(); input.select(); }
   // ปิดแล้วเริ่มใหม่ทุกครั้ง: ล้างคำค้น ผลค้นหา และตำแหน่งที่เลือกไว้ เปิดครั้งหน้าจะเป็นช่องว่าง
   function close(){
     box.hidden=true;
     if(box.contains(document.activeElement)) document.activeElement.blur();
     input.value='';
+    box.classList.remove('is-multi');
+    if(bulkBtn) bulkBtn.setAttribute('aria-pressed','false');
     picks.clear();
     out.innerHTML='';
     renderBar();
   }
   input.addEventListener('input',render);
-  input.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ e.preventDefault(); close(); return; }
+    // ช่องปกติ 1 บรรทัด: Enter ไม่ขึ้นบรรทัดใหม่ (โหมดวางหลาย SKU ขึ้นบรรทัดได้)
+    if(e.key==='Enter' && !box.classList.contains('is-multi')) e.preventDefault();
+  });
+  // วางข้อความหลายบรรทัดลงช่อง 1 บรรทัด: ขยายเป็นโหมดหลาย SKU ให้เอง จะได้เห็นครบทุกรหัส
+  input.addEventListener('paste',()=>setTimeout(()=>{ if(/\n/.test(input.value) && !box.classList.contains('is-multi')) setMulti(true); },0));
+
+  // ปุ่มรายการ (ซ้ายของช่องค้นหา): สลับช่องเดียวกันระหว่าง 1 บรรทัด ↔ ขยายวางหลาย SKU
+  const bulkBtn=document.getElementById('stockPeekBulk');
+  function setMulti(on){
+    box.classList.toggle('is-multi',on);
+    if(bulkBtn) bulkBtn.setAttribute('aria-pressed',String(on));
+    if(!on) input.value=input.value.replace(/\s*\n\s*/g,' ').trim();
+    input.focus();
+  }
+  if(bulkBtn) bulkBtn.addEventListener('click',()=>{ setMulti(!box.classList.contains('is-multi')); render(); });
 
   // ปุ่ม Tab (ไม่กด Shift/Ctrl/Alt ร่วม) = เปิด/ปิด
   // ตอนกำลังพิมพ์ในช่องอื่นนอกกล่องนี้ (เช่น ช่องวาง ORDER) Tab ยังเลื่อนไปช่องถัดไปตามปกติ ไม่เปิดกล่องทับ
