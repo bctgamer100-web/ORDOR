@@ -858,12 +858,9 @@
   // ดาวน์โหลดเป็นไฟล์ .xlsx จริงๆ (คอลัมน์ตัวเลขเป็นตัวเลข)
   function exportExcel() {
     if (!VIEW || !VIEW.shown.length) { alert('ยังไม่มีข้อมูลให้ดาวน์โหลด'); return; }
-    // หน้าใบสั่งซื้อ: ไม่เอาแถวที่ "สั่งเพิ่ม" เป็น 0
+    // หน้าใบสั่งซื้อ: เอาทุกแถวที่แสดงอยู่ รวมแถวที่ "สั่งเพิ่ม" เป็น 0 ด้วย
     const orderCol = VIEW.head.indexOf('สั่งเพิ่ม');
-    const exportRows = orderCol >= 0
-      ? VIEW.shown.filter(function (r) { return sortKey(r.cells[orderCol], 'number') > 0; })
-      : VIEW.shown;
-    if (!exportRows.length) { alert('ไม่มีแถวที่สั่งเพิ่มมากกว่า 0 ให้ดาวน์โหลด'); return; }
+    const exportRows = VIEW.shown;
     // หน้าใบสั่งซื้อล่วงหน้า: ไฟล์ Excel เหลือเฉพาะคอลัมน์ SKU, ขาย 3 ด., คลัง, ขาย (หน้าร้าน), สั่งเป้า, เคลื่อนไหว, สั่งเพิ่ม
     // (เกรด/ชื่อสินค้ายังใช้แยกชีตอยู่ แต่ไม่ต้องใส่ในชีต เพราะอยู่ในชื่อชีตแล้ว)
     const EXPORT_KEEP = ['SKU', 'ขาย 3 ด.', 'คลัง', 'ขาย', 'สั่งเป้า', 'เคลื่อนไหว', 'สั่งเพิ่ม'];
