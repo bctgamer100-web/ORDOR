@@ -6,7 +6,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <script>try{document.documentElement.setAttribute('data-prod-theme',localStorage.getItem('order_ui_theme_v1')==='light'?'light':'dark');}catch(e){}</script>
-<link rel="stylesheet" href="css/style.css?v=20261140">
+<link rel="stylesheet" href="css/style.css?v=20261141">
 <link rel="stylesheet" href="css/theme-light.css?v=20261133">
 <link rel="stylesheet" href="css/sunshine.css?v=20261136">
 <title>ORDER Workspace — จัดการออเดอร์และสต็อก</title>
@@ -63,6 +63,14 @@
     </section>
 
     <section id="compareTool" class="tool">
+      <!-- ช่องค้นหาสต็อกแบบซ่อน: กด Shift (กดแล้วปล่อย) เปิด/ปิด ดู js/app.js stockPeek -->
+      <div class="stock-peek" id="stockPeek" hidden role="dialog" aria-label="ค้นหาตำแหน่งในสต็อก">
+        <div class="stock-peek-head">
+          <input type="search" id="stockPeekInput" placeholder="พิมพ์รหัส SKU เพื่อดูตำแหน่งในสต็อก (หลายรหัสคั่นด้วยเว้นวรรคหรือ ,)" autocomplete="off" spellcheck="false">
+          <span class="stock-peek-hint">Shift = ปิด</span>
+        </div>
+        <div class="stock-peek-body" id="stockPeekBody"></div>
+      </div>
       <div class="saved-files" id="confirmRef" hidden>
         <div class="saved-files-head">
           <strong>📂 รายการที่ยืนยันจากหน้าก่อนสั่ง</strong>
@@ -555,7 +563,7 @@
 </script>
 <script src="js/lazy-lib.js?v=20261134"></script>
 <script src="js/move-rules.js?v=20261141"></script>
-<script src="js/app.js?v=20261169"></script>
+<script src="js/app.js?v=20261170"></script>
 <script src="js/scan-sheet.js?v=20261134"></script>
 <script src="js/saved-files.js?v=20261137"></script>
 <script src="js/layout.js?v=20261134"></script>

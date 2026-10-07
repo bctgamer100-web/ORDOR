@@ -4823,3 +4823,64 @@ renderBeforeOrderTable();
   obs.observe(body, { childList: true, subtree: true });
   applyAll();
 })();
+
+/* ช่องค้นหาสต็อกแบบซ่อน (หน้า ตรวจ ORDER กับ Stock): กด Shift แล้วปล่อย (ไม่กดปุ่มอื่นร่วม) = เปิด/ปิด
+   พิมพ์รหัส SKU (บางส่วนก็ได้ หลายรหัสคั่นด้วยเว้นวรรค/,) เพื่อดูว่ามีของอยู่ตำแหน่งไหนบ้าง ใช้ Stock ชุดเดียวกับที่ตรวจอยู่ (data1) */
+(function stockPeek(){
+  const box=document.getElementById('stockPeek');
+  const input=document.getElementById('stockPeekInput');
+  const out=document.getElementById('stockPeekBody');
+  const tool=document.getElementById('compareTool');
+  if(!box || !input || !out || !tool) return;
+
+  const MAX_SKUS=60;
+  function render(){
+    const terms=String(input.value||'').split(/[\s,]+/).map(normalizeOrderSku).filter(Boolean);
+    if(!terms.length){ out.innerHTML='<div class="stock-peek-empty">พิมพ์รหัส SKU เพื่อค้นหา</div>'; return; }
+    if(!data1 || !data1.length || !stockSkuCol){ out.innerHTML='<div class="stock-peek-empty">ยังไม่มีข้อมูล Stock (เลือกไฟล์ที่ 2 หรือใช้ข้อมูลจากฐานข้อมูลก่อน)</div>'; return; }
+    const bySku=new Map();
+    data1.forEach(row=>{
+      const sku=norm(row[stockSkuCol]);
+      const key=normalizeOrderSku(sku);
+      if(!key || !terms.some(t=>key.includes(t))) return;
+      const qty=num(row[stockQtyCol]);
+      if(qty<=0) return;
+      const loc=stockPosCol ? norm(row[stockPosCol]) : '';
+      if(!bySku.has(key)) bySku.set(key,{sku,total:0,locs:[]});
+      const it=bySku.get(key);
+      const damaged=isDamagedStockRow(row);
+      if(!damaged) it.total+=qty;
+      it.locs.push({loc:loc||'-',qty,damaged});
+    });
+    const list=[...bySku.values()].sort((a,b)=>a.sku.localeCompare(b.sku,undefined,{numeric:true}));
+    if(!list.length){ out.innerHTML='<div class="stock-peek-empty">❌ ไม่พบรหัสนี้ในสต็อก</div>'; return; }
+    out.innerHTML=list.slice(0,MAX_SKUS).map(it=>{
+      const locs=it.locs.sort((a,b)=>a.loc.localeCompare(b.loc,undefined,{numeric:true}))
+        .map(l=>`<span class="stock-peek-loc${l.damaged?' is-damaged':''}" title="${l.damaged?'ตำแหน่งชำรุด ไม่นับเป็นสต็อก':''}">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></span>`).join('');
+      return `<div class="stock-peek-row"><div class="stock-peek-sku"><b>${esc(it.sku)}</b><span>รวม ${formatPivotNumber(it.total)}</span></div><div class="stock-peek-locs">${locs}</div></div>`;
+    }).join('')+(list.length>MAX_SKUS?`<div class="stock-peek-empty">แสดง ${MAX_SKUS} จาก ${list.length.toLocaleString()} รหัส — พิมพ์ให้เจาะจงขึ้น</div>`:'');
+  }
+
+  function open(){ box.hidden=false; render(); input.focus(); input.select(); }
+  function close(){ box.hidden=true; if(document.activeElement===input) input.blur(); }
+  input.addEventListener('input',render);
+  input.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
+
+  // Shift เดี่ยว: นับเฉพาะกด Shift แล้วปล่อย โดยระหว่างนั้นไม่ได้กดปุ่มอื่น (พิมพ์ตัวพิมพ์ใหญ่ด้วย Shift+ตัวอักษร ไม่นับ)
+  let shiftAlone=false;
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Shift'){ if(!e.repeat) shiftAlone=true; }
+    else shiftAlone=false;
+  },true);
+  document.addEventListener('mousedown',()=>{ shiftAlone=false; },true);
+  document.addEventListener('keyup',e=>{
+    if(e.key!=='Shift' || !shiftAlone) return;
+    shiftAlone=false;
+    if(!tool.classList.contains('active')) return;
+    // กำลังพิมพ์ในช่องอื่น (เช่น ช่องวาง ORDER) ไม่เปิดทับ ยกเว้นช่องค้นหานี้เอง
+    const a=document.activeElement;
+    const typingElsewhere=a && a!==input && (a.tagName==='TEXTAREA' || (a.tagName==='INPUT' && !/^(checkbox|radio|button|submit)$/i.test(a.type)) || a.isContentEditable);
+    if(box.hidden){ if(!typingElsewhere) open(); }
+    else close();
+  },true);
+})();
