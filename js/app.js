@@ -783,15 +783,15 @@ function compareFiles(){
         const before=cur.orderQty;
         const used=Math.min(before,siQty);
         cur.orderQty=before-used;
+        cur.siBefore=before; // ORDER เดิมก่อนหัก SI ไว้แสดงในตาราง (หักจนเหลือ 0 ก็ยังแสดงแถว ไม่หายไป)
         siDeductions.push({sku:cur.sku,before,si:siQty,after:cur.orderQty});
-        if(cur.orderQty<=0)orderMap.delete(key);
       });
     }
     renderSiDeductions(siDeductions,siData,stockMap);
 
     setProgress(65);
 
-    compareResults=[...orderMap.values()].map(({sku,orderQty})=>{
+    compareResults=[...orderMap.values()].map(({sku,orderQty,siBefore})=>{
       let stock=stockMap.get(normalizeOrderSku(sku));
       // รหัสที่ใช้แทนกันได้ (เช่น 004309-004318 ใน js/move-rules.js): รหัสที่สั่งไม่มีสต็อก ให้เบิกรหัสคู่ที่สี/ไซซ์เดียวกันแทน
       // ถ้ามีทั้งคู่ เอาตามรหัสที่สั่ง
@@ -809,7 +809,9 @@ function compareFiles(){
       const locations=stock ? stock.locations.join(", ") : "";
 
       let status;
-      if(!stock || stockQty<=0){
+      if(orderQty<=0 && siBefore){
+        status="✅ SI ครบ"; // SI หักครบแล้ว ไม่ต้องเบิกเพิ่ม (จำนวนเบิกเริ่มที่ 0 แก้เองได้)
+      }else if(!stock || stockQty<=0){
         status="❌ ไม่มี Stock";
       }else if(stockQty<orderQty){
         status=`⚠️ ขาด ${formatPivotNumber(orderQty-stockQty)}`;
@@ -821,6 +823,7 @@ function compareFiles(){
       return {
         sku,
         orderQty,
+        orderShown: siBefore || orderQty, // คอลัมน์ ORDER แสดงจำนวนที่สั่งจริง (ก่อนหัก SI)
         stockQty,
         status,
         locations,
@@ -882,7 +885,7 @@ function compareFiles(){
     // แสดงผลตาราง "ยอดคงเหลือ" และ "รายการที่ถูกลบ-ถูกหัก" บนเว็บทันที
     // หลังจากยืนยันจากหน้า "ก่อนสั่ง" หรือเมื่อการตรวจชุดใหม่เสร็จ
     // โดยไม่ต้องกดปุ่มดาวน์โหลด/แสดงผลอีกครั้ง
-    renderCompareWebPreview('all');
+    renderCompareWebPreview('all', true);
 
     setProgress(100);
     setTimeout(()=>setProgress(0),400);
@@ -915,7 +918,7 @@ function renderCompareResults(){
   // หน้าจอคงรูปแบบเดิม: SKU / ORDER / Stock รวม / สถานะ / ตำแหน่ง
   const rows=filtered.slice(0,1000).map(item=>({
     "SKU":compareSkuLabel(item),
-    "ORDER":formatPivotNumber(item.orderQty),
+    "ORDER":formatPivotNumber(item.orderShown ?? item.orderQty),
     "Stock รวม":formatPivotNumber(item.stockQty),
     "สถานะ":item.status,
     "ตำแหน่ง":item.locations || "-"
@@ -1107,7 +1110,7 @@ async function copyTextToClipboard(text, successText){
 // คืนค่า [{item, qty}] เรียงตาม ORDER เดิม
 function getRemainingRows(){
   const rows=compareResults
-    .filter(item=>item.stockQty<=0 || item.stockQty<item.orderQty)
+    .filter(item=>item.orderQty>0 && (item.stockQty<=0 || item.stockQty<item.orderQty))
     .map(item=>({item,qty:Math.max(item.orderQty-item.stockQty,0)}));
   const plan=buildMovePlan();
   plan.forEach((p,key)=>{
@@ -1155,7 +1158,7 @@ function updateComparePreviewTables(){
   }) : [];
   const plan=buildMovePlan();
   const deducted=deductedFiltered.map(item=>[
-    compareSkuLabel(item),item.orderQty,item.stockQty,
+    compareSkuLabel(item),item.orderShown ?? item.orderQty,item.stockQty,
     moveQtyCell(item,plan),moveLocCell(item),item.status
   ]);
 
@@ -1180,9 +1183,15 @@ function updateComparePreviewTables(){
   if(dedCount) dedCount.textContent=`${deducted.length.toLocaleString()} รายการ`;
 }
 
-function renderCompareWebPreview(mode='all'){
+// silent: เรียกอัตโนมัติหลังตรวจเสร็จ (compareFiles) ไม่มีผลก็ไม่ต้องเด้งแจ้งเตือน
+function renderCompareWebPreview(mode='all', silent=false){
   comparePreviewMode = mode;
   if(!compareResults.length){
+    if(silent){
+      const box=document.getElementById('compareWebPreview');
+      if(box) box.style.display='none';
+      return;
+    }
     alert('ยังไม่มีผลตรวจสำหรับแสดง');
     return;
   }
@@ -1217,7 +1226,7 @@ function renderCompareWebPreview(mode='all'){
     const plan=buildMovePlan();
     const deducted=deductedFiltered.map(item=>[
         compareSkuLabel(item),
-        item.orderQty,
+        item.orderShown ?? item.orderQty,
         item.stockQty,
         moveQtyCell(item,plan),
         moveLocCell(item),
@@ -1292,7 +1301,7 @@ function downloadStockCheckResult(){
       .filter(item=>item.stockQty > 0)
       .map(item=>[
         compareSkuLabel(item),
-        item.orderQty,
+        item.orderShown ?? item.orderQty,
         item.stockQty,
         (plan.get(moveKeyOf(item))||{total:0}).total,
         compareLocQtyLabel(item),
