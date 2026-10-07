@@ -1626,8 +1626,15 @@ function downloadPickListsByLocation(){
   plan.forEach(item=>item.rows.forEach(({place,qty})=>addRow(item.sku,place,qty)));
   moveBoxCompanions(plan).forEach(({sku,place,qty})=>addRow(sku,place,qty));
 
+  if(!byPrefix.size) return alert("ไม่มีรายการที่ต้องเบิกในตำแหน่งที่เลือก");
+  exportMoveFiles(byPrefix);
+}
+
+// สร้างไฟล์ใบย้าย (ฟอร์ม BigSeller) จาก Map(ชื่อไฟล์ → แถว) แล้วดาวน์โหลด: ไฟล์เดียว = .xlsx หลายไฟล์ = .zip
+// ใช้ร่วมกันระหว่างปุ่ม "ไฟล์ย้ายสินค้าแยกตำแหน่ง" และช่องค้นหาสต็อก (Shift)
+function exportMoveFiles(byPrefix){
   const prefixes=uniqueSorted([...byPrefix.keys()]);
-  if(!prefixes.length) return alert("ไม่มีรายการที่ต้องเบิกในตำแหน่งที่เลือก");
+  if(!prefixes.length) return;
 
   // รวมทุกตำแหน่งเป็น ZIP ไฟล์เดียว (ข้างในเป็น C.xlsx, KT.xlsx ...) ดาวน์โหลดหลายไฟล์แยกกัน Chrome มักบล็อกตั้งแต่ไฟล์ที่ 2
   const zip=new JSZip();
@@ -4824,44 +4831,145 @@ renderBeforeOrderTable();
   applyAll();
 })();
 
-/* ช่องค้นหาสต็อกแบบซ่อน (หน้า ตรวจ ORDER กับ Stock): กด Shift แล้วปล่อย (ไม่กดปุ่มอื่นร่วม) = เปิด/ปิด
-   พิมพ์รหัส SKU (บางส่วนก็ได้ หลายรหัสคั่นด้วยเว้นวรรค/,) เพื่อดูว่ามีของอยู่ตำแหน่งไหนบ้าง ใช้ Stock ชุดเดียวกับที่ตรวจอยู่ (data1) */
+/* ช่องค้นหาสต็อกแบบซ่อน (ใช้ได้ทุกหน้า): กด Shift แล้วปล่อย (ไม่กดปุ่มอื่นร่วม) = เปิด/ปิด
+   พิมพ์รหัส SKU (บางส่วนก็ได้ หลายรหัสคั่นด้วยเว้นวรรค/,) เพื่อดูว่ามีของอยู่ตำแหน่งไหนบ้าง
+   ใช้ Stock ชุดเดียวกับหน้า ตรวจ ORDER กับ Stock (data1) ถ้ายังไม่มี ดึงจากฐานข้อมูล (op_stock) มาค้นเอง โดยไม่แตะหน้านั้น */
 (function stockPeek(){
   const box=document.getElementById('stockPeek');
   const input=document.getElementById('stockPeekInput');
   const out=document.getElementById('stockPeekBody');
-  const tool=document.getElementById('compareTool');
-  if(!box || !input || !out || !tool) return;
+  if(!box || !input || !out) return;
+
+  // แถวสต็อกแบบเดียวกันทุกแหล่ง: {sku, loc, qty, damaged}
+  let dbRows=null, dbLoading=null;
+  function peekRows(){
+    if(data1 && data1.length && stockSkuCol){
+      return data1.map(row=>({sku:norm(row[stockSkuCol]), loc:stockPosCol ? norm(row[stockPosCol]) : '', qty:num(row[stockQtyCol]), damaged:isDamagedStockRow(row)}));
+    }
+    return dbRows;
+  }
+  function ensureDbRows(){
+    if(dbRows || dbLoading || (data1 && data1.length)) return;
+    if(!window.SunStock || typeof window.SunStock.fetchStock!=='function') return;
+    dbLoading=window.SunStock.fetchStock().then(rows=>{
+      dbRows=rows.map(r=>{
+        const loc=norm(r.location);
+        const up=loc.toUpperCase();
+        return {sku:norm(r.sku), loc, qty:num(r.qty), damaged:COMPARE_DAMAGED_LOCATIONS.some(x=>up===x || up.startsWith(x+'-'))};
+      });
+    }).catch(e=>{ console.warn('ดึงสต็อกสำหรับช่องค้นหาไม่สำเร็จ:',e); }).finally(()=>{ dbLoading=null; if(!box.hidden) render(); });
+  }
 
   const MAX_SKUS=60;
+  // ตำแหน่งที่กดเลือกไว้ (เก็บข้ามการค้นหา จะได้เลือกหลายรหัสแล้วโหลดใบย้ายทีเดียว): key "SKU@ตำแหน่ง" → {sku, loc, prefix, max, qty}
+  // ลัง H เบิกทั้งลังเสมอ (แก้จำนวนไม่ได้) และ SKU อื่นในลังเดียวกันติดไปในไฟล์ด้วย
+  const picks=new Map();
+  const bar=document.createElement('div');
+  bar.className='stock-peek-bar';
+  box.appendChild(bar);
+
+  function renderBar(){
+    if(!picks.size){ bar.hidden=true; bar.innerHTML=''; return; }
+    bar.hidden=false;
+    const total=[...picks.values()].reduce((s,p)=>s+p.qty,0);
+    bar.innerHTML=`<span>เลือก <b>${picks.size}</b> ตำแหน่ง · รวม <b>${formatPivotNumber(total)}</b> ชิ้น</span>`+
+      `<button type="button" class="stock-peek-clear" data-peek-act="clear">ล้าง</button>`+
+      `<button type="button" class="stock-peek-dl" data-peek-act="download">⬇ โหลดใบย้าย</button>`;
+  }
+
+  function downloadPicks(){
+    if(!picks.size) return;
+    const byFile=new Map();
+    const have=new Set();
+    const add=(sku,loc,prefix,qty)=>{
+      const k=normalizeOrderSku(sku)+'@'+loc.toUpperCase();
+      if(have.has(k) || qty<=0) return;
+      have.add(k);
+      const fileKey=moveFileKey({prefix,loc});
+      if(!byFile.has(fileKey)) byFile.set(fileKey,[]);
+      byFile.get(fileKey).push([sku,'',loc,qty,MOVE_TO_LOCATION,qty]);
+    };
+    picks.forEach(p=>add(p.sku,p.loc,p.prefix,p.qty));
+    // ลัง H: SKU อื่นในลังเดียวกันย้ายไปด้วยทั้งหมด
+    const rows=peekRows()||[];
+    picks.forEach(p=>{
+      if(p.prefix!==MOVE_FULL_BOX_PREFIX) return;
+      rows.forEach(r=>{
+        if(r.loc.toUpperCase()!==p.loc.toUpperCase()) return;
+        add(r.sku,p.loc,p.prefix,r.qty);
+      });
+    });
+    exportMoveFiles(byFile);
+  }
+
   function render(){
     const terms=String(input.value||'').split(/[\s,]+/).map(normalizeOrderSku).filter(Boolean);
     if(!terms.length){ out.innerHTML='<div class="stock-peek-empty">พิมพ์รหัส SKU เพื่อค้นหา</div>'; return; }
-    if(!data1 || !data1.length || !stockSkuCol){ out.innerHTML='<div class="stock-peek-empty">ยังไม่มีข้อมูล Stock (เลือกไฟล์ที่ 2 หรือใช้ข้อมูลจากฐานข้อมูลก่อน)</div>'; return; }
+    const rows=peekRows();
+    if(!rows){
+      ensureDbRows();
+      out.innerHTML='<div class="stock-peek-empty">'+(dbLoading ? '⏳ กำลังดึงสต็อกจากฐานข้อมูล...' : 'ยังไม่มีข้อมูล Stock (ดึงจากฐานข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง)')+'</div>';
+      return;
+    }
     const bySku=new Map();
-    data1.forEach(row=>{
-      const sku=norm(row[stockSkuCol]);
-      const key=normalizeOrderSku(sku);
+    rows.forEach(r=>{
+      const key=normalizeOrderSku(r.sku);
       if(!key || !terms.some(t=>key.includes(t))) return;
-      const qty=num(row[stockQtyCol]);
-      if(qty<=0) return;
-      const loc=stockPosCol ? norm(row[stockPosCol]) : '';
-      if(!bySku.has(key)) bySku.set(key,{sku,total:0,locs:[]});
+      if(r.qty<=0) return;
+      if(!bySku.has(key)) bySku.set(key,{sku:r.sku,total:0,locs:[]});
       const it=bySku.get(key);
-      const damaged=isDamagedStockRow(row);
-      if(!damaged) it.total+=qty;
-      it.locs.push({loc:loc||'-',qty,damaged});
+      if(!r.damaged) it.total+=r.qty;
+      it.locs.push({loc:r.loc||'-',qty:r.qty,damaged:r.damaged});
     });
     const list=[...bySku.values()].sort((a,b)=>a.sku.localeCompare(b.sku,undefined,{numeric:true}));
     if(!list.length){ out.innerHTML='<div class="stock-peek-empty">❌ ไม่พบรหัสนี้ในสต็อก</div>'; return; }
     out.innerHTML=list.slice(0,MAX_SKUS).map(it=>{
       const locs=it.locs.sort((a,b)=>a.loc.localeCompare(b.loc,undefined,{numeric:true}))
-        .map(l=>`<span class="stock-peek-loc${l.damaged?' is-damaged':''}" title="${l.damaged?'ตำแหน่งชำรุด ไม่นับเป็นสต็อก':''}">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></span>`).join('');
+        .map(l=>{
+          if(l.damaged) return `<span class="stock-peek-loc is-damaged" title="ตำแหน่งชำรุด ไม่นับเป็นสต็อก">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></span>`;
+          const k=normalizeOrderSku(it.sku)+'@'+l.loc.toUpperCase();
+          const p=picks.get(k);
+          const prefix=(extractCompareLocationPrefixes(l.loc)[0]||'');
+          const isBox=prefix===MOVE_FULL_BOX_PREFIX;
+          const data=`data-peek-key="${encodeURIComponent(k)}" data-sku="${esc(it.sku)}" data-loc="${esc(l.loc)}" data-prefix="${esc(prefix)}" data-max="${l.qty}"`;
+          if(!p) return `<button type="button" class="stock-peek-loc" ${data} title="กดเพื่อเลือกเบิกตำแหน่งนี้">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></button>`;
+          const qtyField=isBox
+            ? `<b title="ลัง H เบิกทั้งลัง">${formatPivotNumber(p.qty)}</b>`
+            : `<input type="number" class="stock-peek-qty" min="1" max="${l.qty}" step="1" value="${p.qty}" data-peek-key="${encodeURIComponent(k)}" title="จำนวนเบิก (มี ${l.qty})">`;
+          return `<span class="stock-peek-loc is-picked"><button type="button" class="stock-peek-unpick" ${data} title="กดเพื่อยกเลิก">${esc(l.loc)}</button> ${qtyField}<small>/${formatPivotNumber(l.qty)}</small></span>`;
+        }).join('');
       return `<div class="stock-peek-row"><div class="stock-peek-sku"><b>${esc(it.sku)}</b><span>รวม ${formatPivotNumber(it.total)}</span></div><div class="stock-peek-locs">${locs}</div></div>`;
     }).join('')+(list.length>MAX_SKUS?`<div class="stock-peek-empty">แสดง ${MAX_SKUS} จาก ${list.length.toLocaleString()} รหัส — พิมพ์ให้เจาะจงขึ้น</div>`:'');
   }
 
-  function open(){ box.hidden=false; render(); input.focus(); input.select(); }
+  // กดตำแหน่ง = เลือก (เริ่มที่จำนวนทั้งหมดในตำแหน่งนั้น) · กดชื่อตำแหน่งที่เลือกแล้ว = ยกเลิก
+  box.addEventListener('click',e=>{
+    const act=e.target.closest('[data-peek-act]');
+    if(act){
+      if(act.dataset.peekAct==='clear'){ picks.clear(); render(); renderBar(); }
+      else if(act.dataset.peekAct==='download') downloadPicks();
+      return;
+    }
+    const b=e.target.closest('.stock-peek-loc[data-peek-key], .stock-peek-unpick');
+    if(!b) return;
+    const k=decodeURIComponent(b.dataset.peekKey);
+    if(picks.has(k)) picks.delete(k);
+    else picks.set(k,{sku:b.dataset.sku, loc:b.dataset.loc, prefix:b.dataset.prefix, max:Number(b.dataset.max)||0, qty:Number(b.dataset.max)||0});
+    const keepScroll=out.scrollTop;
+    render(); renderBar();
+    out.scrollTop=keepScroll;
+  });
+  box.addEventListener('change',e=>{
+    const q=e.target.closest('.stock-peek-qty');
+    if(!q) return;
+    const p=picks.get(decodeURIComponent(q.dataset.peekKey));
+    if(!p) return;
+    p.qty=Math.min(p.max,Math.max(1,Math.floor(Number(q.value)||0)));
+    q.value=p.qty;
+    renderBar();
+  });
+
+  function open(){ box.hidden=false; render(); renderBar(); input.focus(); input.select(); }
   function close(){ box.hidden=true; if(document.activeElement===input) input.blur(); }
   input.addEventListener('input',render);
   input.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
@@ -4876,7 +4984,6 @@ renderBeforeOrderTable();
   document.addEventListener('keyup',e=>{
     if(e.key!=='Shift' || !shiftAlone) return;
     shiftAlone=false;
-    if(!tool.classList.contains('active')) return;
     // กำลังพิมพ์ในช่องอื่น (เช่น ช่องวาง ORDER) ไม่เปิดทับ ยกเว้นช่องค้นหานี้เอง
     const a=document.activeElement;
     const typingElsewhere=a && a!==input && (a.tagName==='TEXTAREA' || (a.tagName==='INPUT' && !/^(checkbox|radio|button|submit)$/i.test(a.type)) || a.isContentEditable);
