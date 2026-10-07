@@ -3036,3 +3036,9 @@ html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:
 #stockPeek .stock-peek-head{align-items:flex-start}
 #stockPeek #stockPeekInput{flex:1;min-height:38px;height:38px;padding:9px 12px;font-size:14px;line-height:1.4;resize:none;overflow:hidden;white-space:nowrap}
 #stockPeek.is-multi #stockPeekInput{height:130px;overflow:auto;white-space:pre-wrap}
+/* รหัสที่ค้นแล้วไม่มีสต็อก (แสดงบนสุด) */
+#stockPeek .stock-peek-missing{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0 6px;padding:8px 10px;border:1px solid rgba(239,68,68,.45);border-radius:9px;background:rgba(239,68,68,.08)}
+#stockPeek .stock-peek-missing-head{flex:0 0 100%;font-size:12.5px;font-weight:700;color:#f87171}
+html[data-prod-theme="light"] #stockPeek .stock-peek-missing-head{color:#b91c1c}
+#stockPeek .stock-peek-miss{font-size:12px;padding:3px 8px;border:1px solid rgba(239,68,68,.45);border-radius:999px;white-space:nowrap}
+#stockPeek .stock-peek-miss small{color:var(--muted-2)}

@@ -4903,7 +4903,7 @@ renderBeforeOrderTable();
   }
 
   function render(){
-    const terms=String(input.value||'').split(/[\s,]+/).map(normalizeOrderSku).filter(Boolean);
+    const terms=[...new Set(String(input.value||'').split(/[\s,]+/).map(normalizeOrderSku).filter(Boolean))];
     if(!terms.length){ out.innerHTML='<div class="stock-peek-empty">พิมพ์รหัส SKU เพื่อค้นหา</div>'; return; }
     const rows=peekRows();
     if(!rows){
@@ -4912,18 +4912,28 @@ renderBeforeOrderTable();
       return;
     }
     const bySku=new Map();
+    const hit=new Set(); // คำค้นที่เจอของจริง (ไม่นับตำแหน่งชำรุด)
+    const hitDamaged=new Set(); // คำค้นที่เจอแค่ในตำแหน่งชำรุด
     rows.forEach(r=>{
       const key=normalizeOrderSku(r.sku);
-      if(!key || !terms.some(t=>key.includes(t))) return;
-      if(r.qty<=0) return;
+      if(!key || r.qty<=0) return;
+      const matched=terms.filter(t=>key.includes(t));
+      if(!matched.length) return;
+      matched.forEach(t=>(r.damaged ? hitDamaged : hit).add(t));
       if(!bySku.has(key)) bySku.set(key,{sku:r.sku,total:0,locs:[]});
       const it=bySku.get(key);
       if(!r.damaged) it.total+=r.qty;
       it.locs.push({loc:r.loc||'-',qty:r.qty,damaged:r.damaged});
     });
     const list=[...bySku.values()].sort((a,b)=>a.sku.localeCompare(b.sku,undefined,{numeric:true}));
-    if(!list.length){ out.innerHTML='<div class="stock-peek-empty">❌ ไม่พบรหัสนี้ในสต็อก</div>'; return; }
-    out.innerHTML=list.slice(0,MAX_SKUS).map(it=>{
+    // รหัสที่ค้นแล้วไม่มีสต็อก ขึ้นไว้บนสุด ค้นทีละเยอะๆ จะได้เห็นทันทีว่าตัวไหนไม่มี
+    const missing=terms.filter(t=>!hit.has(t));
+    const missingHtml=missing.length
+      ? `<div class="stock-peek-missing"><div class="stock-peek-missing-head">❌ ไม่มีสต็อก ${missing.length.toLocaleString()} รหัส</div>`+
+        missing.map(t=>`<span class="stock-peek-miss">${esc(t)}${hitDamaged.has(t)?' <small>(มีแค่ตำแหน่งชำรุด)</small>':''}</span>`).join('')+`</div>`
+      : '';
+    if(!list.length){ out.innerHTML=missingHtml; return; }
+    out.innerHTML=missingHtml+list.slice(0,MAX_SKUS).map(it=>{
       const locs=it.locs.sort((a,b)=>a.loc.localeCompare(b.loc,undefined,{numeric:true}))
         .map(l=>{
           if(l.damaged) return `<span class="stock-peek-loc is-damaged" title="ตำแหน่งชำรุด ไม่นับเป็นสต็อก">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></span>`;
