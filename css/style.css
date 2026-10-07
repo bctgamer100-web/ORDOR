@@ -2964,3 +2964,10 @@ input:focus,select:focus,textarea:focus{
 
 /* ช่องจำนวนเบิก (ตาราง รายการที่ถูกลบ-ถูกหัก): ขอบสีเน้นเมื่อแก้ตัวเลขเองแล้ว ไม่ใช่ค่าตามเงื่อนไข */
 #compareTool .move-qty-input.is-edited{border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent)!important}
+
+/* ช่องตำแหน่ง (ตาราง รายการที่ถูกลบ-ถูกหัก): กดเลือกกลุ่มตำแหน่งที่จะเบิก ที่เลือกตัวหนังสือเปลี่ยนสี */
+#compareTool .move-loc-chip{background:none!important;border:0!important;padding:1px 2px!important;margin:0!important;min-height:0!important;box-shadow:none!important;color:inherit!important;font:inherit!important;cursor:pointer;border-radius:4px!important;width:auto!important}
+#compareTool .move-loc-chip:hover{text-decoration:underline}
+#compareTool .move-loc-chip.is-picked{color:var(--move-pick,#4f9bff)!important;font-weight:700!important;text-decoration:underline;text-underline-offset:3px}
+html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:#1d4ed8}
+#compareTool .move-loc-sep{opacity:.6}

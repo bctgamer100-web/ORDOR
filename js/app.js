@@ -828,6 +828,7 @@ function compareFiles(){
     compareCopyBrandSelection.clear();
     compareCopyLocationSelection.clear();
     moveQtyOverrides.clear();
+    moveLocPicks.clear();
     compareCopySelectionsInitialized = false;
 
     // คงลำดับตามไฟล์ ORDER (ไฟล์ที่ 1) ไม่เรียง SKU ใหม่ตามพยัญชนะ
@@ -1104,8 +1105,10 @@ function getRemainingRows(){
     .map(item=>({item,qty:Math.max(item.orderQty-item.stockQty,0)}));
   const plan=buildMovePlan();
   plan.forEach((p,key)=>{
-    if(p.manual===null || p.manual<=p.stockTotal) return;
-    const excess=p.manual-p.stockTotal;
+    // แก้ตัวเลขเอง หรือเลือกตำแหน่งเอง แล้วสต็อกที่ใช้ได้ไม่พอ: ส่วนที่ขาดไปอยู่ยอดคงเหลือ
+    const want=p.manual!==null ? p.manual : (p.restricted ? p.pick : null);
+    if(want===null || want<=p.stockTotal) return;
+    const excess=want-p.stockTotal;
     const item=compareResults.find(x=>moveKeyOf(x)===key);
     if(!item) return;
     // ตัวเลขที่พิมพ์แทนจำนวนที่ต้องการทั้งหมด: ยอดคงเหลือของ SKU นี้ = ตัวเลขที่พิมพ์ - สต็อกที่มี (แทนค่าเดิม ไม่บวกซ้ำ)
@@ -1147,7 +1150,7 @@ function updateComparePreviewTables(){
   const plan=buildMovePlan();
   const deducted=deductedFiltered.map(item=>[
     compareSkuLabel(item),item.orderQty,item.stockQty,
-    moveQtyCell(item,plan),compareLocQtyLabel(item),item.status
+    moveQtyCell(item,plan),moveLocCell(item),item.status
   ]);
 
   const remWrap=document.querySelector('[data-preview-table="remaining"]');
@@ -1201,7 +1204,7 @@ function renderCompareWebPreview(mode='all'){
         item.orderQty,
         item.stockQty,
         moveQtyCell(item,plan),
-        compareLocQtyLabel(item),
+        moveLocCell(item),
         item.status
       ]);
 
@@ -1316,10 +1319,10 @@ function getMovePriority(){
 // รวมกับตำแหน่งที่ขึ้นต้นด้วย J (J-W-01 ...) ซึ่งได้ไฟล์ J ตามกลุ่มอยู่แล้ว
 // ยกเว้นตำแหน่ง H (เช่น H-03-09-34 J) ยังอยู่ไฟล์ H ตามเดิม ที่เหลือแยกไฟล์ตามกลุ่มตำแหน่ง (ตัวหน้า "-")
 const MOVE_J_FILE = 'J';
-// ไฟล์ใบย้ายมีแค่ 4 ไฟล์: H, KT, C, J — กลุ่มตำแหน่งอื่นรวมเข้าไฟล์เหล่านี้
-//   K → KT · F, D, M → C · R, P, SD, EQ001–EQ007/EQB… → J
+// ไฟล์ใบย้ายมีแค่ 4 ไฟล์: H, K, C, J — กลุ่มตำแหน่งอื่นรวมเข้าไฟล์เหล่านี้
+//   KT → K (คลังเปลี่ยนชื่อตำแหน่ง KT-… เป็น K-… แล้ว) · F, D, M → C · R, P, SD, EQ001–EQ007/EQB… → J
 // กลุ่มที่ไม่อยู่ในรายการนี้ ได้ไฟล์ตามชื่อกลุ่มของตัวเอง
-const MOVE_FILE_ALIAS = { K: 'KT', F: 'C', D: 'C', M: 'C', R: MOVE_J_FILE, P: MOVE_J_FILE, SD: MOVE_J_FILE };
+const MOVE_FILE_ALIAS = { KT: 'K', F: 'C', D: 'C', M: 'C', R: MOVE_J_FILE, P: MOVE_J_FILE, SD: MOVE_J_FILE };
 function moveFileKey(place){
   const prefix=String(place.prefix||'').toUpperCase();
   if(prefix!==MOVE_FULL_BOX_PREFIX && /\sJ$/i.test(String(place.loc||'').trim())) return MOVE_J_FILE;
@@ -1484,7 +1487,10 @@ function buildMovePlan(){
       const cur=merged.get(k);
       if(cur) cur.qty+=p.qty; else merged.set(k,{...p});
     });
-    const places=[...merged.values()].filter(p=>p.qty>0)
+    // กดเลือกกลุ่มตำแหน่งในตาราง (moveLocPicks): เบิกเฉพาะกลุ่มที่เลือก ไม่ได้เลือก = ทุกกลุ่มตามเงื่อนไขปกติ
+    const picked=moveLocPicks.get(key);
+    const restricted=!!(picked && picked.size);
+    const places=[...merged.values()].filter(p=>p.qty>0 && (!restricted || picked.has(p.prefix)))
       // กลุ่มเดียวกัน: ตำแหน่งที่มีของน้อยสุดเบิกก่อน (เคลียร์ตำแหน่งที่เหลือน้อย) ยกเว้นลัง H เอาลังที่มีมากสุดก่อน
       .sort((a,b)=>moveRank(a.prefix,priority)-moveRank(b.prefix,priority) ||
         (a.prefix===MOVE_FULL_BOX_PREFIX && b.prefix===MOVE_FULL_BOX_PREFIX ? b.qty-a.qty : a.qty-b.qty) ||
@@ -1518,10 +1524,41 @@ function buildMovePlan(){
     const manual=moveQtyOverrides.has(key) ? moveQtyOverrides.get(key) : null;
     const rows=manual===null ? autoRows : allocate(manual,manual,true);
     const stockTotal=places.reduce((s,p)=>s+p.qty,0);
-    plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto,manual,stockTotal});
+    plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto,manual,stockTotal,pick:item.pick,restricted});
   });
   return plan;
 }
+
+// กลุ่มตำแหน่งที่กดเลือกเองต่อ SKU (คีย์ = SKU ที่เบิกจริง → Set ของกลุ่ม เช่น K, H) ล้างทุกครั้งที่ตรวจชุดใหม่
+const moveLocPicks=new Map();
+
+// ช่องตำแหน่งในตาราง: แต่ละกลุ่มกดเลือก/ยกเลิกได้ ที่เลือกตัวหนังสือเปลี่ยนสี
+function moveLocCell(item){
+  const key=moveKeyOf(item);
+  const picked=moveLocPicks.get(key)||new Set();
+  const sum=new Map();
+  (item.places||[]).forEach(p=>{ if(p.prefix) sum.set(p.prefix,(sum.get(p.prefix)||0)+p.qty); });
+  const order=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
+  if(!order.length) return '-';
+  const chips=order.map(loc=>{
+    const on=picked.has(loc) ? ' is-picked' : '';
+    const label=sum.has(loc) ? `${loc}=${formatPivotNumber(sum.get(loc))}` : loc;
+    return `<button type="button" class="move-loc-chip${on}" data-move-key="${encodeURIComponent(key)}" data-prefix="${esc(loc)}" title="กดเพื่อเบิกเฉพาะตำแหน่งนี้ (กดอีกครั้งเพื่อยกเลิก)">${esc(label)}</button>`;
+  });
+  return {html:chips.join('<span class="move-loc-sep">, </span>')};
+}
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest && e.target.closest('.move-loc-chip');
+  if(!el) return;
+  const key=decodeURIComponent(el.dataset.moveKey||'');
+  const prefix=el.dataset.prefix||'';
+  const set=moveLocPicks.get(key)||new Set();
+  if(set.has(prefix)) set.delete(prefix); else set.add(prefix);
+  if(set.size) moveLocPicks.set(key,set); else moveLocPicks.delete(key);
+  // จำนวนเบิก/ยอดคงเหลือ/ใบย้าย คิดใหม่ตามตำแหน่งที่เลือก
+  updateComparePreviewTables();
+});
 
 // ช่องจำนวนเบิกในตาราง: ค่าเริ่มต้นตามเงื่อนไข แก้เองได้
 function moveQtyCell(item, plan){
