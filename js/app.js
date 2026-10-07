@@ -4490,6 +4490,15 @@ function createBeforeOrderExcel() {
       status.textContent = `✅ ยืนยันแล้ว ${selectedRows.length.toLocaleString()} รายการ | สร้าง Excel Pivot และนำไปไว้ที่ 📥 ไฟล์ที่ 1 — ORDER แล้ว`;
     }
 
+    // บันทึกรายการที่ยืนยันพร้อมเวลาที่กด ไว้เปิดซ้ำได้ที่หน้า ตรวจ ORDER กับ Stock (js/saved-files.js)
+    if (window.SavedConfirms && typeof window.SavedConfirms.save === 'function') {
+      window.SavedConfirms.save({
+        file,
+        rows: selectedRows.map(row => ({ sku: row?.sku ?? '', qty: row?.qty ?? 0 })),
+        brandMap: [...window.scanBrandMap]
+      }).catch(e => console.warn('บันทึกรายการที่ยืนยันไม่สำเร็จ:', e));
+    }
+
     if (typeof window.workHistoryLog === 'function') {
       window.workHistoryLog(
         'process',

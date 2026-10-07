@@ -7,11 +7,13 @@
   'use strict';
 
   const DB_NAME = 'order_ws_v1';
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const FILES = 'order_files';
   const PRINTS = 'order_prints';
+  const CONFIRMS = 'order_confirms'; // รายการที่กดยืนยันจากหน้า ก่อนสั่ง (ใช้ซ้ำที่หน้า ตรวจ ORDER กับ Stock)
   const MAX_FILES = 10;
   const MAX_PRINTS = 10;
+  const MAX_CONFIRMS = 20;
   const MAX_BYTES = 60 * 1024 * 1024;
 
   if (!window.indexedDB) return;
@@ -25,6 +27,7 @@
           const d = req.result;
           if (!d.objectStoreNames.contains(FILES)) d.createObjectStore(FILES, { keyPath: 'id' });
           if (!d.objectStoreNames.contains(PRINTS)) d.createObjectStore(PRINTS, { keyPath: 'id' });
+          if (!d.objectStoreNames.contains(CONFIRMS)) d.createObjectStore(CONFIRMS, { keyPath: 'id' });
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
@@ -55,6 +58,7 @@
   });
   const files = dbApi(FILES);
   const prints = dbApi(PRINTS);
+  const confirms = dbApi(CONFIRMS);
 
   async function prune(api, max) {
     const all = await api.all();
@@ -304,6 +308,104 @@
     formatDate: fmtDate,
     formatSize: fmtSize
   };
+
+  /* ------------------------------------------------------------------ */
+  /* 2.5) รายการที่ยืนยันจากหน้า ก่อนสั่ง (แสดงที่หน้า ตรวจ ORDER กับ Stock)  */
+  /*      บันทึกตอนกดยืนยัน เวลาที่แสดง = เวลาที่กดยืนยัน (ไม่เปลี่ยนตอนเปิดซ้ำ) */
+  /* ------------------------------------------------------------------ */
+  const confPanel = document.getElementById('confirmRef');
+  const confList = document.getElementById('confirmRefList');
+  const confClear = document.getElementById('confirmRefClear');
+  let confCurrentId = null;
+
+  async function saveConfirm(info) {
+    if (!info || !info.file || !Array.isArray(info.rows) || !info.rows.length) return null;
+    const now = Date.now();
+    const rec = {
+      id: 'c' + now,
+      savedAt: now,
+      name: info.file.name,
+      type: info.file.type,
+      blob: info.file,
+      count: info.rows.length,
+      qty: info.rows.reduce((s, r) => s + (Number(r.qty) || 0), 0),
+      brandMap: info.brandMap || []
+    };
+    try {
+      await confirms.put(rec);
+      await prune(confirms, MAX_CONFIRMS);
+    } catch (e) { return null; }
+    confCurrentId = rec.id;
+    renderConfirms();
+    return rec.id;
+  }
+
+  async function openConfirm(id) {
+    let rec = null;
+    try { rec = await confirms.one(id); } catch (e) { rec = null; }
+    if (!rec || !rec.blob) { toast('ไม่พบรายการที่บันทึกไว้', ''); renderConfirms(); return; }
+    window.scanBrandMap = new Map(rec.brandMap || []);
+    const file = new File([rec.blob], rec.name, { type: rec.type || rec.blob.type });
+    await window.loadOrderCompareFile(file);
+    confCurrentId = rec.id;
+    renderConfirms();
+    toast('เปิดรายการที่ยืนยันเมื่อ ' + fmtDate(rec.savedAt) + ' แล้ว', 'success');
+  }
+
+  async function renderConfirms() {
+    if (!confPanel || !confList) return;
+    let all = [];
+    try { all = await confirms.all(); } catch (e) { all = []; }
+    confList.textContent = '';
+    confPanel.hidden = all.length === 0;
+    if (!all.length) return;
+    const frag = document.createDocumentFragment();
+    all.forEach(rec => {
+      const row = document.createElement('div');
+      row.className = 'saved-file' + (rec.id === confCurrentId ? ' is-current' : '');
+      const info = document.createElement('div');
+      info.className = 'saved-file-info';
+      const name = document.createElement('strong');
+      name.textContent = 'ยืนยัน ' + fmtDate(rec.savedAt);
+      name.title = rec.name;
+      const meta = document.createElement('span');
+      meta.textContent = rec.count.toLocaleString() + ' รายการ · รวม ' + (rec.qty || 0).toLocaleString() + ' ชิ้น';
+      info.append(name, meta);
+
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'saved-file-open';
+      openBtn.textContent = rec.id === confCurrentId ? '✓ ใช้อยู่' : 'เปิด';
+      openBtn.title = 'ใช้รายการนี้เป็น ไฟล์ที่ 1 — ORDER';
+      openBtn.addEventListener('click', () => openConfirm(rec.id));
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'saved-file-del';
+      delBtn.textContent = 'ลบ';
+      delBtn.title = 'ลบรายการนี้';
+      delBtn.addEventListener('click', async () => {
+        try { await confirms.del(rec.id); } catch (e) { /* ไม่กระทบ */ }
+        if (confCurrentId === rec.id) confCurrentId = null;
+        renderConfirms();
+      });
+
+      row.append(info, openBtn, delBtn);
+      frag.appendChild(row);
+    });
+    confList.appendChild(frag);
+  }
+
+  if (confClear) {
+    confClear.addEventListener('click', async () => {
+      if (!confirm('ลบรายการที่ยืนยันไว้ทั้งหมด?')) return;
+      try { await confirms.clear(); } catch (e) { /* ไม่กระทบ */ }
+      confCurrentId = null;
+      renderConfirms();
+    });
+  }
+  window.SavedConfirms = { save: saveConfirm, render: renderConfirms };
+  renderConfirms();
 
   /* ------------------------------------------------------------------ */
   /* 3) ล้างรายการที่บันทึกไว้ของวันก่อนหน้า ทุก 00:00                       */

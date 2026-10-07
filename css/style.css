@@ -2971,3 +2971,22 @@ input:focus,select:focus,textarea:focus{
 #compareTool .move-loc-chip.is-picked{color:var(--move-pick,#4f9bff)!important;font-weight:700!important;text-decoration:underline;text-underline-offset:3px}
 html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:#1d4ed8}
 #compareTool .move-loc-sep{opacity:.6}
+
+/* หน้า ตรวจ ORDER กับ Stock: รายการที่ยืนยันจากหน้าก่อนสั่ง (js/saved-files.js → SavedConfirms) */
+#compareTool .saved-files{margin:0 0 14px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:transparent}
+#compareTool .saved-files[hidden]{display:none!important}
+#compareTool .saved-files-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:8px}
+#compareTool .saved-files-head strong{font-size:13px;color:var(--foreground)}
+#compareTool .saved-files-head span{font-size:11px;color:var(--muted-2);flex:1 1 auto}
+#compareTool .saved-files-clear{min-height:26px!important;padding:0 10px!important;font-size:11px;border-radius:7px!important;box-shadow:none!important;background:transparent!important;color:var(--muted)!important}
+#compareTool .saved-files-list{display:grid;gap:6px;max-height:230px;overflow:auto}
+#compareTool .saved-file{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border-soft);border-radius:9px}
+#compareTool .saved-file:hover{background:var(--accent-soft)}
+#compareTool .saved-file.is-current{border-color:var(--accent)}
+#compareTool .saved-file-info{display:flex;flex-direction:column;min-width:0}
+#compareTool .saved-file-info strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#compareTool .saved-file-info span{font-size:11px;color:var(--muted-2)}
+#compareTool .saved-file button{min-height:30px!important;padding:0 12px!important;font-size:12px;border-radius:8px!important;box-shadow:none!important}
+#compareTool .saved-file .saved-file-open{background:var(--accent)!important;color:var(--accent-fg)!important;border-color:var(--accent)!important;font-weight:600}
+#compareTool .saved-file.is-current .saved-file-open{background:transparent!important;color:var(--accent)!important}
+#compareTool .saved-file .saved-file-del{background:transparent!important;color:var(--muted)!important}
