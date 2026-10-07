@@ -4970,7 +4970,15 @@ renderBeforeOrderTable();
   });
 
   function open(){ box.hidden=false; render(); renderBar(); input.focus(); input.select(); }
-  function close(){ box.hidden=true; if(document.activeElement===input) input.blur(); }
+  // ปิดแล้วเริ่มใหม่ทุกครั้ง: ล้างคำค้น ผลค้นหา และตำแหน่งที่เลือกไว้ เปิดครั้งหน้าจะเป็นช่องว่าง
+  function close(){
+    box.hidden=true;
+    if(box.contains(document.activeElement)) document.activeElement.blur();
+    input.value='';
+    picks.clear();
+    out.innerHTML='';
+    renderBar();
+  }
   input.addEventListener('input',render);
   input.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); } });
 
