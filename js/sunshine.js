@@ -574,9 +574,97 @@
     return m;
   }
 
+  // รหัสที่ใช้แทนกันได้: ใช้ชื่อรวม (เช่น 010223/010234-ดำ-XL) เป็นตัวตั้ง แล้วรวมรหัสเดี่ยว (010223-ดำ-XL, 010234-ดำ-XL) เข้าหา
+  // กลุ่มรหัสมาจาก (1) SKU ที่ตั้งชื่อรวมด้วย "/" ในข้อมูลจริง (2) คู่รหัสใน js/move-rules.js เช่น 001478-001520
+  // รหัสตัวเลขเทียบแบบไม่สน 0 นำหน้า · ชื่อรวมต้องเป็นรหัสตัวเลข 4 หลักขึ้นไปทุกตัว (กันชื่อสินค้าอย่าง SA306/1 ถูกนับเป็นกลุ่ม)
+  function buildCanonSku(allSkuLists) {
+    const strip = function (c) { return String(c).trim().replace(/^0+/, ''); };
+    const isGroup = function (parts) { return parts.length > 1 && parts.every(function (p) { return /^\d{4,}$/.test(p.trim()); }); };
+    const parent = {};
+    const find = function (x) { while (parent[x] && parent[x] !== x) x = parent[x]; return x; };
+    const union = function (codes) {
+      codes.forEach(function (c) { if (!parent[c]) parent[c] = c; });
+      const r = find(codes[0]);
+      codes.slice(1).forEach(function (c) { const rc = find(c); if (rc !== r) parent[rc] = r; });
+    };
+    const named = {}; // root → ชื่อรวมที่พบในข้อมูล (เลือกตัวที่มีรหัสมากสุด)
+    const ruleName = {}; // root → ชื่อรวมจากคู่รหัสใน move-rules (ใช้เมื่อไม่มีชื่อรวมในข้อมูล)
+    allSkuLists.forEach(function (list) {
+      list.forEach(function (sku) {
+        const s = String(sku), i = s.indexOf('-');
+        if (i < 1) return;
+        const parts = s.slice(0, i).split('/');
+        if (isGroup(parts)) union(parts.map(strip));
+      });
+    });
+    const rules = window.MOVE_BUFFER_RULES || {};
+    Object.keys(rules).forEach(function (brand) {
+      Object.keys(rules[brand]).forEach(function (code) {
+        const parts = String(code).split('-');
+        if (isGroup(parts)) union(parts.map(strip));
+      });
+    });
+    allSkuLists.forEach(function (list) {
+      list.forEach(function (sku) {
+        const s = String(sku), i = s.indexOf('-');
+        if (i < 1) return;
+        const seg = s.slice(0, i), parts = seg.split('/');
+        if (!isGroup(parts)) return;
+        const r = find(strip(parts[0]));
+        if (!named[r] || named[r].split('/').length < parts.length) named[r] = seg;
+      });
+    });
+    Object.keys(rules).forEach(function (brand) {
+      Object.keys(rules[brand]).forEach(function (code) {
+        const parts = String(code).split('-');
+        if (!isGroup(parts)) return;
+        const r = find(strip(parts[0]));
+        if (!ruleName[r]) ruleName[r] = parts.map(function (p) { return /^\d{6,}$/.test(p) ? p : ('000000' + p).slice(-6); }).join('/');
+      });
+    });
+    return function (sku) {
+      const s = String(sku), i = s.indexOf('-');
+      if (i < 1) return s;
+      const parts = s.slice(0, i).split('/');
+      const first = strip(parts[0]);
+      if (!(parts.length === 1 ? /^\d{4,}$/.test(parts[0].trim()) : isGroup(parts))) return s;
+      if (!parent[first]) return s;
+      const r = find(first);
+      const head = named[r] || ruleName[r];
+      return head ? head + s.slice(i) : s;
+    };
+  }
+
+  // รวมค่าในแผนที่ {sku: ตัวเลข} เข้าหาชื่อรวม
+  function mergeNumMap(map, canon) {
+    const out = {};
+    Object.keys(map || {}).forEach(function (k) { const c = canon(k); out[c] = (out[c] || 0) + (Number(map[k]) || 0); });
+    return out;
+  }
+
   function renderPurchase(hist, st, skuNames, moveMap, comMap, frontSaleMap) {
-    const stock = buildStock(st);
-    const vel = buildVelocity(hist);
+    const rawStock = buildStock(st);
+    const rawVel = buildVelocity(hist);
+    const canon = buildCanonSku([Object.keys(skuNames), Object.keys(rawVel), Object.keys(rawStock), Object.keys(comMap || {}), Object.keys(frontSaleMap || {})]);
+    const vel = mergeNumMap(rawVel, canon);
+    const stock = {};
+    Object.keys(rawStock).forEach(function (k) {
+      const c = canon(k), s = rawStock[k];
+      if (!stock[c]) stock[c] = { F: 0, K: 0, Y: 0, total: 0, locs: [] };
+      stock[c].F += s.F; stock[c].K += s.K; stock[c].Y += s.Y; stock[c].total += s.total;
+      stock[c].locs = stock[c].locs.concat(s.locs || []);
+    });
+    moveMap = mergeNumMap(moveMap, canon);
+    comMap = mergeNumMap(comMap, canon);
+    frontSaleMap = mergeNumMap(frontSaleMap, canon);
+    const names = {};
+    Object.keys(skuNames).forEach(function (k) { const c = canon(k); if (!names[c] || names[c] === '-') names[c] = skuNames[k]; });
+    skuNames = names;
+    // ค้นหาด้วยรหัสเดี่ยวเดิมก็ยังเจอแถวชื่อรวม (เช่น ค้น 012283-ดำ เจอ 012106/012283/012586-ดำ-…)
+    const aliasSearch = {};
+    [Object.keys(rawVel), Object.keys(rawStock), Object.keys(names)].forEach(function (keys) {
+      keys.forEach(function (k) { const c = canon(k); if (c !== k) aliasSearch[c] = (aliasSearch[c] || '') + ' ' + k.toLowerCase(); });
+    });
     const th = getBestThresholds(); // ใช้เกณฑ์เดียวกับหน้าสินค้าขายดี ABC ไม่ต้องตั้งซ้ำ
 
     // SKU ทั้งหมด = ทุกตัวใน products (+ ชื่อจาก ST) รวมกับตัวที่มียอดขาย — ตัวที่ไม่มียอดขายจะได้ยอด 0
@@ -642,7 +730,7 @@
         cls: i.cover <= CFG.LEAD_DAYS ? 'sun-row-warn' : '',
         brand: name.toUpperCase(), grade: i.grade, rec: rec.cls,
         urgent: isUrgent(i), order: i.order, sku: i.sku,
-        search: (i.sku + ' ' + name).toLowerCase()
+        search: (i.sku + ' ' + name).toLowerCase() + (aliasSearch[i.sku] || '')
       });
     });
 
