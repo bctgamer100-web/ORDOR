@@ -4841,17 +4841,24 @@ renderBeforeOrderTable();
   if(!box || !input || !out) return;
 
   // แถวสต็อกแบบเดียวกันทุกแหล่ง: {sku, loc, qty, damaged}
-  let dbRows=null, dbLoading=null;
+  // ใช้สต็อกล่าสุดจากฐานข้อมูลเป็นหลัก ดึงใหม่ทุกครั้งที่เปิดกล่อง (กันข้อมูลค้างหลังอัปโหลด ST ใหม่)
+  // ยกเว้นหน้า ตรวจ ORDER กับ Stock เลือก "ไฟล์" Stock เองไว้ ใช้ไฟล์นั้น (ตรงกับที่ตรวจอยู่)
+  let dbRows=null, dbLoading=null, dbAt=0;
+  function stockFromFile(){
+    return !!(data1 && data1.length && stockSkuCol && !/ฐานข้อมูล/.test(String(stockFileName||'')));
+  }
   function peekRows(){
-    if(data1 && data1.length && stockSkuCol){
+    if(stockFromFile()){
       return data1.map(row=>({sku:norm(row[stockSkuCol]), loc:stockPosCol ? norm(row[stockPosCol]) : '', qty:num(row[stockQtyCol]), damaged:isDamagedStockRow(row)}));
     }
     return dbRows;
   }
-  function ensureDbRows(){
-    if(dbRows || dbLoading || (data1 && data1.length)) return;
+  function ensureDbRows(force){
+    if(dbLoading || stockFromFile()) return;
+    if(dbRows && !force) return;
     if(!window.SunStock || typeof window.SunStock.fetchStock!=='function') return;
     dbLoading=window.SunStock.fetchStock().then(rows=>{
+      dbAt=Date.now();
       dbRows=rows.map(r=>{
         const loc=norm(r.location);
         const up=loc.toUpperCase();
@@ -4932,8 +4939,12 @@ renderBeforeOrderTable();
       ? `<div class="stock-peek-missing"><div class="stock-peek-missing-head">❌ ไม่มีสต็อก ${missing.length.toLocaleString()} รหัส</div>`+
         missing.map(t=>`<span class="stock-peek-miss">${esc(t)}${hitDamaged.has(t)?' <small>(มีแค่ตำแหน่งชำรุด)</small>':''}</span>`).join('')+`</div>`
       : '';
-    if(!list.length){ out.innerHTML=missingHtml; return; }
-    out.innerHTML=missingHtml+list.slice(0,MAX_SKUS).map(it=>{
+    // บอกว่าใช้สต็อกจากไหน ดึงเมื่อไหร่ จะได้รู้ว่าข้อมูลสดแค่ไหน
+    const srcHtml=`<div class="stock-peek-src">${stockFromFile()
+      ? 'สต็อกจากไฟล์ '+esc(stockFileName)+' (หน้าตรวจ ORDER กับ Stock)'
+      : 'สต็อกจากฐานข้อมูล ดึงเมื่อ '+(dbAt?new Date(dbAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'-')+(dbLoading?' · ⏳ กำลังดึงใหม่...':'')}</div>`;
+    if(!list.length){ out.innerHTML=srcHtml+missingHtml; return; }
+    out.innerHTML=srcHtml+missingHtml+list.slice(0,MAX_SKUS).map(it=>{
       const locs=it.locs.sort((a,b)=>a.loc.localeCompare(b.loc,undefined,{numeric:true}))
         .map(l=>{
           if(l.damaged) return `<span class="stock-peek-loc is-damaged" title="ตำแหน่งชำรุด ไม่นับเป็นสต็อก">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></span>`;
@@ -5042,7 +5053,8 @@ renderBeforeOrderTable();
   });
   if(closeBtn) closeBtn.addEventListener('click',()=>close());
 
-  function open(){ box.hidden=false; applyGeo(); render(); renderBar(); input.focus(); input.select(); }
+  // เปิดทุกครั้ง ดึงสต็อกล่าสุดจากฐานข้อมูลใหม่ (ระหว่างดึงยังค้นด้วยข้อมูลเดิมได้ เสร็จแล้วผลอัปเดตเอง)
+  function open(){ box.hidden=false; applyGeo(); ensureDbRows(true); render(); renderBar(); input.focus(); input.select(); }
   // ปิดแล้วเริ่มใหม่ทุกครั้ง: ล้างคำค้น ผลค้นหา และตำแหน่งที่เลือกไว้ เปิดครั้งหน้าจะเป็นช่องว่าง
   function close(){
     box.hidden=true;

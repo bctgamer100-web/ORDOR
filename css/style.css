@@ -3042,3 +3042,4 @@ html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:
 html[data-prod-theme="light"] #stockPeek .stock-peek-missing-head{color:#b91c1c}
 #stockPeek .stock-peek-miss{font-size:12px;padding:3px 8px;border:1px solid rgba(239,68,68,.45);border-radius:999px;white-space:nowrap}
 #stockPeek .stock-peek-miss small{color:var(--muted-2)}
+#stockPeek .stock-peek-src{font-size:11px;color:var(--muted-2);padding:4px 0 2px}
