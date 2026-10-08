@@ -1611,9 +1611,15 @@ document.addEventListener('change',e=>{
 });
 
 function downloadPickListsByLocation(){
-  if(!compareResults.length) return alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
+  const byPrefix=collectPickFiles();
+  if(byPrefix) exportMoveFiles(byPrefix);
+}
+
+// แถวใบย้ายแยกไฟล์ตามตำแหน่ง Map(ชื่อไฟล์ → แถว) · null = ไม่มีอะไรให้ทำ (แจ้งเตือนแล้ว)
+function collectPickFiles(){
+  if(!compareResults.length){ alert("ยังไม่มีผลตรวจ"); return null; }
   const selected=compareCopyLocationSelection;
-  if(!selected.size) return alert("ยังไม่ได้เลือกตำแหน่ง (📍 เลือกตำแหน่ง)");
+  if(!selected.size){ alert("ยังไม่ได้เลือกตำแหน่ง (📍 เลือกตำแหน่ง)"); return null; }
 
   const byPrefix=new Map();
   const addRow=(sku,p,qty)=>{
@@ -1626,8 +1632,22 @@ function downloadPickListsByLocation(){
   plan.forEach(item=>item.rows.forEach(({place,qty})=>addRow(item.sku,place,qty)));
   moveBoxCompanions(plan).forEach(({sku,place,qty})=>addRow(sku,place,qty));
 
-  if(!byPrefix.size) return alert("ไม่มีรายการที่ต้องเบิกในตำแหน่งที่เลือก");
-  exportMoveFiles(byPrefix);
+  if(!byPrefix.size){ alert("ไม่มีรายการที่ต้องเบิกในตำแหน่งที่เลือก"); return null; }
+  return byPrefix;
+}
+
+// ส่งใบย้ายให้ส่วนขยาย "ค้นหาสต็อก" นำเข้า BigSeller อัตโนมัติ (ส่วนขยายถามยืนยันเองก่อนเริ่ม แล้วไปทำในแท็บ BigSeller)
+function importPickListsToBigSeller(){
+  if(document.documentElement.getAttribute("data-order-stock-peek")!=="1"){
+    alert("ต้องติดตั้งส่วนขยาย \"ค้นหาสต็อก\" (โฟลเดอร์ extension) ใน Chrome/Edge ก่อน แล้วรีเฟรชหน้านี้ (F5)\n"+
+      "ถ้าเปิดจากแอปที่ติดตั้งในเครื่อง ต้องเปิด \"อนุญาตให้เข้าถึง URL ของไฟล์\" ของส่วนขยายด้วย");
+    return;
+  }
+  const byPrefix=collectPickFiles();
+  if(!byPrefix) return;
+  const files={};
+  uniqueSorted([...byPrefix.keys()]).forEach(k=>{ files[k]=byPrefix.get(k); });
+  window.postMessage({source:"order-workspace",type:"bigsellerImport",files},"*");
 }
 
 // สร้างไฟล์ใบย้าย (ฟอร์ม BigSeller) จาก Map(ชื่อไฟล์ → แถว) แล้วดาวน์โหลด: ไฟล์เดียว = .xlsx หลายไฟล์ = .zip
@@ -1751,6 +1771,8 @@ const downloadWebExcelBtn=document.getElementById("downloadWebExcel");
 if(downloadWebExcelBtn) downloadWebExcelBtn.onclick=downloadStockCheckResult;
 const downloadPickByLocBtn=document.getElementById("downloadPickByLoc");
 if(downloadPickByLocBtn) downloadPickByLocBtn.onclick=downloadPickListsByLocation;
+const importPickBigSellerBtn=document.getElementById("importPickBigSeller");
+if(importPickBigSellerBtn) importPickBigSellerBtn.onclick=importPickListsToBigSeller;
 
 let compareTextTimer=null;
 
