@@ -2137,6 +2137,18 @@
   // โดยไม่ต้องเปิดแท็บ Sunshine ก่อน — คืนแถวดิบ [{sku, sku_name, location, qty}, ...]
   window.SunStock = {
     fetchStock: function () { return fetchAllRows('op_stock', 'sku,sku_name,location,qty', 'id'); },
-    fetchMoves: function () { return fetchAllRows('op_stock_moves', 'sku,sku_name,moved_at,location,move,type', 'id'); }
+    fetchMoves: function () { return fetchAllRows('op_stock_moves', 'sku,sku_name,moved_at,location,move,type', 'id'); },
+    // ประวัติ SKU ที่ส่งออกใบย้ายวันนี้ (ใช้ร่วมกันทุกเครื่อง) — ต้องรัน supabase/op_pick_log.sql ก่อน
+    // pickToday → [{ sku_key, sku, n, qty, last_at }] · recordPicks(rows: [{ sku_key, sku, qty }]) บันทึกการส่งออก 1 ครั้ง
+    pickToday: async function () {
+      const res = await sb().rpc('op_pick_today');
+      if (res.error) throw new Error(res.error.message);
+      return res.data || [];
+    },
+    recordPicks: async function (rows) {
+      const res = await sb().rpc('op_pick_record', { p_rows: rows });
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    }
   };
 })();

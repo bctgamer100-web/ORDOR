@@ -1473,7 +1473,7 @@ const moveSkipped=new Set();
 // บันทึกตอนกด "ไฟล์ย้ายสินค้าแยกตำแหน่ง" / "นำเข้า BigSeller" · ตอนตรวจ ORDER ชุดใหม่ ถ้า SKU เดียวกันเคยส่งออกไปแล้ว "วันนี้" ทั้งแถวจะเปลี่ยนสี
 // ใช้ภาพถ่ายของประวัติ ณ ตอนโหลดผลตรวจชุดนั้น (comparePriorPicks) จึงไม่ย้อนทำให้แถวที่เพิ่งส่งออกในชุดเดียวกันเปลี่ยนสีทันที
 const PICK_HISTORY_KEY='order_pick_history_v1';
-const PICK_HISTORY_DAYS=14;
+const PICK_HISTORY_DAYS=0; // รีเซ็ตทุกเที่ยงคืน: เก็บเฉพาะของวันนี้ (วันก่อนๆ ลบทิ้งตอนบันทึกครั้งถัดไป)
 function pickDayKey(d){
   d=d||new Date();
   const p=n=>String(n).padStart(2,'0');
@@ -1483,9 +1483,28 @@ function loadPickHistory(){
   try{ const h=JSON.parse(localStorage.getItem(PICK_HISTORY_KEY)||'{}'); return h&&typeof h==='object' ? h : {}; }catch(e){ return {}; }
 }
 let comparePriorPicks=new Map(); // คีย์ SKU (normalizeOrderSku) → { n: จำนวนครั้งที่ส่งออกวันนี้, qty, last }
+let comparePriorDay='';          // วันที่ของภาพถ่ายข้างบน: ถ้าเปิดหน้าค้างข้ามเที่ยงคืน ให้เริ่มใหม่เอง
 function snapshotPriorPicks(){
-  const day=loadPickHistory()[pickDayKey()]||{};
-  comparePriorPicks=new Map(Object.entries(day));
+  const h=loadPickHistory();
+  comparePriorDay=pickDayKey();
+  comparePriorPicks=new Map(Object.entries(h[comparePriorDay]||{}));
+  // ล้างข้อมูลของวันก่อนๆ ออกจากเบราว์เซอร์ทันที (รีเซ็ตทุกเที่ยงคืน)
+  const old=Object.keys(h).filter(d=>d<comparePriorDay);
+  if(old.length){ old.forEach(d=>delete h[d]); try{ localStorage.setItem(PICK_HISTORY_KEY,JSON.stringify(h)); }catch(e){} }
+  refreshPriorPicksFromServer();
+}
+// ดึงประวัติวันนี้จากฐานข้อมูลที่ใช้ร่วมกันทุกเครื่อง (ถ้าดึงได้ ใช้ค่านี้แทนของในเครื่อง) แล้ววาดตารางใหม่ให้สีตรงกัน
+// ดึงไม่ได้ (ออฟไลน์/ยังไม่ได้รัน supabase/op_pick_log.sql) → ใช้ของในเครื่องต่อไป ไม่แจ้ง error
+let pickServerSeq=0;
+async function refreshPriorPicksFromServer(){
+  if(!window.SunStock || !window.SunStock.pickToday) return;
+  const seq=++pickServerSeq;
+  try{
+    const rows=await window.SunStock.pickToday();
+    if(seq!==pickServerSeq) return;
+    comparePriorPicks=new Map(rows.map(r=>[r.sku_key,{sku:r.sku,n:Number(r.n)||0,qty:Number(r.qty)||0,last:r.last_at}]));
+    if(typeof compareResults!=='undefined' && compareResults.length && typeof updateComparePreviewTables==='function') updateComparePreviewTables();
+  }catch(e){ console.warn('ดึงประวัติการเบิกจากฐานข้อมูลไม่ได้ ใช้ของในเครื่องแทน:',e.message||e); }
 }
 // byPrefix = Map(ชื่อไฟล์ → แถวใบย้าย [sku,'',ตำแหน่ง,จำนวน,...]) จาก collectPickFiles — บันทึกทุก SKU ที่อยู่ในไฟล์จริง (นับ 1 ครั้งต่อ SKU ต่อการส่งออก)
 function recordPickExport(byPrefix){
@@ -1510,9 +1529,15 @@ function recordPickExport(byPrefix){
   const cutoff=pickDayKey(new Date(Date.now()-PICK_HISTORY_DAYS*86400000));
   Object.keys(h).forEach(d=>{ if(d<cutoff) delete h[d]; });
   try{ localStorage.setItem(PICK_HISTORY_KEY,JSON.stringify(h)); }catch(e){ /* เต็ม/ปิดการเก็บ: ข้าม ไม่ให้กระทบการส่งออก */ }
+  // บันทึกขึ้นฐานข้อมูลด้วย เพื่อให้เครื่องอื่นเห็น (ล้มเหลวก็ไม่กระทบการส่งออก)
+  if(window.SunStock && window.SunStock.recordPicks){
+    const rows=[...perSku].map(([key,v])=>({sku_key:key,sku:v.sku,qty:v.qty}));
+    window.SunStock.recordPicks(rows).catch(e=>console.warn('บันทึกประวัติการเบิกขึ้นฐานข้อมูลไม่ได้:',e.message||e));
+  }
 }
 // แถวที่ SKU เคยส่งออกวันนี้ → ใส่คลาสสี (เหลือง 1 ครั้ง · ส้ม 2 ครั้ง · แดง 3 ครั้งขึ้นไป) + ข้อความบอกตอนชี้เมาส์
 function decorateDeductedRow(row,item){
+  if(comparePriorDay!==pickDayKey()) snapshotPriorPicks(); // ข้ามเที่ยงคืนแล้ว → เริ่มนับใหม่
   const e=comparePriorPicks.get(moveKeyOf(item));
   if(e && e.n>0){
     const t=e.last ? new Date(e.last).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : '';
