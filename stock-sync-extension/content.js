@@ -39,22 +39,31 @@
   }
 
   // เมนูของ BigSeller เด้งตอน "วางเมาส์" (hover) จึงต้องยิงเหตุการณ์เมาส์เข้าไปที่ปุ่ม
+  // เมนูส่งออกเป็น ant-design-vue dropdown: ฟัง mouseenter ที่ตัวห่อ SPAN.ant-dropdown-trigger (ไม่ใช่ตัวปุ่มข้างใน)
+  // และ mouseenter ไม่ bubble จึงต้องยิงเข้าตัวห่อโดยตรง (ดูโครงสร้างจริงจาก Console: BUTTON < SPAN.ant-dropdown-trigger)
   function hover(el) {
-    const r = el.getBoundingClientRect();
-    const pos = { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
-    ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'].forEach(function (t) {
-      const Ctor = t.indexOf('pointer') === 0 ? PointerEvent : MouseEvent;
-      // mouseenter/pointerenter ไม่ bubble ตามมาตรฐาน แต่ส่งเข้า element ตรงๆ
-      el.dispatchEvent(new Ctor(t, Object.assign({}, pos, { bubbles: t.indexOf('enter') === -1 })));
+    const targets = [];
+    const trigger = el.closest && el.closest('.ant-dropdown-trigger');
+    if (trigger) targets.push(trigger);
+    targets.push(el);
+    targets.forEach(function (t) {
+      const r = t.getBoundingClientRect();
+      const pos = { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+      ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'].forEach(function (type) {
+        const Ctor = type.indexOf('pointer') === 0 ? PointerEvent : MouseEvent;
+        t.dispatchEvent(new Ctor(type, Object.assign({}, pos, { bubbles: type.indexOf('enter') === -1 })));
+      });
     });
   }
 
   // กด ส่งออก > ส่งออกทั้งหมด > (รอสร้างไฟล์) > ดาวน์โหลด
   async function runExport() {
+    setStatus('ขั้น 1/4: กำลังหาปุ่ม ส่งออก ...');
     const btn = await waitFor(function () { return findByText('ส่งออก', 'button'); }, 8000, 'ปุ่ม ส่งออก');
+    setStatus('ขั้น 2/4: เจอปุ่ม ส่งออก กำลังวางเมาส์เพื่อเปิดเมนู ...');
     // ลอง hover ก่อน ถ้าเมนูยังไม่ขึ้นลองคลิกด้วย (กันกรณีเวอร์ชันหน้าเว็บต่างกัน) วนไม่เกิน 3 รอบ
     const menuItem = function () { return findByText('ส่งออกทั้งหมด'); };
-    const tryWait = function () { return waitFor(menuItem, 1200, '').catch(function () { return null; }); };
+    const tryWait = function () { return waitFor(menuItem, 2000, '').catch(function () { return null; }); };
     let item = null;
     let how = '';
     // 1) จำลองเมาส์ 2) คลิก 3) เมาส์จริง (ผ่านระบบดีบักของ Chrome เผื่อเมนูใช้ CSS :hover) 4) กดรายการที่ซ่อนอยู่ในหน้าตรงๆ
@@ -78,11 +87,30 @@
       chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
       throw new Error('หมดเวลารอ: เมนู ส่งออกทั้งหมด (ปุ่มที่เจอ: ' + (buttons || 'ไม่มี') + ' — ลองครบ hover/คลิก/เมาส์จริง แล้วเมนูไม่ขึ้น)');
     }
-    setStatus('เจอเมนู ส่งออกทั้งหมด (วิธี: ' + how + ') กำลังกด ...');
-    hover(item);
-    realClick(item);
+    // กดเมนูแล้วต้องมีกล่องส่งออกขึ้น ถ้าไม่ขึ้น (กดพลาด/เมนูปิดไปก่อน) เปิดเมนูใหม่แล้วกดซ้ำ สูงสุด 3 ครั้ง
+    // กล่องส่งออกของ BigSeller มีข้อความ "สามารถส่งออกได้เฉพาะข้อมูล SKU Merchant ..." และแถบความคืบหน้า (เห็นในภาพหน้าจอ)
+    const exportStarted = function () {
+      if (findByText('ดาวน์โหลด', 'a, button, span')) return true;
+      return Array.prototype.slice.call(document.querySelectorAll('span, div, p')).some(function (el) {
+        return el.children.length <= 2 && /สามารถส่งออกได้เฉพาะ/.test(el.textContent || '') && visible(el);
+      });
+    };
+    let started = false;
+    for (let k = 0; k < 3 && !started; k++) {
+      setStatus('ขั้น 3/4: เจอเมนู ส่งออกทั้งหมด (วิธี: ' + how + ') กำลังกด ครั้งที่ ' + (k + 1) + ' ...');
+      const cur = findByText('ส่งออกทั้งหมด') || item;
+      // ตัวรับคลิกของเมนูคือ LI.ant-dropdown-menu-item (ข้อความอยู่ใน SPAN ข้างใน)
+      realClick(cur.closest('li') || cur);
+      started = await waitFor(exportStarted, 4000, '').then(function () { return true; }, function () { return false; });
+      if (!started) {
+        hover(btn); // เมนูอาจปิดไปแล้ว เปิดใหม่ (เมาส์จำลองไม่เคยออกจากปุ่ม เมนูจึงควรค้างอยู่ แต่กันไว้)
+        await sleep(1500);
+        item = findByText('ส่งออกทั้งหมด') || findByText('ส่งออกทั้งหมด', undefined, true) || item;
+      }
+    }
     chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
-    setStatus('BigSeller กำลังสร้างไฟล์ส่งออก (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
+    if (!started) throw new Error('กด ส่งออกทั้งหมด แล้วกล่องส่งออกไม่ขึ้น (ลองแล้ว 3 ครั้ง)');
+    setStatus('ขั้น 4/4: BigSeller กำลังสร้างไฟล์ส่งออก รอลิงก์ ดาวน์โหลด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
     const link = await waitFor(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, 10 * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
     realClick(link);
     await sleep(500);
@@ -133,11 +161,9 @@
     '      <div><span>ตัดตำแหน่งที่ไม่นับ</span><b id="sExcl">0</b></div>',
     '    </div>',
     '    <ul id="checks"></ul>',
-    '    <div class="row"><label><input type="checkbox" id="backup" checked> สำรองข้อมูลเดิมก่อนทับ</label></div>',
     '    <div class="row"><label>หยุดถ้าแถวลดเกิน <input type="number" id="maxDrop" min="0" max="100" value="20"> %</label></div>',
     '    <div class="row"><label><input type="checkbox" id="force"> ยืนยันแม้ไม่ผ่านการตรวจ</label></div>',
-    '    <div class="row"><label><input type="checkbox" id="auto"> อัปโหลดเองถ้าผ่านทุกข้อ</label></div>',
-    '    <div class="row hide" id="pwRow"><label>รหัสอัปโหลด <input type="password" id="pw" autocomplete="off"></label></div>',
+    '    <div class="row"><label><input type="checkbox" id="auto" checked> อัปโหลดเองถ้าผ่านทุกข้อ</label></div>',
     '    <div class="row"><button class="primary" id="go">⬆ อัปโหลดทับ op_stock</button></div>',
     '  </div>',
     '</div>'
@@ -156,10 +182,10 @@
 
   function opts() {
     return {
-      backup: $('backup').checked,
+      backup: false, // ไม่โหลดไฟล์สำรอง
       maxDrop: Number($('maxDrop').value) || 0,
       force: $('force').checked,
-      passcode: $('pw').value
+      passcode: '' // ฐานข้อมูลตั้งรหัสว่าง (supabase/op_no_passcode.sql) เหมือนหน้านำเข้าข้อมูลของแอป
     };
   }
 
@@ -200,8 +226,7 @@
       setStatus(res.message + ' | ' + new Date().toLocaleTimeString('th-TH'), 'ok');
     } catch (err) {
       if (/รหัสอัปโหลด/.test(err.message)) {
-        $('pwRow').classList.remove('hide');
-        setStatus('ฐานข้อมูลต้องการรหัสอัปโหลด — ใส่รหัสแล้วกดอีกครั้ง (ยังไม่มีอะไรถูกเขียน)', 'bad');
+        setStatus('ฐานข้อมูลยังตั้งรหัสอัปโหลดไว้ เลยอัปโหลดแบบไม่ใส่รหัสไม่ได้ (ยังไม่มีอะไรถูกเขียน) — ต้องรัน supabase/op_no_passcode.sql ใน Supabase ก่อน', 'bad');
       } else if (/อัปโหลดไปแล้ววันนี้/.test(err.message)) {
         setStatus('ฐานข้อมูลจำกัดอัปโหลด 1 ครั้ง/วัน ต่อชนิด และวันนี้อัปโหลดไปแล้ว — ยังไม่มีอะไรถูกเขียน ลองใหม่หลังเที่ยงคืน', 'bad');
       } else {
@@ -272,19 +297,27 @@
   $('go').addEventListener('click', doUpload);
 
   // จำค่าที่ตั้งไว้
-  chrome.storage.local.get(['auto', 'backup', 'maxDrop'], function (v) {
+  chrome.storage.local.get(['auto', 'maxDrop'], function (v) {
     if (v.auto != null) $('auto').checked = !!v.auto;
-    if (v.backup != null) $('backup').checked = !!v.backup;
     if (v.maxDrop != null) $('maxDrop').value = v.maxDrop;
   });
-  ['auto', 'backup'].forEach(function (id) {
+  chrome.storage.local.remove('savedPw'); // เคลียร์รหัสที่เคยจำไว้ (ถ้ามี)
+  ['auto'].forEach(function (id) {
     $(id).addEventListener('change', function () { chrome.storage.local.set({ [id]: $(id).checked }); });
   });
   $('maxDrop').addEventListener('change', function () { chrome.storage.local.set({ maxDrop: Number($('maxDrop').value) || 0 }); });
 
-  chrome.runtime.onMessage.addListener(function (msg) {
+  chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (!msg) return;
     if (msg.type === 'togglePanel') $('panel').classList.toggle('open');
+    if (msg.type === 'runExportOnly') {
+      // คำสั่งจากหน้า ORDOR (ปุ่มในการ์ด ST): กดส่งออก > ดาวน์โหลด อย่างเดียว ส่วนอ่านไฟล์/ส่งต่อให้ background จัดการ
+      runExport().then(
+        function () { sendResponse({ ok: true }); },
+        function (err) { sendResponse({ ok: false, error: err.message }); }
+      );
+      return true; // ตอบแบบ async
+    }
     if (msg.type === 'progress') setStatus(msg.text);
     if (msg.type === 'downloaded' && waitingDownload) {
       waitingDownload = false;

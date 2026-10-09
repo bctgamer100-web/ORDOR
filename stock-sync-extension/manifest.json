@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "ส่งสต็อก BigSeller เข้า ORDER",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "ส่งออกสต็อก/ตำแหน่งจาก BigSeller แล้วนำเข้าตาราง op_stock ของ ORDER Workspace ด้วยเงื่อนไขเดียวกับหน้านำเข้าข้อมูล",
-  "permissions": ["downloads", "storage", "tabs", "debugger"],
+  "permissions": ["downloads", "storage", "unlimitedStorage", "tabs", "debugger"],
   "host_permissions": [
     "https://*.bigseller.com/*",
+    "https://*.myqcloud.com/*",
     "https://yvfqxlgkwaylivopctno.supabase.co/*"
   ],
   "background": { "service_worker": "background.js" },
@@ -14,6 +15,11 @@
       "matches": ["https://*.bigseller.com/web/inventory/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://bctgamer100-web.github.io/ORDOR/*", "http://localhost/*", "file:///*"],
+      "js": ["pagebridge.js"],
+      "run_at": "document_start"
     }
   ],
   "action": { "default_title": "ส่งสต็อก BigSeller เข้า ORDER" }

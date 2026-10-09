@@ -342,6 +342,12 @@ html[data-prod-theme="light"] .side-right.top{
 #sunImportTool .sun-imp-table table{border-collapse:collapse;width:100%;font-size:12.5px;color:var(--foreground)}
 #sunImportTool .sun-imp-table th,#sunImportTool .sun-imp-table td{padding:7px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border-soft)}
 #sunImportTool .sun-imp-table thead th{position:sticky;top:0;background:var(--surface-2);font-weight:600}
+/* ปุ่มดึงไฟล์จาก BigSeller อัตโนมัติ (การ์ด ST) — ซ่อนเมื่อชนิดนี้อัปโหลดไปแล้ววันนี้ */
+#sunImportTool .sun-imp-auto{margin:10px 0}
+#sunImportTool .sun-imp-auto-btn{width:100%;min-height:40px;padding:0 16px;border:1px solid var(--accent);border-radius:8px;background:transparent;color:var(--accent);font-size:13.5px;cursor:pointer}
+#sunImportTool .sun-imp-auto-btn:hover:not(:disabled){background:var(--accent);color:#fff}
+#sunImportTool .sun-imp-auto-btn:disabled{opacity:.5;cursor:progress}
+#sunImportTool .sun-imp-card.sun-imp-locked .sun-imp-auto{display:none}
 /* ซ่อนสถานะ/ปุ่ม/ตัวอย่างไว้จนกว่าจะเลือกไฟล์ */
 #sunImportTool .sun-imp-card:not(.has-file) .sun-imp-progress,
 #sunImportTool .sun-imp-card:not(.has-file) .sun-imp-status,

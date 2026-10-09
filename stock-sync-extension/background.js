@@ -1,7 +1,14 @@
 importScripts('lib/xlsx.full.min.js', 'lib/jszip.min.js', 'core.js');
 
-let PREP = null;      // ผลอ่านไฟล์ล่าสุด (อยู่ในหน่วยความจำ ถ้า service worker ถูกปิด ให้เตรียมไฟล์ใหม่)
-let LAST_FILES = null;
+// ผลอ่านไฟล์ล่าสุด: เก็บใน storage ด้วย เพราะ Chrome ปิด service worker เองเมื่อว่าง ตัวแปรในหน่วยความจำจะหาย
+let PREP = null;
+async function savePrep() {
+  await chrome.storage.local.set({ prep: PREP });
+}
+async function loadPrep() {
+  if (!PREP) PREP = (await chrome.storage.local.get('prep')).prep || null;
+  return PREP;
+}
 
 // กดไอคอนส่วนขยาย = เปิด/ปิดแผงบนหน้า BigSeller
 chrome.action.onClicked.addListener(async function (tab) {
@@ -12,6 +19,15 @@ chrome.action.onClicked.addListener(async function (tab) {
     if (tabs.length) await chrome.tabs.update(tabs[0].id, { active: true });
   }
 });
+
+// รอไฟล์ BigSeller ที่โหลดเสร็จครั้งถัดไป (ต้องเรียกก่อนสั่งส่งออก กันไฟล์โหลดเสร็จก่อนเริ่มรอ)
+const downloadWaiters = [];
+function waitNextDownload(timeoutMs) {
+  return new Promise(function (resolve, reject) {
+    const t = setTimeout(function () { reject(new Error('รอไฟล์ที่โหลดจาก BigSeller นานเกินไป')); }, timeoutMs);
+    downloadWaiters.push(function (rec) { clearTimeout(t); resolve(rec); });
+  });
+}
 
 function bigsellerTabs() {
   return chrome.tabs.query({ url: 'https://*.bigseller.com/*' });
@@ -27,6 +43,7 @@ chrome.downloads.onChanged.addListener(async function (delta) {
   if (!/bigseller/i.test([it.url, it.finalUrl, it.referrer].join(' '))) return;
   const rec = { id: it.id, filename: it.filename, url: it.finalUrl || it.url, at: Date.now() };
   await chrome.storage.local.set({ lastDownload: rec });
+  downloadWaiters.splice(0).forEach(function (resolve) { resolve(rec); });
   (await bigsellerTabs()).forEach(function (t) {
     chrome.tabs.sendMessage(t.id, { type: 'downloaded', download: rec }).catch(function () { /* แท็บไม่มีตัวกด */ });
   });
@@ -45,6 +62,7 @@ async function readDownload(d) {
   let host = '';
   try { host = new URL(d.url).host; } catch (e) { /* ignore */ }
   const tries = [
+    function () { return fetch(d.url); }, // ลิงก์ที่เซ็นชื่อมาแล้ว (เช่น myqcloud.com) ไม่ต้องใช้คุกกี้
     function () { return fetch(d.url, { credentials: 'include' }); },
     function () { return fetch('file:///' + d.filename.replace(/\\/g, '/')); }
   ];
@@ -66,24 +84,22 @@ async function handle(msg, sender) {
     if (tabId != null) chrome.tabs.sendMessage(tabId, { type: 'progress', text: text }).catch(function () {});
   };
 
-  if (msg.type === 'prepareDownload') {
-    LAST_FILES = [await readDownload(msg.download)];
-  } else if (msg.type === 'prepareFiles') {
-    LAST_FILES = msg.files.map(function (f) { return { name: f.name, bytes: b64ToBytes(f.b64) }; });
-  }
   if (msg.type === 'prepareDownload' || msg.type === 'prepareFiles') {
-    PREP = await StockCore.prepare(LAST_FILES);
+    const files = msg.type === 'prepareDownload'
+      ? [await readDownload(msg.download)]
+      : msg.files.map(function (f) { return { name: f.name, bytes: b64ToBytes(f.b64) }; });
+    PREP = await StockCore.prepare(files);
+    await savePrep();
     return { ok: true, summary: StockCore.summary(PREP, msg.opts) };
   }
 
   if (msg.type === 'reevaluate') {
-    if (!PREP) throw new Error('ยังไม่มีไฟล์ที่เตรียมไว้');
+    if (!(await loadPrep())) throw new Error('ยังไม่มีไฟล์ที่เตรียมไว้');
     return { ok: true, summary: StockCore.summary(PREP, msg.opts) };
   }
 
   if (msg.type === 'upload') {
-    if (!PREP && LAST_FILES) PREP = await StockCore.prepare(LAST_FILES); // service worker เพิ่งตื่น
-    if (!PREP) throw new Error('ยังไม่มีไฟล์ที่เตรียมไว้ — เลือกไฟล์ใหม่');
+    if (!(await loadPrep())) throw new Error('ยังไม่มีไฟล์ที่เตรียมไว้ — กด "ส่งออกทั้งหมด แล้วนำเข้า" หรือเลือกไฟล์ใหม่');
     const res = await StockCore.upload(PREP, msg.opts, progress, async function (json) {
       const bytes = new TextEncoder().encode(json);
       let bin = '';
@@ -95,10 +111,46 @@ async function handle(msg, sender) {
         saveAs: false
       });
     });
+    await savePrep(); // oldCount เปลี่ยนหลังอัปโหลด
     return { ok: true, message: res.message, summary: StockCore.summary(PREP, msg.opts) };
   }
   throw new Error('คำสั่งไม่รู้จัก: ' + msg.type);
 }
+
+// ปุ่ม "ดึงจาก BigSeller อัตโนมัติ" ในการ์ด ST ของหน้า ORDER: สั่งแท็บ BigSeller ส่งออก แล้วส่งไฟล์ zip กลับไปให้หน้านั้น
+// ไฟล์เข้าช่อง ST ของหน้านำเข้าข้อมูล แล้วผ่านขั้นตัวอย่าง/กรองตามเงื่อนไขเดิมของหน้านั้น (ไม่อัปโหลดเอง)
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || msg.type !== 'bridgeExport') return;
+  const tabId = sender.tab && sender.tab.id;
+  const say = function (type, payload) {
+    if (tabId != null) chrome.tabs.sendMessage(tabId, Object.assign({ type: type }, payload)).catch(function () {});
+  };
+  sendResponse({ ok: true });
+  // service worker ถูกปิดเองเมื่อว่าง ระหว่างรอ BigSeller สร้างไฟล์ (อาจหลายนาที) จึงเรียก API เป็นระยะให้ตื่นอยู่
+  const keepAlive = setInterval(function () { chrome.runtime.getPlatformInfo(function () {}); }, 20000);
+  (async function () {
+    const tabs = await chrome.tabs.query({ url: 'https://*.bigseller.com/web/inventory/warehouseInventory.htm*' });
+    if (!tabs.length) throw new Error('ไม่พบแท็บ BigSeller หน้า สินค้าคงคลัง > ตำแหน่งสต็อก — เปิดหน้านั้นไว้ก่อน (ถ้าเพิ่งติดตั้งหรือรีโหลดส่วนขยาย ให้รีเฟรชหน้า BigSeller 1 ครั้ง)');
+    say('bridgeProgress', { text: '⏳ กำลังสั่ง BigSeller ส่งออกทั้งหมด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...' });
+    const downloaded = waitNextDownload(12 * 60 * 1000);
+    downloaded.catch(function () {}); // กัน error ลอยถ้าขั้นส่งออกพังก่อน
+    let res;
+    try {
+      res = await chrome.tabs.sendMessage(tabs[0].id, { type: 'runExportOnly' });
+    } catch (e) {
+      throw new Error('สั่งแท็บ BigSeller ไม่ได้ — รีเฟรชหน้า BigSeller แล้วลองใหม่ (' + e.message + ')');
+    }
+    if (!res || !res.ok) throw new Error('ส่งออกที่ BigSeller ไม่สำเร็จ: ' + ((res && res.error) || 'ไม่ตอบกลับ'));
+    say('bridgeProgress', { text: '⏳ BigSeller โหลดไฟล์แล้ว กำลังอ่านไฟล์ ...' });
+    const rec = await downloaded;
+    const f = await readDownload(rec);
+    let bin = '';
+    for (let i = 0; i < f.bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, f.bytes.subarray(i, i + 0x8000));
+    say('bridgeFile', { name: f.name, b64: btoa(bin) });
+  })().catch(function (err) {
+    say('bridgeError', { error: err.message });
+  }).finally(function () { clearInterval(keepAlive); });
+});
 
 // เมาส์จริง (trusted) ผ่าน chrome.debugger: ย้ายเมาส์ไปที่พิกัด เพื่อให้เมนูแบบ hover เด้ง (ปล่อยตอนกดเมนูเสร็จ)
 const ATTACHED = new Set();

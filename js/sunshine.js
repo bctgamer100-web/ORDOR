@@ -1431,6 +1431,8 @@
       return '<section class="sun-imp-card" id="sunCard_' + k + '">' +
         '<div class="sun-imp-eyebrow">' + c.eyebrow + '</div>' +
         '<h2>' + esc(c.title) + '</h2>' +
+        // ST เท่านั้น: ดึงไฟล์จาก BigSeller อัตโนมัติผ่านส่วนขยาย (stock-sync-extension) แล้วใส่ช่องไฟล์ให้ จากนั้นเป็นขั้นตอนปกติ
+        (k === 'st' ? '<div class="sun-imp-auto"><button type="button" class="sun-imp-auto-btn" id="sunAuto_st" title="ต้องติดตั้งส่วนขยาย และเปิดแท็บ BigSeller > สินค้าคงคลัง > ตำแหน่งสต็อก ค้างไว้">🤖 ดึงจาก BigSeller อัตโนมัติ</button></div>' : '') +
         '<div class="sun-imp-drop" id="sunDrop_' + k + '"><div class="sun-imp-badge">' + c.icon + '</div>' +
           '<strong>📁 คลิกเพื่อเลือกไฟล์ ' + c.icon + '</strong>' +
           '<span>' + hint + '</span>' +
@@ -1669,6 +1671,39 @@
       if (pre === fromPrefix) return;
       const other = $(pre + 'In_' + kind);
       if (other) setInputFiles(other, files);
+    });
+  }
+  // ปุ่ม "ดึงจาก BigSeller อัตโนมัติ" (การ์ด ST): ส่วนขยายกดส่งออกที่แท็บ BigSeller แล้วส่งไฟล์ ZIP กลับมาใส่ช่องไฟล์ ST
+  // หลังจากนั้นเป็นขั้นตอนเดิมทุกอย่าง (แตกไฟล์ ตัดตำแหน่ง แสดงตัวอย่าง) และยังต้องกด "อัปโหลดทั้งหมด" เอง
+  const autoStBtn = $('sunAuto_st');
+  if (autoStBtn) {
+    autoStBtn.addEventListener('click', function () {
+      toggleCard('st', true);
+      if (document.documentElement.getAttribute('data-stock-sync') !== '1') {
+        setCardStatus('st', '⚠️ ไม่พบส่วนขยาย "ส่งสต็อก BigSeller เข้า ORDER" — ติดตั้ง/รีโหลดส่วนขยายแล้วรีเฟรชหน้านี้ (F5)', 0);
+        return;
+      }
+      autoStBtn.disabled = true;
+      setCardStatus('st', '⏳ กำลังเรียกส่วนขยาย ...', 10);
+      window.postMessage({ source: 'order-workspace', type: 'stSyncRequest' }, '*');
+    });
+    window.addEventListener('message', function (e) {
+      const d = e.data;
+      if (e.source !== window || !d || d.source !== 'stock-sync') return;
+      if (d.type === 'progress') { setCardStatus('st', d.text, 40); return; }
+      autoStBtn.disabled = false;
+      if (d.type === 'error') { toggleCard('st', true); setCardStatus('st', '❌ ดึงจาก BigSeller ไม่สำเร็จ: ' + d.error, 0); return; }
+      if (d.type === 'file') {
+        const input = kid('In', 'st');
+        if (!input || input.disabled) { setCardStatus('st', '🔒 ชนิดนี้อัปโหลดไปแล้ววันนี้ — ดึงข้อมูลมาไม่ได้', 100); return; }
+        const bin = atob(d.b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const file = new File([bytes], d.name, { type: 'application/zip', lastModified: Date.now() });
+        setInputFiles(input, [file]);
+        syncInputs('st', 'sun', [file]);
+        prepareKind('st', true);
+      }
     });
   }
   KIND_IDS.forEach(function (k) {
