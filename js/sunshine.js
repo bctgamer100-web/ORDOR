@@ -1612,12 +1612,14 @@
   }
 
   // อัปโหลดทับทุกชนิดที่มีไฟล์พร้อมด้วยปุ่มเดียว ทีละชนิดตามลำดับ 3M → ST → SI (แต่ละชนิดเขียนทับคนละตารางของตัวเอง)
-  async function uploadAll() {
+  // only: (ไม่บังคับ) รายชื่อชนิดที่จะอัปโหลด เช่น ['st'] — ใช้กับปุ่ม "ดึงจาก BigSeller อัตโนมัติ" ให้อัปโหลดเฉพาะชนิดที่เพิ่งดึงมา ไม่ไปแตะชนิดอื่นที่เลือกค้างไว้
+  async function uploadAll(only) {
     const st = $('sunAllStatus'), btn = $('sunGoAll');
     if (btn) btn.disabled = true;
     if (st) st.textContent = 'กำลังเตรียมข้อมูล ...';
     const items = [];
     for (const kind of KIND_IDS) {
+      if (only && only.indexOf(kind) === -1) continue;
       const input = kid('In', kind);
       if (!input || !(input.files && input.files.length)) continue;
       const p = await prepareKind(kind, false);
@@ -1664,7 +1666,7 @@
   // เลือก/ลากไฟล์ที่ช่องไหน อีกช่องจะขึ้นไฟล์เดียวกันด้วย แล้วเตรียมข้อมูลและแสดงตัวอย่างทันที (ก่อนกดอัปโหลด)
   buildImportCards();
   const goAll = $('sunGoAll');
-  if (goAll) goAll.addEventListener('click', uploadAll);
+  if (goAll) goAll.addEventListener('click', function () { uploadAll(); });
   updateAllBar();
   refreshUploadLocks();
   function syncInputs(kind, fromPrefix, files) {
@@ -1676,6 +1678,26 @@
   }
   // ปุ่ม "ดึงจาก BigSeller อัตโนมัติ" (การ์ด ST): ส่วนขยายกดส่งออกที่แท็บ BigSeller แล้วส่งไฟล์ ZIP กลับมาใส่ช่องไฟล์ ST
   // หลังจากนั้นเป็นขั้นตอนเดิมทุกอย่าง (แตกไฟล์ ตัดตำแหน่ง แสดงตัวอย่าง) และยังต้องกด "อัปโหลดทั้งหมด" เอง
+  // หลังดึงไฟล์จาก BigSeller มาใส่การ์ดแล้ว: เตรียมข้อมูล ตรวจความปลอดภัย แล้วอัปโหลดชนิดนั้นให้เองเลย
+  // ไม่อัปโหลดเอง (ทิ้งไว้ให้กดอัปโหลดทั้งหมดเอง) ถ้าอ่านไฟล์ไม่ได้ ไม่มีแถว หรือ ST มีแถวลดลงจากข้อมูลเดิมเกิน 20% (กันไฟล์ไม่ครบ)
+  // ฐานข้อมูลจำกัดวันละครั้งต่อชนิด จึงไม่อัปโหลดซ้ำ ถ้าพลาดแก้ไม่ได้จนพ้นเที่ยงคืน
+  const AUTO_UPLOAD_MAX_DROP = 0.2;
+  async function autoUploadAfterPull(k) {
+    const p = await prepareKind(k, true);
+    if (!p || p.error || !p.rows || !p.rows.length) { setCardStatus(k, '⚠️ ไม่อัปโหลดอัตโนมัติ: ไฟล์อ่านไม่ได้หรือหลังกรองไม่เหลือแถว ตรวจตัวอย่างแล้วกด "อัปโหลดทั้งหมด" เองได้', 100); return; }
+    if (k === 'st') {
+      try {
+        const res = await sb().from('op_stock').select('id', { count: 'exact', head: true });
+        const old = res.count || 0;
+        if (old > 0 && p.rows.length < old * (1 - AUTO_UPLOAD_MAX_DROP)) {
+          setCardStatus(k, '⚠️ ไม่อัปโหลดอัตโนมัติ: แถวใหม่ ' + p.rows.length.toLocaleString() + ' ลดลงจากเดิม ' + old.toLocaleString() + ' เกิน ' + (AUTO_UPLOAD_MAX_DROP * 100) + '% (ไฟล์อาจไม่ครบ) ตรวจแล้วกด "อัปโหลดทั้งหมด" เอง', 100);
+          return;
+        }
+      } catch (err) { /* เช็กจำนวนเดิมไม่ได้: ไปต่อ เพราะไฟล์ผ่านการอ่านและกรองแล้ว */ }
+    }
+    await uploadAll([k]);
+  }
+
   // SI ทำเหมือนกัน (ส่วนขยายตั้งช่วงเวลา "เมื่อวาน" + ค้นชื่อตำแหน่ง FRONT ที่หน้า BigSeller ให้เอง) แต่รับไฟล์ได้ทั้ง Excel/CSV/ZIP
   ['st', 'si'].forEach(function (k) {
     const autoBtn = $('sunAuto_' + k);
@@ -1706,7 +1728,7 @@
         const file = new File([bytes], d.name, { type: mime, lastModified: Date.now() });
         setInputFiles(input, [file]);
         syncInputs(k, 'sun', [file]);
-        prepareKind(k, true);
+        autoUploadAfterPull(k);
       }
     });
   });

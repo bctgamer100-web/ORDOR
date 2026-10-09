@@ -144,7 +144,36 @@ async function waitForContentReady(tabId, timeoutMs, pageFile, pageName) {
 
 // ส่งออกสต็อกจาก BigSeller จากหน้าไหนก็ได้: ใช้แท็บ ตำแหน่งสต็อก ที่เปิดอยู่ ถ้าไม่มีเปิดแท็บเบื้องหลังให้ แล้วปิดเมื่อเสร็จ
 // คืนข้อมูลไฟล์ที่ดาวน์โหลด { id, filename, url, at }
-async function exportViaTab(progress, kind) {
+// แท็บ BigSeller ที่เปิดค้างไว้ก่อนติดตั้ง/รีโหลดส่วนขยาย จะยังไม่มีตัวกดปุ่ม (content.js) ฝังอยู่ → ฝังให้เองโดยไม่ต้องรีเฟรชหน้า
+async function ensureContentReady(tabId) {
+  const ping = async function () {
+    try { const r = await chrome.tabs.sendMessage(tabId, { type: 'ping' }); return !!(r && r.ok); } catch (e) { return false; }
+  };
+  if (await ping()) return;
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['content.js'] });
+  } catch (e) {
+    throw new Error('ฝังตัวกดปุ่มในแท็บ BigSeller ไม่ได้ (' + e.message + ') — รีเฟรชหน้า BigSeller 1 ครั้งแล้วลองใหม่');
+  }
+  for (let i = 0; i < 10; i++) {
+    if (await ping()) return;
+    await new Promise(function (r) { setTimeout(r, 300); });
+  }
+  throw new Error('แท็บ BigSeller ไม่ตอบสนอง — รีเฟรชหน้า BigSeller 1 ครั้งแล้วลองใหม่');
+}
+
+// ส่งออกได้ทีละงานเท่านั้น: ตัวรอไฟล์ใช้ "ไฟล์ถัดไปที่โหลดเสร็จ" ถ้ากด ST กับ SI ซ้อนกัน ทั้งคู่จะคว้าไฟล์เดียวกัน (ไฟล์ SI ไปโผล่ที่การ์ด ST)
+let exportQueue = Promise.resolve();
+function exportViaTab(progress, kind) {
+  const job = exportQueue.then(function () { return exportViaTabNow(progress, kind); });
+  exportQueue = job.catch(function () {}); // งานก่อนหน้าพังก็ไม่ให้คิวค้าง
+  if (exportQueueBusy++ > 0) progress('มีงานส่งออกอื่นกำลังทำอยู่ — รอคิว ...');
+  job.finally(function () { exportQueueBusy--; }).catch(function () {});
+  return job;
+}
+let exportQueueBusy = 0;
+
+async function exportViaTabNow(progress, kind) {
   const page = EXPORT_PAGES[kind || 'st'] || EXPORT_PAGES.st;
   const existing = await chrome.tabs.query({ url: 'https://*.bigseller.com/web/inventory/' + page.file + '*' });
   let tab = existing[0];
@@ -158,6 +187,7 @@ async function exportViaTab(progress, kind) {
       created = true;
       await waitForContentReady(tab.id, 60000, page.file, page.name);
     }
+    await ensureContentReady(tab.id);
     progress('กำลังสั่ง BigSeller ส่งออกทั้งหมด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
     const downloaded = waitNextDownload(12 * 60 * 1000);
     downloaded.catch(function () {}); // กัน error ลอยถ้าขั้นส่งออกพังก่อน
