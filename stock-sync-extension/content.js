@@ -56,13 +56,62 @@
     });
   }
 
-  // กด ส่งออก > ส่งออกทั้งหมด > (รอสร้างไฟล์) > ดาวน์โหลด
-  async function runExport() {
+  // ตั้งค่าบนช่องข้อความแบบที่ Vue (v-model) รับรู้
+  function setInputValue(input, value) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  // หน้า SI (การเคลื่อนไหวสต็อก): ตั้งตัวกรองก่อนส่งออก = ช่วงเวลา "เมื่อวาน" + ค้นหาชื่อตำแหน่ง "FRONT"
+  const SI_RANGE_TEXT = 'เมื่อวาน';
+  const SI_LOCATION_TEXT = 'FRONT';
+  async function applySiFilters() {
+    setStatus('SI: ตั้งช่วงเวลา "' + SI_RANGE_TEXT + '" ...');
+    const range = await waitFor(function () { return findByText(SI_RANGE_TEXT, 'label, button, span, a, div'); }, 20000, 'ปุ่มช่วงเวลา ' + SI_RANGE_TEXT);
+    realClick(range);
+    await sleep(800);
+
+    setStatus('SI: ค้นหาชื่อตำแหน่ง "' + SI_LOCATION_TEXT + '" ...');
+    // แถว "ค้นหา" = ตัวเลือกชนิดคำค้น + ช่องพิมพ์ + ไอคอนค้นหา
+    const label = await waitFor(function () { return findByText('ค้นหา', 'span, label, div'); }, 10000, 'ป้าย ค้นหา');
+    let row = label;
+    let input = null;
+    for (let i = 0; i < 5 && row && !input; i++) {
+      row = row.parentElement;
+      input = row && Array.prototype.slice.call(row.querySelectorAll('input')).find(function (el) {
+        return visible(el) && (el.type === 'text' || el.type === 'search' || !el.type) && !el.readOnly;
+      });
+    }
+    if (!input) throw new Error('ไม่พบช่องพิมพ์คำค้นของหน้า SI');
+    if (row.textContent.indexOf('ชื่อตำแหน่ง') === -1) {
+      throw new Error('ช่องค้นหาของหน้า SI ไม่ได้ตั้งเป็น "ชื่อตำแหน่ง" — เลือกชนิดคำค้นเป็น ชื่อตำแหน่ง ในหน้า BigSeller ก่อน แล้วลองใหม่');
+    }
+    setInputValue(input, SI_LOCATION_TEXT);
+    ['keydown', 'keypress', 'keyup'].forEach(function (t) {
+      input.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }));
+    });
+    const icon = row.querySelector('.anticon-search, .ant-input-search-icon');
+    if (icon) realClick(icon.closest('button, span, i') || icon);
+    await sleep(3000); // รอตารางโหลดผลค้นหา
+  }
+
+  // กด ส่งออก > ส่งออกทั้งหมด > (รอสร้างไฟล์) > ดาวน์โหลด · kind: 'st' (ตำแหน่งสต็อก) | 'si' (การเคลื่อนไหวสต็อก)
+  async function runExport(kind) {
+    if (kind === 'si') await applySiFilters();
     setStatus('ขั้น 1/4: กำลังหาปุ่ม ส่งออก ...');
     const btn = await waitFor(function () { return findByText('ส่งออก', 'button'); }, 8000, 'ปุ่ม ส่งออก');
     setStatus('ขั้น 2/4: เจอปุ่ม ส่งออก กำลังวางเมาส์เพื่อเปิดเมนู ...');
     // ลอง hover ก่อน ถ้าเมนูยังไม่ขึ้นลองคลิกด้วย (กันกรณีเวอร์ชันหน้าเว็บต่างกัน) วนไม่เกิน 3 รอบ
-    const menuItem = function () { return findByText('ส่งออกทั้งหมด'); };
+    // หน้า SI อาจตั้งชื่อเมนูไม่เหมือนหน้า ST: ถ้าไม่มี "ส่งออกทั้งหมด" ใช้รายการแรกที่ไม่ใช่ "ส่งออกที่เลือก"
+    const menuItem = function () {
+      const exact = findByText('ส่งออกทั้งหมด');
+      if (exact || kind !== 'si') return exact;
+      return Array.prototype.slice.call(document.querySelectorAll('.ant-dropdown-menu-item')).find(function (li) {
+        return visible(li) && li.textContent.indexOf('ที่เลือก') === -1;
+      }) || null;
+    };
     const tryWait = function () { return waitFor(menuItem, 2000, '').catch(function () { return null; }); };
     let item = null;
     let how = '';
@@ -91,6 +140,8 @@
     // กล่องส่งออกของ BigSeller มีข้อความ "สามารถส่งออกได้เฉพาะข้อมูล SKU Merchant ..." และแถบความคืบหน้า (เห็นในภาพหน้าจอ)
     const exportStarted = function () {
       if (findByText('ดาวน์โหลด', 'a, button, span')) return true;
+      const bar = document.querySelector('.ant-progress');
+      if (bar && visible(bar)) return true; // แถบความคืบหน้าของกล่องส่งออก (หน้า SI ข้อความอาจต่างจากหน้า ST)
       return Array.prototype.slice.call(document.querySelectorAll('span, div, p')).some(function (el) {
         return el.children.length <= 2 && /สามารถส่งออกได้เฉพาะ/.test(el.textContent || '') && visible(el);
       });
@@ -98,7 +149,7 @@
     let started = false;
     for (let k = 0; k < 3 && !started; k++) {
       setStatus('ขั้น 3/4: เจอเมนู ส่งออกทั้งหมด (วิธี: ' + how + ') กำลังกด ครั้งที่ ' + (k + 1) + ' ...');
-      const cur = findByText('ส่งออกทั้งหมด') || item;
+      const cur = menuItem() || item;
       // ตัวรับคลิกของเมนูคือ LI.ant-dropdown-menu-item (ข้อความอยู่ใน SPAN ข้างใน)
       realClick(cur.closest('li') || cur);
       started = await waitFor(exportStarted, 4000, '').then(function () { return true; }, function () { return false; });
@@ -245,8 +296,14 @@
     working = true;
     $('run').disabled = true;
     try {
-      setStatus('กำลังกด ส่งออก > ส่งออกทั้งหมด ...');
       waitingDownload = true;
+      if (!/warehouseInventory\.htm/.test(location.pathname)) {
+        // อยู่หน้าอื่นของ BigSeller: ให้ส่วนขยายเปิดหน้า ตำแหน่งสต็อก ในแท็บเบื้องหลังส่งออกแทน (ผลกลับมาทางสัญญาณ downloaded / panelError)
+        setStatus('หน้านี้ไม่ใช่ ตำแหน่งสต็อก — กำลังเปิดหน้านั้นในแท็บเบื้องหลังเพื่อส่งออก ...');
+        await send({ type: 'panelExport' });
+        return;
+      }
+      setStatus('กำลังกด ส่งออก > ส่งออกทั้งหมด ...');
       await runExport();
       setStatus('กดดาวน์โหลดแล้ว รอไฟล์โหลดเสร็จ ...');
       // ถ้าสัญญาณไม่มาใน 2 นาที ปลดล็อกให้ลองใหม่
@@ -310,9 +367,14 @@
   chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (!msg) return;
     if (msg.type === 'togglePanel') $('panel').classList.toggle('open');
+    if (msg.type === 'ping') { sendResponse({ ok: true }); return; }
+    if (msg.type === 'panelError') {
+      waitingDownload = false; working = false; $('run').disabled = false;
+      setStatus('ส่งออกอัตโนมัติไม่สำเร็จ: ' + msg.error, 'bad');
+    }
     if (msg.type === 'runExportOnly') {
       // คำสั่งจากหน้า ORDOR (ปุ่มในการ์ด ST): กดส่งออก > ดาวน์โหลด อย่างเดียว ส่วนอ่านไฟล์/ส่งต่อให้ background จัดการ
-      runExport().then(
+      runExport(msg.kind || 'st').then(
         function () { sendResponse({ ok: true }); },
         function (err) { sendResponse({ ok: false, error: err.message }); }
       );

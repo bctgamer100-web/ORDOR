@@ -1432,7 +1432,8 @@
         '<div class="sun-imp-eyebrow">' + c.eyebrow + '</div>' +
         '<h2>' + esc(c.title) + '</h2>' +
         // ST เท่านั้น: ดึงไฟล์จาก BigSeller อัตโนมัติผ่านส่วนขยาย (stock-sync-extension) แล้วใส่ช่องไฟล์ให้ จากนั้นเป็นขั้นตอนปกติ
-        (k === 'st' ? '<div class="sun-imp-auto"><button type="button" class="sun-imp-auto-btn" id="sunAuto_st" title="ต้องติดตั้งส่วนขยาย และเปิดแท็บ BigSeller > สินค้าคงคลัง > ตำแหน่งสต็อก ค้างไว้">🤖 ดึงจาก BigSeller อัตโนมัติ</button></div>' : '') +
+        // SI: ส่วนขยายตั้งช่วงเวลา "เมื่อวาน" + ค้นหาชื่อตำแหน่ง FRONT ที่หน้าการเคลื่อนไหวสต็อกให้เองก่อนส่งออก
+        (k === 'st' || k === 'si' ? '<div class="sun-imp-auto"><button type="button" class="sun-imp-auto-btn" id="sunAuto_' + k + '" title="ต้องติดตั้งส่วนขยาย ส่งสต็อก BigSeller เข้า ORDER และล็อกอิน BigSeller ไว้ในเบราว์เซอร์นี้">🤖 ดึงจาก BigSeller อัตโนมัติ' + (k === 'si' ? ' (เมื่อวาน · FRONT)' : '') + '</button></div>' : '') +
         '<div class="sun-imp-drop" id="sunDrop_' + k + '"><div class="sun-imp-badge">' + c.icon + '</div>' +
           '<strong>📁 คลิกเพื่อเลือกไฟล์ ' + c.icon + '</strong>' +
           '<span>' + hint + '</span>' +
@@ -1675,37 +1676,40 @@
   }
   // ปุ่ม "ดึงจาก BigSeller อัตโนมัติ" (การ์ด ST): ส่วนขยายกดส่งออกที่แท็บ BigSeller แล้วส่งไฟล์ ZIP กลับมาใส่ช่องไฟล์ ST
   // หลังจากนั้นเป็นขั้นตอนเดิมทุกอย่าง (แตกไฟล์ ตัดตำแหน่ง แสดงตัวอย่าง) และยังต้องกด "อัปโหลดทั้งหมด" เอง
-  const autoStBtn = $('sunAuto_st');
-  if (autoStBtn) {
-    autoStBtn.addEventListener('click', function () {
-      toggleCard('st', true);
+  // SI ทำเหมือนกัน (ส่วนขยายตั้งช่วงเวลา "เมื่อวาน" + ค้นชื่อตำแหน่ง FRONT ที่หน้า BigSeller ให้เอง) แต่รับไฟล์ได้ทั้ง Excel/CSV/ZIP
+  ['st', 'si'].forEach(function (k) {
+    const autoBtn = $('sunAuto_' + k);
+    if (!autoBtn) return;
+    autoBtn.addEventListener('click', function () {
+      toggleCard(k, true);
       if (document.documentElement.getAttribute('data-stock-sync') !== '1') {
-        setCardStatus('st', '⚠️ ไม่พบส่วนขยาย "ส่งสต็อก BigSeller เข้า ORDER" — ติดตั้ง/รีโหลดส่วนขยายแล้วรีเฟรชหน้านี้ (F5)', 0);
+        setCardStatus(k, '⚠️ ไม่พบส่วนขยาย "ส่งสต็อก BigSeller เข้า ORDER" — ติดตั้ง/รีโหลดส่วนขยายแล้วรีเฟรชหน้านี้ (F5)', 0);
         return;
       }
-      autoStBtn.disabled = true;
-      setCardStatus('st', '⏳ กำลังเรียกส่วนขยาย ...', 10);
-      window.postMessage({ source: 'order-workspace', type: 'stSyncRequest' }, '*');
+      autoBtn.disabled = true;
+      setCardStatus(k, '⏳ กำลังเรียกส่วนขยาย ...', 10);
+      window.postMessage({ source: 'order-workspace', type: k + 'SyncRequest' }, '*');
     });
     window.addEventListener('message', function (e) {
       const d = e.data;
-      if (e.source !== window || !d || d.source !== 'stock-sync') return;
-      if (d.type === 'progress') { setCardStatus('st', d.text, 40); return; }
-      autoStBtn.disabled = false;
-      if (d.type === 'error') { toggleCard('st', true); setCardStatus('st', '❌ ดึงจาก BigSeller ไม่สำเร็จ: ' + d.error, 0); return; }
+      if (e.source !== window || !d || d.source !== 'stock-sync' || (d.kind || 'st') !== k) return;
+      if (d.type === 'progress') { setCardStatus(k, d.text, 40); return; }
+      autoBtn.disabled = false;
+      if (d.type === 'error') { toggleCard(k, true); setCardStatus(k, '❌ ดึงจาก BigSeller ไม่สำเร็จ: ' + d.error, 0); return; }
       if (d.type === 'file') {
-        const input = kid('In', 'st');
-        if (!input || input.disabled) { setCardStatus('st', '🔒 ชนิดนี้อัปโหลดไปแล้ววันนี้ — ดึงข้อมูลมาไม่ได้', 100); return; }
+        const input = kid('In', k);
+        if (!input || input.disabled) { setCardStatus(k, '🔒 ชนิดนี้อัปโหลดไปแล้ววันนี้ — ดึงข้อมูลมาไม่ได้', 100); return; }
         const bin = atob(d.b64);
         const bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const file = new File([bytes], d.name, { type: 'application/zip', lastModified: Date.now() });
+        const mime = /\.zip$/i.test(d.name) ? 'application/zip' : (/\.csv$/i.test(d.name) ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        const file = new File([bytes], d.name, { type: mime, lastModified: Date.now() });
         setInputFiles(input, [file]);
-        syncInputs('st', 'sun', [file]);
-        prepareKind('st', true);
+        syncInputs(k, 'sun', [file]);
+        prepareKind(k, true);
       }
     });
-  }
+  });
   KIND_IDS.forEach(function (k) {
     PREFIXES.forEach(function (pre) {
       const input = $(pre + 'In_' + k), drop = $(pre + 'Drop_' + k);
