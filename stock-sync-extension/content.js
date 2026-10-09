@@ -1,0 +1,300 @@
+// ทำงานบนหน้า BigSeller > สินค้าคงคลัง: แผงลอยมุมขวาล่าง กดปุ่มเดียว = ส่งออกทั้งหมด > ดาวน์โหลด > ตรวจ > อัปโหลดเข้า op_stock
+(function () {
+  'use strict';
+  if (window.__stockSyncLoaded) return;
+  window.__stockSyncLoaded = true;
+
+  /* ================= ตัวกดปุ่มบนหน้า BigSeller ================= */
+
+  const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+  function visible(el) {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  // หา element ที่ข้อความตรงทั้งหมด (ตัดช่องว่าง) เลือกอันลึกสุดที่มองเห็น
+  function findByText(text, selector, includeHidden) {
+    const want = text.replace(/\s+/g, '');
+    const hits = Array.prototype.slice.call(document.querySelectorAll(selector || 'button, a, li, span, div')).filter(function (el) {
+      return (includeHidden || visible(el)) && (el.textContent || '').replace(/\s+/g, '') === want;
+    });
+    return hits.length ? hits[hits.length - 1] : null;
+  }
+
+  async function waitFor(fn, timeoutMs, label) {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+      const v = fn();
+      if (v) return v;
+      await sleep(300);
+    }
+    throw new Error('หมดเวลารอ: ' + label);
+  }
+
+  function realClick(el) {
+    ['mouseover', 'mousedown', 'mouseup', 'click'].forEach(function (t) {
+      el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window }));
+    });
+  }
+
+  // เมนูของ BigSeller เด้งตอน "วางเมาส์" (hover) จึงต้องยิงเหตุการณ์เมาส์เข้าไปที่ปุ่ม
+  function hover(el) {
+    const r = el.getBoundingClientRect();
+    const pos = { bubbles: true, cancelable: true, view: window, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+    ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'].forEach(function (t) {
+      const Ctor = t.indexOf('pointer') === 0 ? PointerEvent : MouseEvent;
+      // mouseenter/pointerenter ไม่ bubble ตามมาตรฐาน แต่ส่งเข้า element ตรงๆ
+      el.dispatchEvent(new Ctor(t, Object.assign({}, pos, { bubbles: t.indexOf('enter') === -1 })));
+    });
+  }
+
+  // กด ส่งออก > ส่งออกทั้งหมด > (รอสร้างไฟล์) > ดาวน์โหลด
+  async function runExport() {
+    const btn = await waitFor(function () { return findByText('ส่งออก', 'button'); }, 8000, 'ปุ่ม ส่งออก');
+    // ลอง hover ก่อน ถ้าเมนูยังไม่ขึ้นลองคลิกด้วย (กันกรณีเวอร์ชันหน้าเว็บต่างกัน) วนไม่เกิน 3 รอบ
+    const menuItem = function () { return findByText('ส่งออกทั้งหมด'); };
+    const tryWait = function () { return waitFor(menuItem, 1200, '').catch(function () { return null; }); };
+    let item = null;
+    let how = '';
+    // 1) จำลองเมาส์ 2) คลิก 3) เมาส์จริง (ผ่านระบบดีบักของ Chrome เผื่อเมนูใช้ CSS :hover) 4) กดรายการที่ซ่อนอยู่ในหน้าตรงๆ
+    hover(btn); item = await tryWait(); how = 'hover';
+    if (!item) { realClick(btn); item = await tryWait(); how = 'click'; }
+    if (!item) {
+      const r = btn.getBoundingClientRect();
+      try {
+        await chrome.runtime.sendMessage({ type: 'trustedMove', x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
+      } catch (e) { /* ไม่มีสิทธิ์ก็ข้าม */ }
+      item = await tryWait(); how = 'trusted-mouse';
+    }
+    if (!item) {
+      // เมนูอาจอยู่ในหน้าแต่ซ่อนไว้ (display:none) — กดตรงๆ ได้
+      const hidden = findByText('ส่งออกทั้งหมด', undefined, true);
+      if (hidden) { item = hidden; how = 'hidden-element'; }
+    }
+    if (!item) {
+      const buttons = Array.prototype.slice.call(document.querySelectorAll('button')).filter(function (b) { return /ส่งออก/.test(b.textContent); })
+        .map(function (b) { return '[' + b.textContent.trim() + ']'; }).join(' ');
+      chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
+      throw new Error('หมดเวลารอ: เมนู ส่งออกทั้งหมด (ปุ่มที่เจอ: ' + (buttons || 'ไม่มี') + ' — ลองครบ hover/คลิก/เมาส์จริง แล้วเมนูไม่ขึ้น)');
+    }
+    setStatus('เจอเมนู ส่งออกทั้งหมด (วิธี: ' + how + ') กำลังกด ...');
+    hover(item);
+    realClick(item);
+    chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
+    setStatus('BigSeller กำลังสร้างไฟล์ส่งออก (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
+    const link = await waitFor(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, 10 * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+    realClick(link);
+    await sleep(500);
+    const close = findByText('ปิด', 'button');
+    if (close) realClick(close);
+  }
+
+  /* ================= แผงควบคุม (Shadow DOM กัน CSS ชนกับ BigSeller) ================= */
+
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483000;';
+  const root = host.attachShadow({ mode: 'open' });
+  root.innerHTML = [
+    '<style>',
+    ':host{all:initial}',
+    '*{box-sizing:border-box;font:13px/1.45 system-ui,"Segoe UI",Tahoma,sans-serif}',
+    '.fab{background:#5b3fd1;color:#fff;border:0;border-radius:999px;padding:10px 16px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}',
+    '.panel{display:none;width:340px;max-height:80vh;overflow:auto;background:#fff;color:#1c2230;border:1px solid #d9dce6;border-radius:12px;padding:12px;box-shadow:0 8px 28px rgba(0,0,0,.28)}',
+    '.panel.open{display:block}',
+    'h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center}',
+    'button{cursor:pointer;border:1px solid #d9dce6;background:#fff;color:#1c2230;border-radius:8px;padding:6px 10px}',
+    'button.primary{background:#5b3fd1;border-color:#5b3fd1;color:#fff}',
+    'button:disabled{opacity:.5;cursor:not-allowed}',
+    '.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}',
+    '.stats{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:6px 0}',
+    '.stats div{background:#f3f4f9;border-radius:6px;padding:4px 8px}',
+    '.stats span{display:block;color:#6b7385;font-size:11px}',
+    '.stats b{font-size:15px}',
+    'ul{margin:6px 0;padding-left:18px}',
+    '.ok{color:#1a7f45}.bad{color:#b3261e}',
+    '#status{white-space:pre-wrap;margin:6px 0}',
+    'label{display:flex;gap:4px;align-items:center}',
+    'input[type=number],input[type=password]{width:90px;padding:3px 6px;border:1px solid #d9dce6;border-radius:6px}',
+    '.hide{display:none!important}',
+    '.x{border:0;background:none;font-size:16px;padding:0 4px}',
+    '</style>',
+    '<button class="fab" id="fab">📦 ส่งสต็อกเข้า ORDER</button>',
+    '<div class="panel" id="panel">',
+    '  <h3>ส่งสต็อก BigSeller เข้า ORDER <button class="x" id="close">✕</button></h3>',
+    '  <div class="row"><button class="primary" id="run">🚀 ส่งออกทั้งหมด แล้วนำเข้า</button></div>',
+    '  <div class="row"><button id="pick">📁 หรือเลือกไฟล์เอง</button><input type="file" id="file" class="hide" accept=".xlsx,.xls,.csv,.zip" multiple></div>',
+    '  <div id="status">พร้อมใช้งาน</div>',
+    '  <div id="result" class="hide">',
+    '    <div class="stats">',
+    '      <div><span>แถวในไฟล์</span><b id="sIn">0</b></div>',
+    '      <div><span>จะอัปโหลด (op_stock)</span><b id="sKept">0</b></div>',
+    '      <div><span>op_stock ตอนนี้</span><b id="sOld">0</b></div>',
+    '      <div><span>ตัดตำแหน่งที่ไม่นับ</span><b id="sExcl">0</b></div>',
+    '    </div>',
+    '    <ul id="checks"></ul>',
+    '    <div class="row"><label><input type="checkbox" id="backup" checked> สำรองข้อมูลเดิมก่อนทับ</label></div>',
+    '    <div class="row"><label>หยุดถ้าแถวลดเกิน <input type="number" id="maxDrop" min="0" max="100" value="20"> %</label></div>',
+    '    <div class="row"><label><input type="checkbox" id="force"> ยืนยันแม้ไม่ผ่านการตรวจ</label></div>',
+    '    <div class="row"><label><input type="checkbox" id="auto"> อัปโหลดเองถ้าผ่านทุกข้อ</label></div>',
+    '    <div class="row hide" id="pwRow"><label>รหัสอัปโหลด <input type="password" id="pw" autocomplete="off"></label></div>',
+    '    <div class="row"><button class="primary" id="go">⬆ อัปโหลดทับ op_stock</button></div>',
+    '  </div>',
+    '</div>'
+  ].join('');
+
+  const $ = function (id) { return root.getElementById(id); };
+  const fmt = function (n) { return Number(n).toLocaleString('th-TH'); };
+  let working = false;       // กำลังส่งออก/อ่าน/อัปโหลด
+  let waitingDownload = false;
+
+  function setStatus(text, cls) {
+    const el = $('status');
+    el.textContent = text;
+    el.className = cls || '';
+  }
+
+  function opts() {
+    return {
+      backup: $('backup').checked,
+      maxDrop: Number($('maxDrop').value) || 0,
+      force: $('force').checked,
+      passcode: $('pw').value
+    };
+  }
+
+  function renderSummary(s) {
+    $('result').classList.remove('hide');
+    $('sIn').textContent = fmt(s.stats.rowsIn);
+    $('sKept').textContent = fmt(s.kept);
+    $('sOld').textContent = s.oldCount == null ? '?' : fmt(s.oldCount);
+    $('sExcl').textContent = fmt(s.stats.excludedLoc);
+    const ul = $('checks');
+    ul.textContent = '';
+    s.checks.items.forEach(function (i) {
+      const li = document.createElement('li');
+      li.className = i.ok ? 'ok' : 'bad';
+      li.textContent = (i.ok ? '✓ ' : '✗ ') + i.text;
+      ul.appendChild(li);
+    });
+  }
+
+  function send(msg) {
+    return chrome.runtime.sendMessage(msg).then(function (res) {
+      if (!res || !res.ok) throw new Error((res && res.error) || 'ไม่ได้รับคำตอบจากส่วนขยาย (ลองรีเฟรชหน้า)');
+      return res;
+    });
+  }
+
+  async function afterPrepared(res) {
+    renderSummary(res.summary);
+    setStatus('ตรวจไฟล์เรียบร้อย — ดูผลตรวจแล้วกดอัปโหลด');
+    if ($('auto').checked && res.summary.checks.ok) await doUpload();
+  }
+
+  async function doUpload() {
+    $('go').disabled = true;
+    try {
+      const res = await send({ type: 'upload', opts: opts() });
+      renderSummary(res.summary);
+      setStatus(res.message + ' | ' + new Date().toLocaleTimeString('th-TH'), 'ok');
+    } catch (err) {
+      if (/รหัสอัปโหลด/.test(err.message)) {
+        $('pwRow').classList.remove('hide');
+        setStatus('ฐานข้อมูลต้องการรหัสอัปโหลด — ใส่รหัสแล้วกดอีกครั้ง (ยังไม่มีอะไรถูกเขียน)', 'bad');
+      } else if (/อัปโหลดไปแล้ววันนี้/.test(err.message)) {
+        setStatus('ฐานข้อมูลจำกัดอัปโหลด 1 ครั้ง/วัน ต่อชนิด และวันนี้อัปโหลดไปแล้ว — ยังไม่มีอะไรถูกเขียน ลองใหม่หลังเที่ยงคืน', 'bad');
+      } else {
+        setStatus('ผิดพลาด: ' + err.message + '\nถ้าพังกลางทาง ให้อัปโหลดใหม่ หรือกู้จากไฟล์สำรอง', 'bad');
+      }
+    } finally {
+      $('go').disabled = false;
+    }
+  }
+
+  $('fab').addEventListener('click', function () { $('panel').classList.toggle('open'); });
+  $('close').addEventListener('click', function () { $('panel').classList.remove('open'); });
+
+  $('run').addEventListener('click', async function () {
+    if (working) return;
+    working = true;
+    $('run').disabled = true;
+    try {
+      setStatus('กำลังกด ส่งออก > ส่งออกทั้งหมด ...');
+      waitingDownload = true;
+      await runExport();
+      setStatus('กดดาวน์โหลดแล้ว รอไฟล์โหลดเสร็จ ...');
+      // ถ้าสัญญาณไม่มาใน 2 นาที ปลดล็อกให้ลองใหม่
+      setTimeout(function () {
+        if (waitingDownload) {
+          waitingDownload = false; working = false; $('run').disabled = false;
+          setStatus('ยังไม่พบไฟล์ที่โหลดเสร็จ — โหลดแล้วให้กด "เลือกไฟล์เอง"', 'bad');
+        }
+      }, 120000);
+    } catch (err) {
+      waitingDownload = false; working = false; $('run').disabled = false;
+      setStatus('ส่งออกอัตโนมัติไม่สำเร็จ: ' + err.message, 'bad');
+    }
+  });
+
+  $('pick').addEventListener('click', function () { $('file').click(); });
+  $('file').addEventListener('change', async function (e) {
+    const files = Array.prototype.slice.call(e.target.files);
+    e.target.value = '';
+    if (!files.length || working) return;
+    working = true;
+    try {
+      setStatus('กำลังอ่านไฟล์ ...');
+      const out = [];
+      for (const f of files) {
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        out.push({ name: f.name, b64: btoa(bin) });
+      }
+      await afterPrepared(await send({ type: 'prepareFiles', files: out, opts: opts() }));
+    } catch (err) {
+      setStatus('ผิดพลาด: ' + err.message, 'bad');
+    } finally {
+      working = false;
+    }
+  });
+
+  ['maxDrop', 'force'].forEach(function (id) {
+    $(id).addEventListener('change', async function () {
+      try {
+        const res = await send({ type: 'reevaluate', opts: opts() });
+        renderSummary(res.summary);
+      } catch (e) { /* ยังไม่มีไฟล์ */ }
+    });
+  });
+
+  $('go').addEventListener('click', doUpload);
+
+  // จำค่าที่ตั้งไว้
+  chrome.storage.local.get(['auto', 'backup', 'maxDrop'], function (v) {
+    if (v.auto != null) $('auto').checked = !!v.auto;
+    if (v.backup != null) $('backup').checked = !!v.backup;
+    if (v.maxDrop != null) $('maxDrop').value = v.maxDrop;
+  });
+  ['auto', 'backup'].forEach(function (id) {
+    $(id).addEventListener('change', function () { chrome.storage.local.set({ [id]: $(id).checked }); });
+  });
+  $('maxDrop').addEventListener('change', function () { chrome.storage.local.set({ maxDrop: Number($('maxDrop').value) || 0 }); });
+
+  chrome.runtime.onMessage.addListener(function (msg) {
+    if (!msg) return;
+    if (msg.type === 'togglePanel') $('panel').classList.toggle('open');
+    if (msg.type === 'progress') setStatus(msg.text);
+    if (msg.type === 'downloaded' && waitingDownload) {
+      waitingDownload = false;
+      setStatus('ไฟล์โหลดเสร็จ กำลังอ่าน ...');
+      send({ type: 'prepareDownload', download: msg.download, opts: opts() })
+        .then(afterPrepared)
+        .catch(function (err) { setStatus('ผิดพลาด: ' + err.message, 'bad'); })
+        .finally(function () { working = false; $('run').disabled = false; });
+    }
+  });
+
+  document.documentElement.appendChild(host);
+})();

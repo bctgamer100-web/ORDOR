@@ -2972,6 +2972,12 @@ input:focus,select:focus,textarea:focus{
 html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:#1d4ed8}
 #compareTool .move-loc-sep{opacity:.6}
 
+/* ปุ่ม ✕ ท้ายแถว: ตัดรายการที่เบิกไปแล้วออกจากตาราง/ไฟล์ใบย้าย */
+#compareTool .move-skip-btn{width:26px!important;height:26px!important;min-height:0!important;padding:0!important;margin:0!important;border-radius:6px!important;background:none!important;border:1px solid transparent!important;box-shadow:none!important;color:inherit!important;opacity:.55;cursor:pointer;line-height:1;font-size:14px!important}
+#compareTool .move-skip-btn:hover{opacity:1;color:#e5484d!important;border-color:#e5484d!important}
+#compareTool .move-skip-bar{margin-top:8px;font-size:13px;opacity:.85}
+#compareTool .move-skip-restore{min-height:0!important;padding:2px 8px!important;margin-left:6px!important;border-radius:6px!important;cursor:pointer}
+
 /* หน้า ตรวจ ORDER กับ Stock: รายการที่ยืนยันจากหน้าก่อนสั่ง (js/saved-files.js → SavedConfirms) */
 #compareTool .saved-files{margin:0 0 14px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:transparent}
 #compareTool .saved-files[hidden]{display:none!important}

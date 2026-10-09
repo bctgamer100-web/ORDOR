@@ -838,6 +838,7 @@ function compareFiles(){
     compareCopyLocationSelection.clear();
     moveQtyOverrides.clear();
     moveLocPicks.clear();
+    moveSkipped.clear();
     compareCopySelectionsInitialized = false;
 
     // คงลำดับตามไฟล์ ORDER (ไฟล์ที่ 1) ไม่เรียง SKU ใหม่ตามพยัญชนะ
@@ -1137,7 +1138,7 @@ function copyRemainingByBrand(){
 }
 
 function copyDeductedByLocation(){
-  const rows=compareResults.filter(item=>item.stockQty>0);
+  const rows=compareResults.filter(deductedVisible);
   const selected=compareCopyLocationSelection;
   const filtered=selected.size ? rows.filter(item=>{
     const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
@@ -1151,7 +1152,7 @@ function copyDeductedByLocation(){
 function updateComparePreviewTables(){
   const remaining=getRemainingRows().filter(r=>compareBrandPass(r.item)).map(r=>[r.item.sku,r.qty]);
 
-  const deductedSource=compareResults.filter(item=>item.stockQty>0);
+  const deductedSource=compareResults.filter(deductedVisible);
   const deductedFiltered=compareCopyLocationSelection.size ? deductedSource.filter(item=>{
     const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
     return locs.some(loc=>compareCopyLocationSelection.has(loc));
@@ -1159,7 +1160,7 @@ function updateComparePreviewTables(){
   const plan=buildMovePlan();
   const deducted=deductedFiltered.map(item=>[
     compareSkuLabel(item),item.orderShown ?? item.orderQty,item.stockQty,
-    moveQtyCell(item,plan),moveLocCell(item),item.status
+    moveQtyCell(item,plan),moveLocCell(item),item.status,moveSkipCell(item)
   ]);
 
   // วาดตารางใหม่แล้วคงตำแหน่งที่เลื่อนไว้ (กดเลือกตำแหน่ง/แก้จำนวนเบิกแล้วไม่เด้งกลับไปบนสุด)
@@ -1178,7 +1179,7 @@ function updateComparePreviewTables(){
   const remCount=document.querySelector('[data-preview-count="remaining"]');
   if(remCount) remCount.textContent=`${remaining.length.toLocaleString()} รายการ`;
 
-  keepScroll(document.querySelector('[data-preview-table="deducted"]'),previewCompareTable(['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted));
+  keepScroll(document.querySelector('[data-preview-table="deducted"]'),deductedTableHtml(deducted));
   const dedCount=document.querySelector('[data-preview-count="deducted"]');
   if(dedCount) dedCount.textContent=`${deducted.length.toLocaleString()} รายการ`;
 }
@@ -1218,7 +1219,7 @@ function renderCompareWebPreview(mode='all', silent=false){
     const remaining=getRemainingRows().filter(r=>compareBrandPass(r.item)).map(r=>[r.item.sku,r.qty]);
 
     // ส่วนที่ 2 ตรงกับ Sheet "รายการที่ถูกลบ-ถูกหัก" ในไฟล์ Excel
-    const deductedSource=compareResults.filter(item=>item.stockQty>0);
+    const deductedSource=compareResults.filter(deductedVisible);
     const deductedFiltered=compareCopyLocationSelection.size ? deductedSource.filter(item=>{
       const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
       return locs.some(loc=>compareCopyLocationSelection.has(loc));
@@ -1230,7 +1231,8 @@ function renderCompareWebPreview(mode='all', silent=false){
         item.stockQty,
         moveQtyCell(item,plan),
         moveLocCell(item),
-        item.status
+        item.status,
+        moveSkipCell(item)
       ]);
 
     html += `<details class="compare-preview-section" open>
@@ -1242,7 +1244,7 @@ function renderCompareWebPreview(mode='all', silent=false){
     html += `<details class="compare-preview-section" open>
       <summary>📋 รายการที่ถูกลบ-ถูกหัก <span class="preview-count" data-preview-count="deducted">${deducted.length.toLocaleString()} รายการ</span></summary>
       ${copyControlHtml('location', getCompareLocationOptions(compareResults.filter(item=>item.stockQty>0)), compareCopyLocationSelection)}
-      <div data-preview-table="deducted">${previewCompareTable(['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ'],deducted)}</div>
+      <div data-preview-table="deducted">${deductedTableHtml(deducted)}</div>
     </details>`;
   }else if(mode==='short'){
     title.textContent='⚠️ รายการที่ขาด';
@@ -1298,7 +1300,7 @@ function downloadStockCheckResult(){
   const deductedData=[
     ["SKU Merchant","ORDER","STOCK","จำนวนเบิก","ตำแหน่ง","สถานะ"],
     ...compareResults
-      .filter(item=>item.stockQty > 0)
+      .filter(deductedVisible)
       .map(item=>[
         compareSkuLabel(item),
         item.orderShown ?? item.orderQty,
@@ -1463,6 +1465,21 @@ const MOVE_HEADERS = [
 
 // จำนวนเบิกที่ผู้ใช้แก้เองในตาราง "รายการที่ถูกลบ-ถูกหัก" (คีย์ = SKU ที่เบิกจริง) ล้างทุกครั้งที่ตรวจชุดใหม่
 const moveQtyOverrides=new Map();
+// SKU ที่กด ✕ ตัดออกจากตาราง "รายการที่ถูกลบ-ถูกหัก" (เบิกไปแล้ว) → ไม่อยู่ในตาราง ไม่อยู่ในไฟล์ใบย้าย (คีย์ = SKU ที่เบิกจริง) ล้างทุกครั้งที่ตรวจชุดใหม่
+const moveSkipped=new Set();
+const deductedVisible=item=>item.stockQty>0 && !moveSkipped.has(moveKeyOf(item));
+const DEDUCTED_HEADERS=['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ',''];
+function moveSkipCell(item){
+  const key=moveKeyOf(item);
+  return {html:`<button type="button" class="move-skip-btn" data-move-key="${encodeURIComponent(key)}" title="ตัดรายการนี้ออก (เบิกไปแล้ว) จะไม่อยู่ในไฟล์ใบย้าย" aria-label="ตัดรายการนี้ออก">✕</button>`};
+}
+// ตารางรายการที่ถูกลบ-ถูกหัก + แถบคืนรายการที่ตัดออก (ถ้ามี)
+function deductedTableHtml(rows){
+  const restore=moveSkipped.size
+    ? `<div class="move-skip-bar">ตัดออกแล้ว ${moveSkipped.size.toLocaleString()} รายการ <button type="button" class="move-skip-restore">↩ คืนทั้งหมด</button></div>`
+    : '';
+  return previewCompareTable(DEDUCTED_HEADERS,rows)+restore;
+}
 // ลัง H → Map(SKU → จำนวน) ของทุก SKU ในลังนั้น (สร้างใหม่ทุกครั้งที่ตรวจ ORDER กับ Stock)
 let compareHBoxContents=new Map();
 
@@ -1494,7 +1511,7 @@ function moveKeyOf(item){
 function buildMovePlan(){
   const priority=getMovePriority();
   const demand=new Map();
-  compareResults.filter(item=>item.stockQty>0).forEach(item=>{
+  compareResults.filter(deductedVisible).forEach(item=>{
     const sku=item.stockSku||item.sku;
     const key=moveKeyOf(item);
     const pick=Math.min(item.orderQty,item.stockQty);
@@ -1596,6 +1613,16 @@ function moveQtyCell(item, plan){
   const tip=p ? `ตามเงื่อนไข ${p.auto} · สต็อกรวม ${p.stockTotal}`+(over ? ` · เบิกได้ ${p.total} ส่วนเกิน ${p.manual-p.stockTotal} ไปอยู่ยอดคงเหลือ` : '') : '';
   return {html:`<input type="number" min="0" step="1" class="move-qty-input${edited}" data-move-key="${encodeURIComponent(key)}" value="${val}" title="${esc(tip)}" style="width:72px">`};
 }
+
+// ✕ ตัดรายการที่เบิกไปแล้วออก / คืนทั้งหมด
+document.addEventListener('click',e=>{
+  const t=e.target.closest && e.target.closest('.move-skip-btn, .move-skip-restore');
+  if(!t) return;
+  if(t.classList.contains('move-skip-restore')) moveSkipped.clear();
+  else moveSkipped.add(decodeURIComponent(t.dataset.moveKey||''));
+  // ตารางหน้าเว็บ ยอดคงเหลือ และใบย้าย คิดใหม่โดยไม่รวมรายการที่ตัดออก
+  updateComparePreviewTables();
+});
 
 document.addEventListener('change',e=>{
   const el=e.target.closest && e.target.closest('.move-qty-input');

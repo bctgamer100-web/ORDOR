@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "ส่งสต็อก BigSeller เข้า ORDER",
+  "version": "0.3.0",
+  "description": "ส่งออกสต็อก/ตำแหน่งจาก BigSeller แล้วนำเข้าตาราง op_stock ของ ORDER Workspace ด้วยเงื่อนไขเดียวกับหน้านำเข้าข้อมูล",
+  "permissions": ["downloads", "storage", "tabs", "debugger"],
+  "host_permissions": [
+    "https://*.bigseller.com/*",
+    "https://yvfqxlgkwaylivopctno.supabase.co/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.bigseller.com/web/inventory/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_title": "ส่งสต็อก BigSeller เข้า ORDER" }
+}
