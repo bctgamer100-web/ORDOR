@@ -97,8 +97,51 @@
     await sleep(3000); // รอตารางโหลดผลค้นหา
   }
 
+  // หน้าออเดอร์ (3M): หลังกด "ส่งออกทั้งหมด" จะมีกล่อง "ส่งออกคำสั่งซื้อ" ให้เลือกเทมเพลต → เลือก "ยอดขาย 3 เดือน" แล้วกดปุ่ม ส่งออก ในกล่อง
+  // คืน true เมื่อกดปุ่มในกล่องแล้ว · false ถ้ากล่องไม่ขึ้น (ให้ผู้เรียกลองกดเมนูใหม่)
+  const M3_TEMPLATE = 'ยอดขาย 3 เดือน';
+  async function handleOrderExportModal() {
+    setStatus('3M: รอกล่อง ส่งออกคำสั่งซื้อ ...');
+    const title = await waitFor(function () { return findByText('ส่งออกคำสั่งซื้อ'); }, 8000, '').catch(function () { return null; });
+    if (!title) return false;
+    const modal = title.closest('.ant-modal') || title.closest('[class*="modal"]') || document.body;
+    // ช่องเลือก "ประเภทเทมเพลต"
+    // ในกล่องมีช่องเลือก 2 ช่อง (ประเภทการส่งออก / ประเภทเทมเพลต) → เลือกช่องที่อยู่ระดับเดียวกับป้าย "ประเภทเทมเพลต" บนจอ
+    // (ไม่ไล่หาจากโครงสร้างหน้า เพราะจะไปเจอช่องแรก "ประเภทการส่งออก" ก่อน)
+    const label = await waitFor(function () { return findByText('ประเภทเทมเพลต'); }, 5000, 'ป้าย ประเภทเทมเพลต');
+    const lr = label.getBoundingClientRect();
+    const labelY = lr.top + lr.height / 2;
+    let sel = null;
+    let best = Infinity;
+    Array.prototype.slice.call(modal.querySelectorAll('.ant-select')).forEach(function (el) {
+      if (!visible(el)) return;
+      const r = el.getBoundingClientRect();
+      const dy = Math.abs(r.top + r.height / 2 - labelY);
+      if (dy < best) { best = dy; sel = el; }
+    });
+    if (!sel || best > 30) throw new Error('ไม่พบช่องเลือกเทมเพลตในกล่องส่งออกคำสั่งซื้อ (ไม่มีช่องเลือกอยู่ระดับเดียวกับป้าย ประเภทเทมเพลต)');
+    if (sel.textContent.indexOf(M3_TEMPLATE) === -1) {
+      setStatus('3M: เลือกเทมเพลต "' + M3_TEMPLATE + '" ...');
+      realClick(sel.querySelector('.ant-select-selection') || sel);
+      const opt = await waitFor(function () {
+        return Array.prototype.slice.call(document.querySelectorAll('li, [role="option"]')).find(function (el) {
+          return visible(el) && (el.textContent || '').trim() === M3_TEMPLATE;
+        });
+      }, 5000, 'ตัวเลือกเทมเพลต ' + M3_TEMPLATE);
+      realClick(opt);
+      await sleep(600);
+      if (sel.textContent.indexOf(M3_TEMPLATE) === -1) throw new Error('เลือกเทมเพลต "' + M3_TEMPLATE + '" ไม่สำเร็จ');
+    }
+    const btn = Array.prototype.slice.call(modal.querySelectorAll('button')).find(function (b) {
+      return visible(b) && (b.textContent || '').replace(/\s+/g, '') === 'ส่งออก';
+    });
+    if (!btn) throw new Error('ไม่พบปุ่ม ส่งออก ในกล่องส่งออกคำสั่งซื้อ');
+    realClick(btn);
+    return true;
+  }
+
   // กด ส่งออก > ส่งออกทั้งหมด > (รอสร้างไฟล์) > ดาวน์โหลด · kind: 'st' (ตำแหน่งสต็อก) | 'si' (การเคลื่อนไหวสต็อก)
-  async function runExport(kind) {
+  async function runExport(kind, jobId) {
     if (kind === 'si') await applySiFilters();
     setStatus('ขั้น 1/4: กำลังหาปุ่ม ส่งออก ...');
     const btn = await waitFor(function () { return findByText('ส่งออก', 'button'); }, 8000, 'ปุ่ม ส่งออก');
@@ -152,6 +195,7 @@
       const cur = menuItem() || item;
       // ตัวรับคลิกของเมนูคือ LI.ant-dropdown-menu-item (ข้อความอยู่ใน SPAN ข้างใน)
       realClick(cur.closest('li') || cur);
+      if (kind === 'm3') await handleOrderExportModal(); // false = กล่องไม่ขึ้น → ผลลัพธ์ started จะเป็นเท็จแล้ววนกดเมนูใหม่
       started = await waitFor(exportStarted, 4000, '').then(function () { return true; }, function () { return false; });
       if (!started) {
         hover(btn); // เมนูอาจปิดไปแล้ว เปิดใหม่ (เมาส์จำลองไม่เคยออกจากปุ่ม เมนูจึงควรค้างอยู่ แต่กันไว้)
@@ -163,7 +207,12 @@
     if (!started) throw new Error('กด ส่งออกทั้งหมด แล้วกล่องส่งออกไม่ขึ้น (ลองแล้ว 3 ครั้ง)');
     setStatus('ขั้น 4/4: BigSeller กำลังสร้างไฟล์ส่งออก รอลิงก์ ดาวน์โหลด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
     const link = await waitFor(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
-    realClick(link);
+    // หลายแท็บส่งออกพร้อมกันได้ แต่กดดาวน์โหลดผลัดกันทีละแท็บ (background จะบอกว่าไฟล์ที่โหลดเสร็จเป็นของแท็บไหน)
+    if (jobId) {
+      setStatus('ไฟล์พร้อมแล้ว รอคิวกดดาวน์โหลด ...');
+      await chrome.runtime.sendMessage({ type: 'requestDownloadSlot', jobId: jobId });
+    }
+    realClick(findByText('ดาวน์โหลด', 'a, button, span') || link);
     await sleep(500);
     const close = findByText('ปิด', 'button');
     if (close) realClick(close);
@@ -374,7 +423,7 @@
     }
     if (msg.type === 'runExportOnly') {
       // คำสั่งจากหน้า ORDOR (ปุ่มในการ์ด ST): กดส่งออก > ดาวน์โหลด อย่างเดียว ส่วนอ่านไฟล์/ส่งต่อให้ background จัดการ
-      runExport(msg.kind || 'st').then(
+      runExport(msg.kind || 'st', msg.jobId).then(
         function () { sendResponse({ ok: true }); },
         function (err) { sendResponse({ ok: false, error: err.message }); }
       );

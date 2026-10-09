@@ -43,7 +43,10 @@ chrome.downloads.onChanged.addListener(async function (delta) {
   if (!/bigseller/i.test([it.url, it.finalUrl, it.referrer].join(' '))) return;
   const rec = { id: it.id, filename: it.filename, url: it.finalUrl || it.url, at: Date.now() };
   await chrome.storage.local.set({ lastDownload: rec });
-  downloadWaiters.splice(0).forEach(function (resolve) { resolve(rec); });
+  // ไฟล์ที่โหลดเสร็จตอนมีแท็บถือสิทธิ์กดดาวน์โหลดอยู่ = ของแท็บนั้น
+  const holder = slotHolder && jobs.get(slotHolder);
+  if (holder) { holder.resolve(rec); releaseSlot(slotHolder); }
+  else downloadWaiters.splice(0).forEach(function (resolve) { resolve(rec); });
   (await bigsellerTabs()).forEach(function (t) {
     chrome.tabs.sendMessage(t.id, { type: 'downloaded', download: rec }).catch(function () { /* แท็บไม่มีตัวกด */ });
   });
@@ -164,22 +167,49 @@ async function ensureContentReady(tabId) {
   throw new Error('แท็บ BigSeller ไม่ตอบสนอง — รีเฟรชหน้า BigSeller 1 ครั้งแล้วลองใหม่');
 }
 
-// ส่งออกได้ทีละงานเท่านั้น: ตัวรอไฟล์ใช้ "ไฟล์ถัดไปที่โหลดเสร็จ" ถ้ากด ST กับ SI ซ้อนกัน ทั้งคู่จะคว้าไฟล์เดียวกัน (ไฟล์ SI ไปโผล่ที่การ์ด ST)
-let exportQueue = Promise.resolve();
-function exportViaTab(progress, kind) {
-  const job = exportQueue.then(function () { return exportViaTabNow(progress, kind); });
-  exportQueue = job.catch(function () {}); // งานก่อนหน้าพังก็ไม่ให้คิวค้าง
-  if (exportQueueBusy++ > 0) progress('มีงานส่งออกอื่นกำลังทำอยู่ — รอคิว ...');
-  job.finally(function () { exportQueueBusy--; }).catch(function () {});
-  return job;
+// ส่งออกพร้อมกันได้ (แท็บใครแท็บมัน ส่วนที่นานคือ BigSeller สร้างไฟล์) แต่ "กดดาวน์โหลด" ผลัดกันทีละแท็บ
+// เพราะดาวน์โหลดของ Chrome บอกไม่ได้ว่ามาจากแท็บไหน: แท็บที่ถือสิทธิ์กดดาวน์โหลดอยู่ ไฟล์ที่โหลดเสร็จต่อจากนั้นคือของแท็บนั้น
+const jobs = new Map();          // jobId → { resolve }
+let jobSeq = 0;
+let slotHolder = null;           // jobId ที่ถือสิทธิ์กดดาวน์โหลดอยู่
+let slotTimer = null;
+const slotWaiters = [];
+function grantNextSlot() {
+  if (slotHolder || !slotWaiters.length) return;
+  const w = slotWaiters.shift();
+  slotHolder = w.jobId;
+  // กันค้าง: ถ้ากดแล้วไฟล์ไม่โหลดเสร็จใน 3 นาที ปล่อยสิทธิ์ให้งานถัดไป
+  slotTimer = setTimeout(function () { releaseSlot(w.jobId); }, 3 * 60 * 1000);
+  w.grant();
 }
-let exportQueueBusy = 0;
+function releaseSlot(jobId) {
+  if (slotHolder !== jobId) return;
+  clearTimeout(slotTimer);
+  slotHolder = null;
+  grantNextSlot();
+}
+function requestSlot(jobId) {
+  return new Promise(function (grant) { slotWaiters.push({ jobId: jobId, grant: grant }); grantNextSlot(); });
+}
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || msg.type !== 'requestDownloadSlot') return;
+  requestSlot(msg.jobId).then(function () { sendResponse({ ok: true }); });
+  return true;
+});
+
+// สลับแท็บชั่วคราว (วิธีสำรองตอนแท็บเบื้องหลังเปิดเมนูไม่ได้) ทำทีละงาน ไม่ให้สลับชนกัน
+let activateChain = Promise.resolve();
+
+function exportViaTab(progress, kind) {
+  return exportViaTabNow(progress, kind);
+}
 
 async function exportViaTabNow(progress, kind) {
   const page = EXPORT_PAGES[kind || 'st'] || EXPORT_PAGES.st;
   const existing = page.fresh ? [] : await chrome.tabs.query({ url: 'https://*.bigseller.com/web/' + page.file + '*' });
   let tab = existing[0];
   let created = false;
+  let jobId = null;
   try {
     if (!tab) {
       const any = (await bigsellerTabs())[0];
@@ -191,11 +221,16 @@ async function exportViaTabNow(progress, kind) {
     }
     await ensureContentReady(tab.id);
     progress('กำลังสั่ง BigSeller ส่งออกทั้งหมด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
-    const downloaded = waitNextDownload(page.timeoutMs || 12 * 60 * 1000);
+    jobId = 'job' + (++jobSeq);
+    const timeoutMs = page.timeoutMs || 12 * 60 * 1000;
+    const downloaded = new Promise(function (resolve, reject) {
+      jobs.set(jobId, { resolve: resolve });
+      setTimeout(function () { reject(new Error('รอไฟล์ที่โหลดจาก BigSeller นานเกินไป')); }, timeoutMs);
+    });
     downloaded.catch(function () {}); // กัน error ลอยถ้าขั้นส่งออกพังก่อน
     const runInTab = async function () {
       try {
-        return await chrome.tabs.sendMessage(tab.id, { type: 'runExportOnly', kind: kind || 'st' });
+        return await chrome.tabs.sendMessage(tab.id, { type: 'runExportOnly', kind: kind || 'st', jobId: jobId });
       } catch (e) {
         throw new Error('สั่งแท็บ BigSeller ไม่ได้ — รีเฟรชหน้า BigSeller แล้วลองใหม่ (' + e.message + ')');
       }
@@ -204,18 +239,23 @@ async function exportViaTabNow(progress, kind) {
     // แท็บเบื้องหลังเปิดเมนูไม่ขึ้น (เบราว์เซอร์หยุดงานด้านภาพของแท็บที่ไม่ได้ดู) → สลับไปแท็บนั้นชั่วคราว แล้วสลับกลับ
     if ((!res || !res.ok) && /เมนู ส่งออก|ปุ่ม ส่งออก|กล่องส่งออก/.test((res && res.error) || '')) {
       progress('แท็บเบื้องหลังเปิดเมนูไม่ได้ — สลับไปแท็บนั้นชั่วคราวเพื่อกดส่งออก ...');
-      const prev = (await chrome.tabs.query({ active: true, windowId: tab.windowId }))[0];
-      await chrome.tabs.update(tab.id, { active: true });
-      await new Promise(function (r) { setTimeout(r, 1500); });
-      try {
-        res = await runInTab();
-      } finally {
-        if (prev && prev.id !== tab.id) chrome.tabs.update(prev.id, { active: true }).catch(function () {});
-      }
+      const turn = activateChain.then(async function () {
+        const prev = (await chrome.tabs.query({ active: true, windowId: tab.windowId }))[0];
+        await chrome.tabs.update(tab.id, { active: true });
+        await new Promise(function (r) { setTimeout(r, 1500); });
+        try {
+          return await runInTab();
+        } finally {
+          if (prev && prev.id !== tab.id) chrome.tabs.update(prev.id, { active: true }).catch(function () {});
+        }
+      });
+      activateChain = turn.catch(function () {});
+      res = await turn;
     }
     if (!res || !res.ok) throw new Error('ส่งออกที่ BigSeller ไม่สำเร็จ: ' + ((res && res.error) || 'ไม่ตอบกลับ'));
     return await downloaded;
   } finally {
+    if (jobId) { jobs.delete(jobId); releaseSlot(jobId); }
     if (created && tab) chrome.tabs.remove(tab.id).catch(function () {});
   }
 }
