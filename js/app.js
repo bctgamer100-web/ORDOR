@@ -839,6 +839,7 @@ function compareFiles(){
     moveQtyOverrides.clear();
     moveLocPicks.clear();
     moveSkipped.clear();
+    snapshotPriorPicks(); // ผลตรวจชุดใหม่: จำว่า ณ ตอนนี้ SKU ไหนเคยส่งออกไปแล้ววันนี้ (ใช้ทำสีแถวที่ซ้ำ)
     compareCopySelectionsInitialized = false;
 
     // คงลำดับตามไฟล์ ORDER (ไฟล์ที่ 1) ไม่เรียง SKU ใหม่ตามพยัญชนะ
@@ -965,7 +966,7 @@ function previewCompareTable(headers, rows){
 
   const head=headers.map(h=>`<th>${esc(h)}</th>`).join('');
   // ช่องที่เป็น {html} (เช่น ช่องจำนวนเบิกที่แก้ได้) ใส่ HTML ตรงๆ ช่องอื่น escape ตามปกติ
-  const body=rows.map(row=>`<tr>${row.map(v=>`<td>${v && typeof v==='object' && 'html' in v ? v.html : esc(v ?? '')}</td>`).join('')}</tr>`).join('');
+  const body=rows.map(row=>`<tr${row.rowClass?` class="${esc(row.rowClass)}"`:''}${row.rowTitle?` title="${esc(row.rowTitle)}"`:''}>${row.map(v=>`<td>${v && typeof v==='object' && 'html' in v ? v.html : esc(v ?? '')}</td>`).join('')}</tr>`).join('');
   return `<div class="compare-preview-table-wrap"><table class="compare-preview-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -1158,10 +1159,10 @@ function updateComparePreviewTables(){
     return locs.some(loc=>compareCopyLocationSelection.has(loc));
   }) : [];
   const plan=buildMovePlan();
-  const deducted=deductedFiltered.map(item=>[
+  const deducted=deductedFiltered.map(item=>decorateDeductedRow([
     compareSkuLabel(item),item.orderShown ?? item.orderQty,item.stockQty,
     moveQtyCell(item,plan),moveLocCell(item),item.status,moveSkipCell(item)
-  ]);
+  ],item));
 
   // วาดตารางใหม่แล้วคงตำแหน่งที่เลื่อนไว้ (กดเลือกตำแหน่ง/แก้จำนวนเบิกแล้วไม่เด้งกลับไปบนสุด)
   // คืนค่า 2 รอบ: ทันที และหลังตัวเรียงลำดับคอลัมน์ (MutationObserver) จัดแถวเสร็จ
@@ -1225,7 +1226,7 @@ function renderCompareWebPreview(mode='all', silent=false){
       return locs.some(loc=>compareCopyLocationSelection.has(loc));
     }) : [];
     const plan=buildMovePlan();
-    const deducted=deductedFiltered.map(item=>[
+    const deducted=deductedFiltered.map(item=>decorateDeductedRow([
         compareSkuLabel(item),
         item.orderShown ?? item.orderQty,
         item.stockQty,
@@ -1233,7 +1234,7 @@ function renderCompareWebPreview(mode='all', silent=false){
         moveLocCell(item),
         item.status,
         moveSkipCell(item)
-      ]);
+      ],item));
 
     html += `<details class="compare-preview-section" open>
       <summary>📦 ยอดคงเหลือ <span class="preview-count" data-preview-count="remaining">${remaining.length.toLocaleString()} รายการ</span></summary>
@@ -1467,6 +1468,61 @@ const MOVE_HEADERS = [
 const moveQtyOverrides=new Map();
 // SKU ที่กด ✕ ตัดออกจากตาราง "รายการที่ถูกลบ-ถูกหัก" (เบิกไปแล้ว) → ไม่อยู่ในตาราง ไม่อยู่ในไฟล์ใบย้าย (คีย์ = SKU ที่เบิกจริง) ล้างทุกครั้งที่ตรวจชุดใหม่
 const moveSkipped=new Set();
+
+// ===== ประวัติ SKU ที่ส่งออกใบย้ายไปแล้ว (จำข้ามการรีเฟรช เก็บใน localStorage ราย 14 วัน) =====
+// บันทึกตอนกด "ไฟล์ย้ายสินค้าแยกตำแหน่ง" / "นำเข้า BigSeller" · ตอนตรวจ ORDER ชุดใหม่ ถ้า SKU เดียวกันเคยส่งออกไปแล้ว "วันนี้" ทั้งแถวจะเปลี่ยนสี
+// ใช้ภาพถ่ายของประวัติ ณ ตอนโหลดผลตรวจชุดนั้น (comparePriorPicks) จึงไม่ย้อนทำให้แถวที่เพิ่งส่งออกในชุดเดียวกันเปลี่ยนสีทันที
+const PICK_HISTORY_KEY='order_pick_history_v1';
+const PICK_HISTORY_DAYS=14;
+function pickDayKey(d){
+  d=d||new Date();
+  const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+function loadPickHistory(){
+  try{ const h=JSON.parse(localStorage.getItem(PICK_HISTORY_KEY)||'{}'); return h&&typeof h==='object' ? h : {}; }catch(e){ return {}; }
+}
+let comparePriorPicks=new Map(); // คีย์ SKU (normalizeOrderSku) → { n: จำนวนครั้งที่ส่งออกวันนี้, qty, last }
+function snapshotPriorPicks(){
+  const day=loadPickHistory()[pickDayKey()]||{};
+  comparePriorPicks=new Map(Object.entries(day));
+}
+// byPrefix = Map(ชื่อไฟล์ → แถวใบย้าย [sku,'',ตำแหน่ง,จำนวน,...]) จาก collectPickFiles — บันทึกทุก SKU ที่อยู่ในไฟล์จริง (นับ 1 ครั้งต่อ SKU ต่อการส่งออก)
+function recordPickExport(byPrefix){
+  if(!byPrefix) return;
+  const perSku=new Map();
+  byPrefix.forEach(rows=>rows.forEach(r=>{
+    const key=normalizeOrderSku(r[0]);
+    if(!key) return;
+    const cur=perSku.get(key)||{sku:String(r[0]),qty:0};
+    cur.qty+=Number(r[3])||0;
+    perSku.set(key,cur);
+  }));
+  const h=loadPickHistory();
+  const dayKey=pickDayKey();
+  const today=h[dayKey]||(h[dayKey]={});
+  const now=new Date().toISOString();
+  perSku.forEach((v,key)=>{
+    const cur=today[key]||{sku:v.sku,n:0,qty:0};
+    cur.n+=1; cur.qty+=v.qty; cur.last=now;
+    today[key]=cur;
+  });
+  const cutoff=pickDayKey(new Date(Date.now()-PICK_HISTORY_DAYS*86400000));
+  Object.keys(h).forEach(d=>{ if(d<cutoff) delete h[d]; });
+  try{ localStorage.setItem(PICK_HISTORY_KEY,JSON.stringify(h)); }catch(e){ /* เต็ม/ปิดการเก็บ: ข้าม ไม่ให้กระทบการส่งออก */ }
+}
+// แถวที่ SKU เคยส่งออกวันนี้ → ใส่คลาสสี (เหลือง 1 ครั้ง · ส้ม 2 ครั้ง · แดง 3 ครั้งขึ้นไป) + ข้อความบอกตอนชี้เมาส์
+function decorateDeductedRow(row,item){
+  const e=comparePriorPicks.get(moveKeyOf(item));
+  if(e && e.n>0){
+    const t=e.last ? new Date(e.last).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : '';
+    row.rowClass='pick-dup pick-dup-'+Math.min(e.n,3);
+    row.rowTitle='SKU นี้เบิกไปแล้ว '+e.n+' ครั้งวันนี้ (รวม '+e.qty+' ชิ้น)'+(t?' · ล่าสุด '+t+' น.':'');
+  }
+  return row;
+}
+snapshotPriorPicks();
+
 const deductedVisible=item=>item.stockQty>0 && !moveSkipped.has(moveKeyOf(item));
 const DEDUCTED_HEADERS=['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ',''];
 function moveSkipCell(item){
@@ -1478,7 +1534,11 @@ function deductedTableHtml(rows){
   const restore=moveSkipped.size
     ? `<div class="move-skip-bar">ตัดออกแล้ว ${moveSkipped.size.toLocaleString()} รายการ <button type="button" class="move-skip-restore">↩ คืนทั้งหมด</button></div>`
     : '';
-  return previewCompareTable(DEDUCTED_HEADERS,rows)+restore;
+  const dupCount=rows.filter(r=>r.rowClass).length;
+  const legend=dupCount
+    ? `<div class="move-skip-bar">แถวที่เปลี่ยนสี = SKU ที่เคยส่งออกใบย้ายไปแล้ววันนี้ ${dupCount.toLocaleString()} รายการ <span class="pick-dup-key pick-dup-key-1">เหลือง 1 ครั้ง</span> <span class="pick-dup-key pick-dup-key-2">ส้ม 2 ครั้ง</span> <span class="pick-dup-key pick-dup-key-3">แดง 3 ครั้งขึ้นไป</span></div>`
+    : '';
+  return previewCompareTable(DEDUCTED_HEADERS,rows)+legend+restore;
 }
 // ลัง H → Map(SKU → จำนวน) ของทุก SKU ในลังนั้น (สร้างใหม่ทุกครั้งที่ตรวจ ORDER กับ Stock)
 let compareHBoxContents=new Map();
@@ -1639,7 +1699,7 @@ document.addEventListener('change',e=>{
 
 function downloadPickListsByLocation(){
   const byPrefix=collectPickFiles();
-  if(byPrefix) exportMoveFiles(byPrefix);
+  if(byPrefix){ recordPickExport(byPrefix); exportMoveFiles(byPrefix); }
 }
 
 // แถวใบย้ายแยกไฟล์ตามตำแหน่ง Map(ชื่อไฟล์ → แถว) · null = ไม่มีอะไรให้ทำ (แจ้งเตือนแล้ว)
@@ -1674,6 +1734,7 @@ function importPickListsToBigSeller(){
   if(!byPrefix) return;
   const files={};
   uniqueSorted([...byPrefix.keys()]).forEach(k=>{ files[k]=byPrefix.get(k); });
+  recordPickExport(byPrefix);
   window.postMessage({source:"order-workspace",type:"bigsellerImport",files},"*");
 }
 

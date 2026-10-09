@@ -32,7 +32,41 @@
     throw new Error('หมดเวลารอ: ' + label);
   }
 
+  // ข้อความในกล่อง/หน้าต่างป๊อปอัปที่มองเห็นอยู่ตอนนี้ (ใช้ตรวจว่าการส่งออกเริ่มหรือยัง และแสดงให้ผู้ใช้เห็นว่ามันรออะไร)
+  function visibleModalText() {
+    return Array.prototype.slice.call(document.querySelectorAll('.ant-modal, [role="dialog"], [class*="modal"]'))
+      .filter(visible)
+      .map(function (el) { return (el.textContent || '').replace(/\s+/g, ' ').trim(); })
+      .filter(Boolean)
+      .sort(function (a, b) { return a.length - b.length; })[0] || '';
+  }
+
+  // รอจน fn() คืนค่าจริง: ตรวจทุกครั้งที่ DOM เปลี่ยน + ทุก 500ms + หมดเวลา (แท็บเบื้องหลังที่ถูกหน่วง timer ก็ยังตรวจจากการเปลี่ยนของหน้า)
+  function waitForDom(fn, timeoutMs, label) {
+    return new Promise(function (resolve, reject) {
+      let done = false;
+      let obs = null, iv = null, to = null;
+      const finish = function (v, err) {
+        if (done) return;
+        done = true;
+        if (obs) obs.disconnect();
+        clearInterval(iv); clearTimeout(to);
+        if (err) reject(err); else resolve(v);
+      };
+      const check = function () { const v = fn(); if (v) finish(v); };
+      obs = new MutationObserver(check);
+      obs.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true });
+      iv = setInterval(check, 500);
+      to = setTimeout(function () { finish(null, new Error('หมดเวลารอ: ' + label)); }, timeoutMs);
+      check();
+    });
+  }
+
   function realClick(el) {
+    // ลิงก์แบบ href="javascript:..." : การกระทำเริ่มต้นของลิงก์ (รัน javascript: URL) ถูก CSP ของส่วนขยายบล็อกแล้วขึ้น error
+    // กันไว้ไม่ให้ทำการกระทำเริ่มต้น แต่ตัวจัดการคลิกของหน้า (Vue) ยังทำงานตามปกติ
+    const anchor = el.closest && el.closest('a[href^="javascript"]');
+    if (anchor) anchor.addEventListener('click', function (ev) { ev.preventDefault(); }, { once: true });
     ['mouseover', 'mousedown', 'mouseup', 'click'].forEach(function (t) {
       el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window }));
     });
@@ -105,43 +139,91 @@
     const title = await waitFor(function () { return findByText('ส่งออกคำสั่งซื้อ'); }, 8000, '').catch(function () { return null; });
     if (!title) return false;
     const modal = title.closest('.ant-modal') || title.closest('[class*="modal"]') || document.body;
-    // ช่องเลือก "ประเภทเทมเพลต"
-    // ในกล่องมีช่องเลือก 2 ช่อง (ประเภทการส่งออก / ประเภทเทมเพลต) → เลือกช่องที่อยู่ระดับเดียวกับป้าย "ประเภทเทมเพลต" บนจอ
-    // (ไม่ไล่หาจากโครงสร้างหน้า เพราะจะไปเจอช่องแรก "ประเภทการส่งออก" ก่อน)
-    const label = await waitFor(function () { return findByText('ประเภทเทมเพลต'); }, 5000, 'ป้าย ประเภทเทมเพลต');
-    const lr = label.getBoundingClientRect();
-    const labelY = lr.top + lr.height / 2;
-    let sel = null;
-    let best = Infinity;
-    Array.prototype.slice.call(modal.querySelectorAll('.ant-select')).forEach(function (el) {
-      if (!visible(el)) return;
-      const r = el.getBoundingClientRect();
-      const dy = Math.abs(r.top + r.height / 2 - labelY);
-      if (dy < best) { best = dy; sel = el; }
-    });
-    if (!sel || best > 30) throw new Error('ไม่พบช่องเลือกเทมเพลตในกล่องส่งออกคำสั่งซื้อ (ไม่มีช่องเลือกอยู่ระดับเดียวกับป้าย ประเภทเทมเพลต)');
-    if (sel.textContent.indexOf(M3_TEMPLATE) === -1) {
-      setStatus('3M: เลือกเทมเพลต "' + M3_TEMPLATE + '" ...');
-      realClick(sel.querySelector('.ant-select-selection') || sel);
-      const opt = await waitFor(function () {
-        return Array.prototype.slice.call(document.querySelectorAll('li, [role="option"]')).find(function (el) {
-          return visible(el) && (el.textContent || '').trim() === M3_TEMPLATE;
-        });
-      }, 5000, 'ตัวเลือกเทมเพลต ' + M3_TEMPLATE);
-      realClick(opt);
-      await sleep(600);
-      if (sel.textContent.indexOf(M3_TEMPLATE) === -1) throw new Error('เลือกเทมเพลต "' + M3_TEMPLATE + '" ไม่สำเร็จ');
-    }
+    // ช่องเทมเพลตเป็นคอมโพเนนต์ของ BigSeller เอง (ไม่ใช่ ant-select): ตัวเลือกคือ div.combobox_sel_option[title] อยู่ใน div.combobox_out
+    // (ดูจากข้อมูลวินิจฉัยของจริง) จึงหาจากตัวเลือก "ยอดขาย 3 เดือน" แล้วขึ้นไปหา .combobox_out ของมัน ไม่ต้องเดาจากป้ายหรือช่องอื่น
+    const optSelector = '.combobox_sel_option';
+    const optNode = function () {
+      return Array.prototype.slice.call(document.querySelectorAll(optSelector)).find(function (el) {
+        return (el.getAttribute('title') || el.textContent || '').replace(/\s+/g, ' ').trim() === M3_TEMPLATE;
+      });
+    };
+    const firstOpt = await waitFor(optNode, 10000, 'ตัวเลือกเทมเพลต ' + M3_TEMPLATE + ' (ไม่พบ .combobox_sel_option)');
+    const combo = firstOpt.closest('.combobox_out');
+    if (!combo) throw new Error('ไม่พบกรอบ .combobox_out ของช่องเทมเพลต');
+    await sleep(1500); // รอกล่องโหลดเสร็จก่อนแตะ
+    // ค่าที่แสดงอยู่ในช่อง = ข้อความ/ค่าช่องกรอกในกรอบ ไม่รวมรายการตัวเลือก (.combobox_sel)
+    const shownValue = function () {
+      const clone = combo.cloneNode(true);
+      Array.prototype.slice.call(clone.querySelectorAll('.combobox_sel')).forEach(function (n) { n.remove(); });
+      const inputs = Array.prototype.slice.call(combo.querySelectorAll('input')).map(function (i) { return i.value; }).join(' ');
+      return ((clone.textContent || '') + ' ' + inputs).replace(/\s+/g, ' ').trim();
+    };
+    const hasTemplate = function () { return shownValue().indexOf(M3_TEMPLATE) !== -1; };
+    const visibleOpt = function () {
+      const el = optNode();
+      return el && visible(el) ? el : null;
+    };
+    const chainOf = function (e) { const a = []; for (let i = 0; e && i < 6; i++, e = e.parentElement) a.push(e.tagName + '.' + String(e.className).slice(0, 40)); return a.join('<'); };
+    if (!hasTemplate()) {
+      // ตัวเปิดรายการ = ลูกในกรอบที่ไม่ใช่รายการ (.combobox_sel) และมองเห็น ลองหลายแบบ จนกว่ารายการจะโผล่
+      const triggers = Array.prototype.slice.call(combo.children).filter(function (c) { return !c.classList.contains('combobox_sel') && visible(c); });
+      triggers.push(combo);
+      const clickSets = [['mouseover', 'mousedown', 'mouseup', 'click'], ['click'], ['mousedown']];
+      const dbg = [];
+      for (let a = 0; a < clickSets.length && !hasTemplate(); a++) {
+        const trig = triggers[Math.min(a, triggers.length - 1)] || combo;
+        setStatus('3M: เปิดรายการเทมเพลต แล้วเลือก "' + M3_TEMPLATE + '" (ครั้งที่ ' + (a + 1) + ') ...');
+        clickSets[a].forEach(function (t) { trig.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })); });
+        const opt = await waitFor(visibleOpt, 2500, '').catch(function () { return null; });
+        dbg.push('[ครั้ง ' + (a + 1) + ' ' + clickSets[a].join('+') + ' บน ' + chainOf(trig).split('<')[0] + ' → ' + (opt ? 'รายการเปิดแล้ว' : 'รายการยังไม่เปิด') + ']');
+        if (!opt) { await sleep(500); continue; }
+        await sleep(800);
+        realClick(opt);
+        await waitFor(hasTemplate, 3000, '').catch(function () { return null; });
+        if (!hasTemplate()) {
+          // คลิกจำลองไม่ติด → คลิกซ้ำด้วยเมาส์จริงที่ตำแหน่งรายการ
+          const again = visibleOpt();
+          if (again) {
+            setStatus('3M: คลิกจำลองไม่ติด — ใช้เมาส์จริงคลิก "' + M3_TEMPLATE + '" ...');
+            again.scrollIntoView({ block: 'nearest' });
+            await sleep(300);
+            const r = again.getBoundingClientRect();
+            try {
+              await chrome.runtime.sendMessage({ type: 'trustedClick', x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
+            } catch (e) { /* ไม่มีสิทธิ์ดีบักก็ข้าม */ }
+            await waitFor(hasTemplate, 3000, '').catch(function () { return null; });
+          }
+        }
+        await sleep(1200);
+      }
+      if (!hasTemplate()) {
+        throw new Error('เลือกเทมเพลต "' + M3_TEMPLATE + '" ไม่สำเร็จ (ช่องยังเป็น "' + shownValue() + '") COMBO: ' +
+          combo.outerHTML.replace(/<div[^>]*combobox_sel_option_box[\s\S]*$/, '...').slice(0, 700) + ' | ' + dbg.join(' '));
+      }
+    }    // กันพลาดครั้งสุดท้าย: ห้ามกดส่งออกถ้าช่องไม่ใช่เทมเพลตที่ต้องการ
+    if (!hasTemplate()) throw new Error('ช่องเทมเพลตไม่ใช่ "' + M3_TEMPLATE + '" (เป็น "' + shownValue() + '") — ไม่กดส่งออก');
+    setStatus('3M: เลือกเทมเพลต "' + M3_TEMPLATE + '" แล้ว รอสักครู่ก่อนกดส่งออก ...');
+    await sleep(1500); // ให้ตารางตัวอย่างเปลี่ยนตามเทมเพลตก่อนกดส่งออก
     const btn = Array.prototype.slice.call(modal.querySelectorAll('button')).find(function (b) {
       return visible(b) && (b.textContent || '').replace(/\s+/g, '') === 'ส่งออก';
     });
     if (!btn) throw new Error('ไม่พบปุ่ม ส่งออก ในกล่องส่งออกคำสั่งซื้อ');
     realClick(btn);
+    chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {}); // เลิกใช้เมาส์จริง (ถ้าใช้)
     return true;
   }
 
   // กด ส่งออก > ส่งออกทั้งหมด > (รอสร้างไฟล์) > ดาวน์โหลด · kind: 'st' (ตำแหน่งสต็อก) | 'si' (การเคลื่อนไหวสต็อก)
+  let currentJobId = null;
   async function runExport(kind, jobId) {
+    currentJobId = jobId || null;
+    try {
+      await runExportSteps(kind, jobId);
+    } finally {
+      currentJobId = null;
+    }
+  }
+  async function runExportSteps(kind, jobId) {
     if (kind === 'si') await applySiFilters();
     setStatus('ขั้น 1/4: กำลังหาปุ่ม ส่งออก ...');
     const btn = await waitFor(function () { return findByText('ส่งออก', 'button'); }, 8000, 'ปุ่ม ส่งออก');
@@ -185,6 +267,8 @@
       if (findByText('ดาวน์โหลด', 'a, button, span')) return true;
       const bar = document.querySelector('.ant-progress');
       if (bar && visible(bar)) return true; // แถบความคืบหน้าของกล่องส่งออก (หน้า SI ข้อความอาจต่างจากหน้า ST)
+      // กล่องผลส่งออกของหน้าออเดอร์ (3M): ข้อความ "เทมเพลตการส่งออก ..." / "ส่งออกข้อมูลสำเร็จ" / "สำเร็จแล้ว:" (แถบความคืบหน้าเป็นแบบทำเอง ไม่ใช่ .ant-progress)
+      if (/เทมเพลตการส่งออก|ส่งออกข้อมูลสำเร็จ|สำเร็จแล้ว:|กำลังส่งออก/.test(visibleModalText())) return true;
       return Array.prototype.slice.call(document.querySelectorAll('span, div, p')).some(function (el) {
         return el.children.length <= 2 && /สามารถส่งออกได้เฉพาะ/.test(el.textContent || '') && visible(el);
       });
@@ -206,14 +290,42 @@
     chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
     if (!started) throw new Error('กด ส่งออกทั้งหมด แล้วกล่องส่งออกไม่ขึ้น (ลองแล้ว 3 ครั้ง)');
     setStatus('ขั้น 4/4: BigSeller กำลังสร้างไฟล์ส่งออก รอลิงก์ ดาวน์โหลด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
-    const link = await waitFor(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+    // รอด้วย MutationObserver (ตรวจทุกครั้งที่หน้าเปลี่ยน) ไม่พึ่งตัวจับเวลาอย่างเดียว เพราะแท็บเบื้องหลังถูกเบราว์เซอร์หน่วง timer
+    // (ยิ่งซ่อนนานยิ่งตรวจช้า) ทำให้ปุ่ม ดาวน์โหลด โผล่แล้วแต่ไม่ถูกกดทันที
+    // ระหว่างรอ แสดงข้อความในกล่องของ BigSeller ทุก 5 วินาที (เห็นที่การ์ดด้วย) จะได้รู้ว่ามันรออะไรอยู่
+    const waitStart = Date.now();
+    const ticker = setInterval(function () {
+      setStatus('ขั้น 4/4: รอปุ่ม ดาวน์โหลด (' + Math.round((Date.now() - waitStart) / 1000) + ' วินาที) กล่องที่เห็น: ' + (visibleModalText().slice(0, 160) || '(ไม่เห็นกล่อง)'));
+    }, 5000);
+    let link;
+    try {
+      link = await waitForDom(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+    } finally {
+      clearInterval(ticker);
+    }
     // หลายแท็บส่งออกพร้อมกันได้ แต่กดดาวน์โหลดผลัดกันทีละแท็บ (background จะบอกว่าไฟล์ที่โหลดเสร็จเป็นของแท็บไหน)
     if (jobId) {
-      setStatus('ไฟล์พร้อมแล้ว รอคิวกดดาวน์โหลด ...');
+      setStatus('ส่งออกสำเร็จแล้ว รอคิวกดดาวน์โหลด ...');
       await chrome.runtime.sendMessage({ type: 'requestDownloadSlot', jobId: jobId });
     }
-    realClick(findByText('ดาวน์โหลด', 'a, button, span') || link);
-    await sleep(500);
+    setStatus('ส่งออกสำเร็จแล้ว กำลังกด ดาวน์โหลด ...');
+    const dlTarget = findByText('ดาวน์โหลด', 'a, button, span') || link;
+    const dlEl = (dlTarget.closest && dlTarget.closest('button, a')) || dlTarget;
+    let trusted = false;
+    if (kind === 'm3') {
+      // ปุ่มดาวน์โหลดของหน้าออเดอร์ไม่ตอบคลิกจำลอง (น่าจะเปิดไฟล์ด้วยคำสั่งที่ต้องมาจากการคลิกของคนจริง) → คลิกด้วยเมาส์จริงผ่านระบบดีบักของ Chrome
+      dlEl.scrollIntoView({ block: 'center' });
+      await sleep(400);
+      const r = dlEl.getBoundingClientRect();
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'trustedClick', x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
+        trusted = !!(res && res.ok);
+      } catch (e) { trusted = false; }
+      setStatus(trusted ? 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงแล้ว รอไฟล์โหลด ...' : 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงไม่ได้ ลองคลิกจำลอง ...');
+    }
+    if (!trusted) realClick(dlEl);
+    await sleep(1500);
+    chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
     const close = findByText('ปิด', 'button');
     if (close) realClick(close);
   }
@@ -278,6 +390,8 @@
     const el = $('status');
     el.textContent = text;
     el.className = cls || '';
+    // ถ้างานนี้สั่งมาจากหน้า ORDER (มี jobId) ส่งข้อความทุกขั้นกลับไปแสดงที่การ์ดในหน้านั้นด้วย
+    if (currentJobId) chrome.runtime.sendMessage({ type: 'jobProgress', jobId: currentJobId, text: text }).catch(function () {});
   }
 
   function opts() {

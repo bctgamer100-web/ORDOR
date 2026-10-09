@@ -2982,6 +2982,14 @@ html[data-prod-theme="light"] #compareTool .move-loc-chip.is-picked{--move-pick:
 /* ปุ่ม ✕ ท้ายแถว: ตัดรายการที่เบิกไปแล้วออกจากตาราง/ไฟล์ใบย้าย */
 #compareTool .move-skip-btn{width:26px!important;height:26px!important;min-height:0!important;padding:0!important;margin:0!important;border-radius:6px!important;background:none!important;border:1px solid transparent!important;box-shadow:none!important;color:inherit!important;opacity:.55;cursor:pointer;line-height:1;font-size:14px!important}
 #compareTool .move-skip-btn:hover{opacity:1;color:#e5484d!important;border-color:#e5484d!important}
+/* แถวที่ SKU เคยส่งออกใบย้ายไปแล้ววันนี้: ทั้งแถวเปลี่ยนสี (เหลือง 1 ครั้ง · ส้ม 2 ครั้ง · แดง 3 ครั้งขึ้นไป) */
+#compareTool #compareWebPreviewBody .compare-preview-table tbody tr.pick-dup-1 td{background:rgba(250,204,21,.18)!important}
+#compareTool #compareWebPreviewBody .compare-preview-table tbody tr.pick-dup-2 td{background:rgba(251,146,60,.26)!important}
+#compareTool #compareWebPreviewBody .compare-preview-table tbody tr.pick-dup-3 td{background:rgba(239,68,68,.30)!important}
+#compareTool .pick-dup-key{display:inline-block;padding:1px 8px;margin-left:4px;border-radius:6px;font-size:12px}
+#compareTool .pick-dup-key-1{background:rgba(250,204,21,.28)}
+#compareTool .pick-dup-key-2{background:rgba(251,146,60,.36)}
+#compareTool .pick-dup-key-3{background:rgba(239,68,68,.40)}
 #compareTool .move-skip-bar{margin-top:8px;font-size:13px;opacity:.85}
 #compareTool .move-skip-restore{min-height:0!important;padding:2px 8px!important;margin-left:6px!important;border-radius:6px!important;cursor:pointer}
 

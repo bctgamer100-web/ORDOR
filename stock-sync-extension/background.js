@@ -40,7 +40,10 @@ chrome.downloads.onChanged.addListener(async function (delta) {
   const it = items && items[0];
   if (!it) return;
   if (!/\.(xlsx|xls|csv|zip)$/i.test(it.filename || '')) return;
-  if (!/bigseller/i.test([it.url, it.finalUrl, it.referrer].join(' '))) return;
+  // ไฟล์ของ BigSeller ดูจากที่อยู่/หน้าต้นทาง แต่ไฟล์ออเดอร์อาจมาจากที่เก็บไฟล์ชื่ออื่นและไม่มี referrer
+  // → ถ้ามีงานที่เพิ่งกดดาวน์โหลดไปและรอไฟล์อยู่ (ถือสิทธิ์อยู่) ก็นับว่าเป็นไฟล์ของงานนั้น
+  const awaitingJob = !!(slotHolder && jobs.has(slotHolder));
+  if (!awaitingJob && !/bigseller/i.test([it.url, it.finalUrl, it.referrer].join(' '))) return;
   const rec = { id: it.id, filename: it.filename, url: it.finalUrl || it.url, at: Date.now() };
   await chrome.storage.local.set({ lastDownload: rec });
   // ไฟล์ที่โหลดเสร็จตอนมีแท็บถือสิทธิ์กดดาวน์โหลดอยู่ = ของแท็บนั้น
@@ -191,6 +194,13 @@ function releaseSlot(jobId) {
 function requestSlot(jobId) {
   return new Promise(function (grant) { slotWaiters.push({ jobId: jobId, grant: grant }); grantNextSlot(); });
 }
+// ข้อความสถานะทุกขั้นจากตัวกดปุ่มในแท็บ BigSeller → ส่งต่อไปแสดงที่การ์ดในหน้า ORDER
+chrome.runtime.onMessage.addListener(function (msg) {
+  if (!msg || msg.type !== 'jobProgress') return;
+  const job = jobs.get(msg.jobId);
+  if (job && job.progress) job.progress(msg.text);
+});
+
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (!msg || msg.type !== 'requestDownloadSlot') return;
   requestSlot(msg.jobId).then(function () { sendResponse({ ok: true }); });
@@ -224,7 +234,7 @@ async function exportViaTabNow(progress, kind) {
     jobId = 'job' + (++jobSeq);
     const timeoutMs = page.timeoutMs || 12 * 60 * 1000;
     const downloaded = new Promise(function (resolve, reject) {
-      jobs.set(jobId, { resolve: resolve });
+      jobs.set(jobId, { resolve: resolve, progress: progress });
       setTimeout(function () { reject(new Error('รอไฟล์ที่โหลดจาก BigSeller นานเกินไป')); }, timeoutMs);
     });
     downloaded.catch(function () {}); // กัน error ลอยถ้าขั้นส่งออกพังก่อน
@@ -299,12 +309,19 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 // เมาส์จริง (trusted) ผ่าน chrome.debugger: ย้ายเมาส์ไปที่พิกัด เพื่อให้เมนูแบบ hover เด้ง (ปล่อยตอนกดเมนูเสร็จ)
 const ATTACHED = new Set();
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
-  if (!msg || (msg.type !== 'trustedMove' && msg.type !== 'trustedRelease')) return;
+  if (!msg || ['trustedMove', 'trustedClick', 'trustedRelease'].indexOf(msg.type) === -1) return;
   const tabId = sender.tab && sender.tab.id;
   if (tabId == null) { sendResponse({ ok: false }); return; }
   (async function () {
     const target = { tabId: tabId };
-    if (msg.type === 'trustedMove') {
+    if (msg.type === 'trustedClick') {
+      // คลิกซ้ายด้วยเมาส์จริงที่พิกัด (ใช้เมื่อคลิกจำลองด้วยโค้ดไม่ติด เช่น เลือกรายการในช่องเลือกของ BigSeller)
+      if (!ATTACHED.has(tabId)) { await chrome.debugger.attach(target, '1.3'); ATTACHED.add(tabId); }
+      const at = { x: msg.x, y: msg.y, button: 'left', clickCount: 1 };
+      await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: msg.x, y: msg.y, button: 'none' });
+      await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mousePressed' }, at));
+      await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', Object.assign({ type: 'mouseReleased' }, at));
+    } else if (msg.type === 'trustedMove') {
       if (!ATTACHED.has(tabId)) { await chrome.debugger.attach(target, '1.3'); ATTACHED.add(tabId); }
       await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: msg.x - 8, y: msg.y, button: 'none' });
       await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: msg.x, y: msg.y, button: 'none' });
