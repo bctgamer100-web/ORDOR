@@ -107,7 +107,7 @@
     // หน้า SI อาจตั้งชื่อเมนูไม่เหมือนหน้า ST: ถ้าไม่มี "ส่งออกทั้งหมด" ใช้รายการแรกที่ไม่ใช่ "ส่งออกที่เลือก"
     const menuItem = function () {
       const exact = findByText('ส่งออกทั้งหมด');
-      if (exact || kind !== 'si') return exact;
+      if (exact || kind === 'st') return exact;
       return Array.prototype.slice.call(document.querySelectorAll('.ant-dropdown-menu-item')).find(function (li) {
         return visible(li) && li.textContent.indexOf('ที่เลือก') === -1;
       }) || null;
@@ -162,7 +162,7 @@
     chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
     if (!started) throw new Error('กด ส่งออกทั้งหมด แล้วกล่องส่งออกไม่ขึ้น (ลองแล้ว 3 ครั้ง)');
     setStatus('ขั้น 4/4: BigSeller กำลังสร้างไฟล์ส่งออก รอลิงก์ ดาวน์โหลด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
-    const link = await waitFor(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, 10 * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+    const link = await waitFor(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
     realClick(link);
     await sleep(500);
     const close = findByText('ปิด', 'button');

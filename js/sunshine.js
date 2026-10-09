@@ -1433,7 +1433,7 @@
         '<h2>' + esc(c.title) + '</h2>' +
         // ST เท่านั้น: ดึงไฟล์จาก BigSeller อัตโนมัติผ่านส่วนขยาย (stock-sync-extension) แล้วใส่ช่องไฟล์ให้ จากนั้นเป็นขั้นตอนปกติ
         // SI: ส่วนขยายตั้งช่วงเวลา "เมื่อวาน" + ค้นหาชื่อตำแหน่ง FRONT ที่หน้าการเคลื่อนไหวสต็อกให้เองก่อนส่งออก
-        (k === 'st' || k === 'si' ? '<div class="sun-imp-auto"><button type="button" class="sun-imp-auto-btn" id="sunAuto_' + k + '" title="ต้องติดตั้งส่วนขยาย ส่งสต็อก BigSeller เข้า ORDER และล็อกอิน BigSeller ไว้ในเบราว์เซอร์นี้">🤖 ดึงจาก BigSeller อัตโนมัติ' + (k === 'si' ? ' (เมื่อวาน · FRONT)' : '') + '</button></div>' : '') +
+        (k === 'st' || k === 'si' || k === 'm3' ? '<div class="sun-imp-auto"><button type="button" class="sun-imp-auto-btn" id="sunAuto_' + k + '" title="ต้องติดตั้งส่วนขยาย ส่งสต็อก BigSeller เข้า ORDER และล็อกอิน BigSeller ไว้ในเบราว์เซอร์นี้">🤖 ดึงจาก BigSeller อัตโนมัติ' + (k === 'si' ? ' (เมื่อวาน · FRONT)' : '') + (k === 'm3' ? ' (ใช้เวลานานกว่า)' : '') + '</button></div>' : '') +
         '<div class="sun-imp-drop" id="sunDrop_' + k + '"><div class="sun-imp-badge">' + c.icon + '</div>' +
           '<strong>📁 คลิกเพื่อเลือกไฟล์ ' + c.icon + '</strong>' +
           '<span>' + hint + '</span>' +
@@ -1699,7 +1699,8 @@
   }
 
   // SI ทำเหมือนกัน (ส่วนขยายตั้งช่วงเวลา "เมื่อวาน" + ค้นชื่อตำแหน่ง FRONT ที่หน้า BigSeller ให้เอง) แต่รับไฟล์ได้ทั้ง Excel/CSV/ZIP
-  ['st', 'si'].forEach(function (k) {
+  // 3M (ยอดขายย้อนหลัง): ส่งออกจากหน้าคำสั่งซื้อของ BigSeller ในแท็บแยกของตัวเอง ใช้เวลานานกว่า (รอได้ 30 นาที)
+  ['st', 'si', 'm3'].forEach(function (k) {
     const autoBtn = $('sunAuto_' + k);
     if (!autoBtn) return;
     autoBtn.addEventListener('click', function () {

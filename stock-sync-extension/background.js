@@ -118,9 +118,11 @@ async function handle(msg, sender) {
 }
 
 // หน้าของแต่ละชนิดใน BigSeller: st = สินค้าคงคลัง > ตำแหน่งสต็อก · si = Stock Out/In > การเคลื่อนไหวสต็อก
+// m3 = คำสั่งซื้อ (ยอดขายย้อนหลัง): ข้อมูลเยอะ ส่งออกนาน → เปิดแท็บแยกของตัวเองเสมอ (ไม่ใช้หน้าออเดอร์ที่ผู้ใช้เปิดทำงานอยู่) และรอได้ 30 นาที
 const EXPORT_PAGES = {
-  st: { file: 'warehouseInventory.htm', name: 'ตำแหน่งสต็อก' },
-  si: { file: 'warehouseInOutRecord.htm', name: 'การเคลื่อนไหวสต็อก' }
+  st: { file: 'inventory/warehouseInventory.htm', path: '/web/inventory/warehouseInventory.htm', name: 'ตำแหน่งสต็อก' },
+  si: { file: 'inventory/warehouseInOutRecord.htm', path: '/web/inventory/warehouseInOutRecord.htm', name: 'การเคลื่อนไหวสต็อก' },
+  m3: { file: 'order/index.htm', path: '/web/order/index.htm?status=all', name: 'คำสั่งซื้อ', fresh: true, timeoutMs: 30 * 60 * 1000 }
 };
 
 // รอให้ตัวกดปุ่ม (content.js) ในแท็บพร้อมรับคำสั่ง
@@ -175,7 +177,7 @@ let exportQueueBusy = 0;
 
 async function exportViaTabNow(progress, kind) {
   const page = EXPORT_PAGES[kind || 'st'] || EXPORT_PAGES.st;
-  const existing = await chrome.tabs.query({ url: 'https://*.bigseller.com/web/inventory/' + page.file + '*' });
+  const existing = page.fresh ? [] : await chrome.tabs.query({ url: 'https://*.bigseller.com/web/' + page.file + '*' });
   let tab = existing[0];
   let created = false;
   try {
@@ -183,13 +185,13 @@ async function exportViaTabNow(progress, kind) {
       const any = (await bigsellerTabs())[0];
       const origin = any ? new URL(any.url).origin : 'https://www.bigseller.com';
       progress('กำลังเปิดหน้า ' + page.name + ' ของ BigSeller ในแท็บเบื้องหลัง ...');
-      tab = await chrome.tabs.create({ url: origin + '/web/inventory/' + page.file, active: false });
+      tab = await chrome.tabs.create({ url: origin + page.path, active: false });
       created = true;
       await waitForContentReady(tab.id, 60000, page.file, page.name);
     }
     await ensureContentReady(tab.id);
     progress('กำลังสั่ง BigSeller ส่งออกทั้งหมด (ไฟล์ใหญ่อาจใช้เวลาหลายนาที) ...');
-    const downloaded = waitNextDownload(12 * 60 * 1000);
+    const downloaded = waitNextDownload(page.timeoutMs || 12 * 60 * 1000);
     downloaded.catch(function () {}); // กัน error ลอยถ้าขั้นส่งออกพังก่อน
     const runInTab = async function () {
       try {
@@ -235,7 +237,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (!msg || msg.type !== 'bridgeExport') return;
   const tabId = sender.tab && sender.tab.id;
-  const kind = msg.kind === 'si' ? 'si' : 'st';
+  const kind = EXPORT_PAGES[msg.kind] ? msg.kind : 'st';
   const say = function (type, payload) {
     if (tabId != null) chrome.tabs.sendMessage(tabId, Object.assign({ type: type }, payload)).catch(function () {});
   };

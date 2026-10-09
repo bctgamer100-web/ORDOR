@@ -10,9 +10,10 @@
 
   window.addEventListener('message', function (e) {
     if (e.source !== window || !e.data || e.data.source !== 'order-workspace') return;
-    // stSyncRequest = การ์ด ST · siSyncRequest = การ์ด SI
-    if (e.data.type === 'stSyncRequest' || e.data.type === 'siSyncRequest') {
-      const kind = e.data.type === 'siSyncRequest' ? 'si' : 'st';
+    // stSyncRequest = การ์ด ST · siSyncRequest = การ์ด SI · m3SyncRequest = การ์ด 3M
+    const m = /^(st|si|m3)SyncRequest$/.exec(e.data.type || '');
+    if (m) {
+      const kind = m[1];
       chrome.runtime.sendMessage({ type: 'bridgeExport', kind: kind }).catch(function (err) {
         window.postMessage({ source: 'stock-sync', type: 'error', kind: kind, error: 'ติดต่อส่วนขยายไม่ได้: ' + err.message }, '*');
       });
