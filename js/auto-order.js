@@ -50,6 +50,21 @@
     if (btn) btn.disabled = false;
   }
 
+  // แบบที่เลือกไว้: จำไว้ในเบราว์เซอร์นี้
+  const modeSel = document.getElementById('orderAutoMode');
+  const MODE_KEY = 'order_auto_mode_v1';
+  function currentMode() {
+    return modeSel && modeSel.value === 'ordu' ? 'ordu' : 'ord';
+  }
+  if (modeSel) {
+    try { const saved = localStorage.getItem(MODE_KEY); if (saved === 'ord' || saved === 'ordu') modeSel.value = saved; } catch (e) { /* ไม่กระทบ */ }
+    modeSel.addEventListener('change', function () {
+      try { localStorage.setItem(MODE_KEY, modeSel.value); } catch (e) { /* ไม่กระทบ */ }
+      // เปลี่ยนแบบ = ใช้กับการตั้งเวลาด้วย
+      if (schedChk && schedChk.checked) sendSchedule();
+    });
+  }
+
   // ปุ่ม: สั่งส่วนขยายส่งออกจาก BigSeller
   if (btn) {
     btn.addEventListener('click', function () {
@@ -59,7 +74,8 @@
       }
       btn.disabled = true;
       setStatus('⏳ กำลังเรียกส่วนขยาย ...');
-      window.postMessage({ source: 'order-workspace', type: 'ordSyncRequest' }, '*');
+      // ord = ทั้งหมด (เมื่อวาน–วันนี้) · ordu = ยังไม่พิมพ์ใบปะหน้า
+      window.postMessage({ source: 'order-workspace', type: currentMode() + 'SyncRequest' }, '*');
     });
   }
 
@@ -81,6 +97,7 @@
     if (!schedInfo || !schedChk || !schedTimes) return;
     if (st.error) { schedInfo.textContent = '⚠️ ' + st.error; return; }
     schedChk.checked = !!st.enabled;
+    if (modeSel && st.enabled && (st.mode === 'ord' || st.mode === 'ordu')) modeSel.value = st.mode; // แสดงแบบที่ตั้งเวลาไว้จริง
     if (document.activeElement !== schedTimes) schedTimes.value = (st.times || []).join(', ');
     const bits = [];
     if (st.running) bits.push('⏳ กำลังโหลด...');
@@ -101,7 +118,7 @@
       return;
     }
     if (schedChk.checked && !times.length) { if (schedInfo) schedInfo.textContent = 'ใส่เวลาก่อน เช่น 09:00, 13:30'; return; }
-    window.postMessage({ source: 'order-workspace', type: 'ordScheduleSet', enabled: schedChk.checked, times: times }, '*');
+    window.postMessage({ source: 'order-workspace', type: 'ordScheduleSet', enabled: schedChk.checked, mode: currentMode(), times: times }, '*');
   }
   if (schedChk) schedChk.addEventListener('change', sendSchedule);
   if (schedTimes) {
@@ -122,7 +139,7 @@
     if (d.source === 'order-autoload' && d.type === 'schedule') { showSchedule(d); return; }
 
     // ตอบกลับของปุ่ม (kind = ord)
-    if (d.source === 'stock-sync' && d.kind === 'ord') {
+    if (d.source === 'stock-sync' && (d.kind === 'ord' || d.kind === 'ordu')) {
       if (d.type === 'progress') { setStatus(d.text); return; }
       if (d.type === 'error') { finish(); setStatus('❌ ' + d.error); return; }
       if (d.type === 'file' && d.b64 && d.name) {

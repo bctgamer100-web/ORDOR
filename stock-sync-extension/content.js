@@ -131,12 +131,108 @@
     await sleep(3000); // รอตารางโหลดผลค้นหา
   }
 
+  // หน้าออเดอร์ (ORD = ไฟล์ของหน้า รับORDER): ก่อนส่งออก ตั้งช่วงเวลา "วันที่กำหนดเอง" = เมื่อวาน 00:00:00 ถึงวันนี้ 23:59:59 แล้วกด ตกลง
+  // ปฏิทินเป็น ant-design-vue range picker (สองเดือนคู่กัน ซ้าย/ขวา) · เมื่อวานอาจอยู่เดือนก่อน จึงเลื่อนเดือนจนเจอ
+  const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  function findCalendar() {
+    const oks = Array.prototype.slice.call(document.querySelectorAll('a, button, span')).filter(function (el) {
+      return visible(el) && (el.textContent || '').replace(/\s+/g, '') === 'ตกลง';
+    });
+    for (let i = oks.length - 1; i >= 0; i--) {
+      let box = oks[i];
+      for (let d = 0; d < 8 && box; d++, box = box.parentElement) {
+        if (box.querySelector('td.ant-calendar-cell, td[class*="calendar-cell"]')) return { ok: oks[i], box: box };
+      }
+    }
+    return null;
+  }
+  function panelMonth(part) {
+    const m = part.querySelector('.ant-calendar-month-select');
+    const y = part.querySelector('.ant-calendar-year-select');
+    const text = ((m && m.textContent) || '') + ' ' + ((y && y.textContent) || '') + ' ' + ((part.querySelector('.ant-calendar-header') || {}).textContent || '');
+    let mi = -1;
+    for (let i = 0; i < 12; i++) if (text.indexOf(THAI_MONTHS[i]) !== -1) { mi = i; break; }
+    const ym = /(\d{4})/.exec(text);
+    if (mi < 0 || !ym) return null;
+    let yy = +ym[1];
+    if (yy > 2400) yy -= 543; // ปี พ.ศ.
+    return { m: mi, y: yy };
+  }
+  async function pickCalendarDay(box, target) {
+    for (let tries = 0; tries < 14; tries++) {
+      const parts = Array.prototype.slice.call(box.querySelectorAll('.ant-calendar-range-left, .ant-calendar-range-right')).filter(visible);
+      if (!parts.length) throw new Error('ไม่พบปฏิทินช่วงเวลา (.ant-calendar-range-left/right) HTML: ' + box.outerHTML.slice(0, 400));
+      for (const part of parts) {
+        const my = panelMonth(part);
+        if (!my || my.y !== target.getFullYear() || my.m !== target.getMonth()) continue;
+        const cell = Array.prototype.slice.call(part.querySelectorAll('td.ant-calendar-cell')).find(function (td) {
+          return !/last-month-cell|next-month-btn-day/.test(td.className) && (td.textContent || '').trim() === String(target.getDate());
+        });
+        if (!cell) throw new Error('ไม่พบวันที่ ' + target.getDate() + ' ในปฏิทิน');
+        realClick(cell.querySelector('.ant-calendar-date') || cell);
+        await sleep(400);
+        return;
+      }
+      const first = panelMonth(parts[0]);
+      if (!first) throw new Error('อ่านเดือนของปฏิทินไม่ได้');
+      const diff = (target.getFullYear() - first.y) * 12 + target.getMonth() - first.m;
+      const nav = box.querySelector(diff < 0 ? '.ant-calendar-prev-month-btn' : '.ant-calendar-next-month-btn');
+      if (!nav) throw new Error('ไม่พบปุ่มเลื่อนเดือนของปฏิทิน');
+      realClick(nav);
+      await sleep(400);
+    }
+    throw new Error('เลื่อนปฏิทินไปถึงวันที่ ' + target.toDateString() + ' ไม่ได้');
+  }
+  async function applyOrdDateRange() {
+    const today = new Date();
+    const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+    setStatus('ORD: ตั้งช่วงเวลา เมื่อวาน–วันนี้ ...');
+    const custom = await waitFor(function () { return findByText('วันที่กำหนดเอง'); }, 20000, 'ตัวเลือก วันที่กำหนดเอง');
+    realClick(custom);
+    await sleep(800);
+    let cal = findCalendar();
+    if (!cal) {
+      // เลือก "วันที่กำหนดเอง" แล้วปฏิทินยังไม่เปิด: คลิกช่องช่วงเวลาที่ขึ้นมา
+      const picker = await waitFor(function () {
+        return Array.prototype.slice.call(document.querySelectorAll('.ant-calendar-picker, .ant-calendar-range-picker, [class*="range-picker"]')).filter(visible)[0] || null;
+      }, 8000, 'ช่องช่วงเวลา');
+      realClick(picker.querySelector('input') || picker);
+      cal = await waitFor(findCalendar, 8000, 'ปฏิทินช่วงเวลา');
+    }
+    await pickCalendarDay(cal.box, yesterday);
+    await pickCalendarDay(cal.box, today);
+    const after = findCalendar() || cal;
+    realClick(after.ok);
+    await sleep(3000); // รอตารางโหลดตามช่วงเวลาใหม่
+    // เช็กว่าช่วงเวลาถูกตั้งจริง (ตัวกรองแสดงวันที่เมื่อวานและวันนี้) ไม่งั้นไม่ส่งออก กันได้ไฟล์ผิดช่วง
+    const txt = (document.body.innerText || '').replace(/\s+/g, ' ');
+    const label = function (d) { return String(d.getDate()).padStart(2, '0') + ' ' + THAI_MONTHS[d.getMonth()]; };
+    if (txt.indexOf(label(yesterday)) === -1 || txt.indexOf(label(today)) === -1) {
+      throw new Error('ตั้งช่วงเวลา ' + label(yesterday) + ' – ' + label(today) + ' ไม่สำเร็จ — ไม่กดส่งออก');
+    }
+  }
+
+  // หน้าออเดอร์ (ORDU = ยังไม่ได้พิมพ์ใบปะหน้า): กดตัวกรอง "ยังไม่พิมพ์(ใบปะหน้าพัสดุ N)" ในแถว สถานะการพิมพ์ ไม่ต้องตั้งช่วงเวลา
+  // ตัวเลข N เปลี่ยนตลอด จึงหาจากรูปแบบข้อความ
+  async function applyOrdUnprinted() {
+    setStatus('ORDU: เลือกตัวกรอง ยังไม่พิมพ์(ใบปะหน้าพัสดุ) ...');
+    const re = /^ยังไม่พิมพ์\(ใบปะหน้าพัสดุ\d+\)$/;
+    const chip = await waitFor(function () {
+      const hits = Array.prototype.slice.call(document.querySelectorAll('a, button, span, li, label, div')).filter(function (el) {
+        return visible(el) && re.test((el.textContent || '').replace(/\s+/g, ''));
+      });
+      return hits.length ? hits[hits.length - 1] : null; // ลึกสุด
+    }, 20000, 'ตัวกรอง ยังไม่พิมพ์(ใบปะหน้าพัสดุ)');
+    realClick(chip);
+    await sleep(3000); // รอตารางโหลดตามตัวกรอง
+  }
+
   // หน้าออเดอร์ (3M): หลังกด "ส่งออกทั้งหมด" จะมีกล่อง "ส่งออกคำสั่งซื้อ" ให้เลือกเทมเพลต → เลือก "ยอดขาย 3 เดือน" แล้วกดปุ่ม ส่งออก ในกล่อง
   // คืน true เมื่อกดปุ่มในกล่องแล้ว · false ถ้ากล่องไม่ขึ้น (ให้ผู้เรียกลองกดเมนูใหม่)
   const M3_TEMPLATE_DEFAULT = 'ยอดขาย 3 เดือน';
-  // ORD (ปุ่ม "โหลดจาก BigSeller" หน้า รับORDER = ไฟล์ Order-SKU-inprocess...): ไม่เปลี่ยนเทมเพลต ใช้ตัวที่ BigSeller เลือกค้างไว้
-  // ถ้าอยากให้เลือกเทมเพลตเฉพาะ ใส่ชื่อเทมเพลตตรงนี้ (เช่น 'Order-SKU')
-  const ORD_TEMPLATE = '';
+  // ORD (ปุ่ม "โหลดจาก BigSeller" หน้า รับORDER = ไฟล์ Order-SKU-inprocess...): ใช้เทมเพลต "รับออเดอร์ปัจจุบันล่าสุด"
+  // ใส่ '' = ไม่เปลี่ยนเทมเพลต ใช้ตัวที่ BigSeller เลือกค้างไว้
+  const ORD_TEMPLATE = 'รับออเดอร์ปัจจุบันล่าสุด';
   async function handleOrderExportModal(template) {
     const M3_TEMPLATE = template === undefined ? M3_TEMPLATE_DEFAULT : template;
     setStatus('3M: รอกล่อง ส่งออกคำสั่งซื้อ ...');
@@ -239,6 +335,8 @@
   }
   async function runExportSteps(kind, jobId) {
     if (kind === 'si') await applySiFilters();
+    if (kind === 'ord') await applyOrdDateRange();
+    if (kind === 'ordu') await applyOrdUnprinted();
     setStatus('ขั้น 1/4: กำลังหาปุ่ม ส่งออก ...');
     const btn = await waitFor(function () { return findByText('ส่งออก', 'button'); }, 8000, 'ปุ่ม ส่งออก');
     setStatus('ขั้น 2/4: เจอปุ่ม ส่งออก กำลังวางเมาส์เพื่อเปิดเมนู ...');
@@ -294,7 +392,7 @@
       // ตัวรับคลิกของเมนูคือ LI.ant-dropdown-menu-item (ข้อความอยู่ใน SPAN ข้างใน)
       realClick(cur.closest('li') || cur);
       if (kind === 'm3') await handleOrderExportModal();
-      else if (kind === 'ord') await handleOrderExportModal(ORD_TEMPLATE); // false = กล่องไม่ขึ้น → ผลลัพธ์ started จะเป็นเท็จแล้ววนกดเมนูใหม่
+      else if (kind === 'ord' || kind === 'ordu') await handleOrderExportModal(ORD_TEMPLATE); // false = กล่องไม่ขึ้น → ผลลัพธ์ started จะเป็นเท็จแล้ววนกดเมนูใหม่
       started = await waitFor(exportStarted, 4000, '').then(function () { return true; }, function () { return false; });
       if (!started) {
         hover(btn); // เมนูอาจปิดไปแล้ว เปิดใหม่ (เมาส์จำลองไม่เคยออกจากปุ่ม เมนูจึงควรค้างอยู่ แต่กันไว้)
@@ -314,7 +412,7 @@
     }, 5000);
     let link;
     try {
-      link = await waitForDom(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' || kind === 'ord' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+      link = await waitForDom(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' || kind === 'ord' || kind === 'ordu' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
     } finally {
       clearInterval(ticker);
     }
@@ -327,7 +425,7 @@
     const dlTarget = findByText('ดาวน์โหลด', 'a, button, span') || link;
     const dlEl = (dlTarget.closest && dlTarget.closest('button, a')) || dlTarget;
     let trusted = false;
-    if (kind === 'm3' || kind === 'ord') {
+    if (kind === 'm3' || kind === 'ord' || kind === 'ordu') {
       // ปุ่มดาวน์โหลดของหน้าออเดอร์ไม่ตอบคลิกจำลอง (น่าจะเปิดไฟล์ด้วยคำสั่งที่ต้องมาจากการคลิกของคนจริง) → คลิกด้วยเมาส์จริงผ่านระบบดีบักของ Chrome
       dlEl.scrollIntoView({ block: 'center' });
       await sleep(400);

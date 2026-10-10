@@ -12,7 +12,7 @@
     if (e.source !== window || !e.data || e.data.source !== 'order-workspace') return;
     // ตั้งเวลาโหลดไฟล์ ORDER อัตโนมัติ (ส่วนขยายเป็นตัวเก็บเวลา/ปลุก) ตอบกลับสถานะให้หน้าเว็บแสดง
     if (e.data.type === 'ordScheduleSet' || e.data.type === 'ordScheduleGet') {
-      chrome.runtime.sendMessage({ type: e.data.type, enabled: e.data.enabled, times: e.data.times }).then(function (st) {
+      chrome.runtime.sendMessage({ type: e.data.type, enabled: e.data.enabled, mode: e.data.mode, times: e.data.times }).then(function (st) {
         window.postMessage(Object.assign({ source: 'order-autoload', type: 'schedule' }, st || {}), '*');
       }).catch(function (err) {
         window.postMessage({ source: 'order-autoload', type: 'schedule', error: 'ติดต่อส่วนขยายไม่ได้: ' + err.message }, '*');
@@ -20,7 +20,8 @@
       return;
     }
     // stSyncRequest = การ์ด ST · siSyncRequest = การ์ด SI · m3SyncRequest = การ์ด 3M · ordSyncRequest = ปุ่มหน้า รับORDER
-    const m = /^(st|si|m3|ord)SyncRequest$/.exec(e.data.type || '');
+    // ordSyncRequest = ปุ่มหน้า รับORDER แบบ "ทั้งหมด (เมื่อวาน–วันนี้)" · orduSyncRequest = แบบ "ยังไม่พิมพ์ใบปะหน้า"
+    const m = /^(st|si|m3|ordu|ord)SyncRequest$/.exec(e.data.type || '');
     if (m) {
       const kind = m[1];
       chrome.runtime.sendMessage({ type: 'bridgeExport', kind: kind }).catch(function (err) {

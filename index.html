@@ -226,6 +226,10 @@
             <p>อัปโหลด Excel แล้วเลือกกรองข้อมูลแต่ละหัวข้อได้เอง เหมือนตัวกรองใน Excel</p>
           </div>
           <div id="orderAuto" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:420px">
+            <select id="orderAutoMode" title="เลือกว่าจะโหลดรายการแบบไหนจาก BigSeller" style="padding:4px 8px;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;font-size:13px">
+              <option value="ord">ทั้งหมด (เมื่อวาน–วันนี้)</option>
+              <option value="ordu">ยังไม่พิมพ์ใบปะหน้า</option>
+            </select>
             <button type="button" class="saved-file-open" id="orderAutoBtn" title="ให้ส่วนขยายสั่ง BigSeller ส่งออกไฟล์ ORDER แล้วโหลดเข้าหน้านี้ให้อัตโนมัติ">⚡ โหลดจาก BigSeller</button>
             <span id="orderAutoStatus" style="font-size:12px;opacity:.8;text-align:right"></span>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;font-size:13px">
@@ -589,7 +593,7 @@
 <script src="js/app.js?v=20261202"></script>
 <script src="js/scan-sheet.js?v=20261201"></script>
 <script src="js/saved-files.js?v=20261201"></script>
-<script src="js/auto-order.js?v=20261204"></script>
+<script src="js/auto-order.js?v=20261205"></script>
 <script src="js/layout.js?v=20261134"></script>
 <!-- Sunshine: ไลบรารี Supabase เก็บในเครื่องแล้ว แต่การดึง/อัปโหลดข้อมูลยังต้องต่ออินเทอร์เน็ต -->
 <script src="js/vendor/supabase.min.js"></script>

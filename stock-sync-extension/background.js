@@ -129,9 +129,11 @@ const EXPORT_PAGES = {
   st: { file: 'inventory/warehouseInventory.htm', path: '/web/inventory/warehouseInventory.htm', name: 'ตำแหน่งสต็อก' },
   si: { file: 'inventory/warehouseInOutRecord.htm', path: '/web/inventory/warehouseInOutRecord.htm', name: 'การเคลื่อนไหวสต็อก' },
   m3: { file: 'order/index.htm', path: '/web/order/index.htm?status=all', name: 'คำสั่งซื้อ', fresh: true, timeoutMs: 30 * 60 * 1000 },
-  // ord = ไฟล์ ORDER ของหน้า รับORDER (Order-SKU-inprocess...): ส่งออกจากหน้าคำสั่งซื้อที่ผู้ใช้เปิดค้างไว้ (ตั้งแท็บ/ตัวกรองไว้แล้ว)
-  // ไม่เปิดหน้าใหม่ให้เอง เพราะไม่รู้ว่าต้องกรองสถานะอะไร ไม่มีแท็บเปิดอยู่ = แจ้งให้เปิดก่อน
-  ord: { file: 'order/index.htm', path: '/web/order/index.htm', name: 'คำสั่งซื้อ', needsOpenTab: true, timeoutMs: 30 * 60 * 1000 }
+  // ord = ไฟล์ ORDER ของหน้า รับORDER (Order-SKU-inprocess...): หน้าคำสั่งซื้อ > กำลังจัดส่ง (status=processing)
+  // เปิดแท็บเบื้องหลังของตัวเอง ตั้งช่วงเวลา เมื่อวาน–วันนี้ + เทมเพลต "รับออเดอร์ปัจจุบันล่าสุด" แล้วส่งออก (ดู content.js)
+  ord: { file: 'order/index.htm', path: '/web/order/index.htm?status=processing', name: 'คำสั่งซื้อ', fresh: true, timeoutMs: 30 * 60 * 1000 },
+  // ordu = เหมือน ord แต่เลือกตัวกรอง "ยังไม่พิมพ์(ใบปะหน้าพัสดุ)" แทนการตั้งช่วงเวลา
+  ordu: { file: 'order/index.htm', path: '/web/order/index.htm?status=processing', name: 'คำสั่งซื้อ', fresh: true, timeoutMs: 30 * 60 * 1000 }
 };
 
 // รอให้ตัวกดปุ่ม (content.js) ในแท็บพร้อมรับคำสั่ง
@@ -409,7 +411,7 @@ let ordRunning = false;
 
 async function getSched() {
   const s = (await chrome.storage.local.get('ordSchedule')).ordSchedule;
-  return Object.assign({ enabled: false, times: [], lastAt: 0, lastOk: null, lastMsg: '' }, s || {});
+  return Object.assign({ enabled: false, mode: 'ord', times: [], lastAt: 0, lastOk: null, lastMsg: '' }, s || {});
 }
 async function saveSched(s) {
   await chrome.storage.local.set({ ordSchedule: s });
@@ -447,7 +449,7 @@ async function applySchedule() {
 async function schedStatus() {
   const s = await getSched();
   const a = await chrome.alarms.get(ORD_ALARM);
-  return { enabled: s.enabled, times: s.times, nextAt: a ? a.scheduledTime : null, lastAt: s.lastAt, lastOk: s.lastOk, lastMsg: s.lastMsg, running: ordRunning };
+  return { enabled: s.enabled, mode: s.mode, times: s.times, nextAt: a ? a.scheduledTime : null, lastAt: s.lastAt, lastOk: s.lastOk, lastMsg: s.lastMsg, running: ordRunning };
 }
 async function pushSchedStatus() {
   await sendToOrderPages(Object.assign({ type: 'ordScheduleStatus' }, await schedStatus()));
@@ -460,7 +462,7 @@ async function runScheduledOrder() {
   const keepAlive = setInterval(function () { chrome.runtime.getPlatformInfo(function () {}); }, 20000);
   let ok = false, msg = '';
   try {
-    const rec = await exportViaTab(function () {}, 'ord');
+    const rec = await exportViaTab(function () {}, (await getSched()).mode === 'ordu' ? 'ordu' : 'ord');
     const f = await readDownload(rec);
     const message = { type: 'orderFile', name: f.name, b64: bytesToB64(f.bytes), at: Date.now() };
     if (!(await sendToOrderPages(message))) await chrome.storage.local.set({ orderPending: message });
@@ -492,6 +494,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (msg.type === 'ordScheduleSet') {
       const s = await getSched();
       s.enabled = !!msg.enabled;
+      s.mode = msg.mode === 'ordu' ? 'ordu' : 'ord';
       s.times = cleanTimes(msg.times);
       await saveSched(s);
       await applySchedule();
