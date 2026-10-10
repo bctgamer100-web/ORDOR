@@ -60,8 +60,6 @@
     try { const saved = localStorage.getItem(MODE_KEY); if (saved === 'ord' || saved === 'ordu') modeSel.value = saved; } catch (e) { /* ไม่กระทบ */ }
     modeSel.addEventListener('change', function () {
       try { localStorage.setItem(MODE_KEY, modeSel.value); } catch (e) { /* ไม่กระทบ */ }
-      // เปลี่ยนแบบ = ใช้กับการตั้งเวลาด้วย
-      if (schedChk && schedChk.checked) sendSchedule();
     });
   }
 
@@ -80,51 +78,92 @@
   }
 
   /* ----- ตั้งเวลาโหลดเอง (ส่วนขยายเป็นตัวปลุก ตั้งแยกตามเครื่อง/เบราว์เซอร์) ----- */
+  // แต่ละแถว = เวลา + แบบ (ทั้งหมด เมื่อวาน–วันนี้ / ยังไม่พิมพ์ใบปะหน้า) เช่น 09:00 ทั้งหมด · 11:00 ยังไม่พิมพ์ · 12:00 ทั้งหมด
   const schedChk = document.getElementById('orderAutoSched');
-  const schedTimes = document.getElementById('orderAutoTimes');
+  const schedList = document.getElementById('orderAutoTimes');
+  const schedAdd = document.getElementById('orderAutoAdd');
   const schedInfo = document.getElementById('orderAutoSchedInfo');
   const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
-
-  function parseTimes(text) {
-    return String(text || '').split(/[,\s;]+/).map(function (t) { return t.trim(); }).filter(Boolean);
-  }
+  const BOX_STYLE = 'padding:4px 8px;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;font-size:13px';
 
   function hhmm(ms) {
     try { return new Date(ms).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
   }
 
+  function modeLabel(m) { return m === 'ordu' ? 'ยังไม่พิมพ์ใบปะหน้า' : 'ทั้งหมด'; }
+
+  function addRow(time, mode) {
+    if (!schedList) return;
+    const row = document.createElement('div');
+    row.className = 'order-auto-row';
+    row.style.cssText = 'display:flex;gap:6px;align-items:center';
+    const t = document.createElement('input');
+    t.type = 'time';
+    t.value = time || '';
+    t.style.cssText = BOX_STYLE;
+    const s = document.createElement('select');
+    s.style.cssText = BOX_STYLE;
+    [['ord', 'ทั้งหมด (เมื่อวาน–วันนี้)'], ['ordu', 'ยังไม่พิมพ์ใบปะหน้า']].forEach(function (o) {
+      const op = document.createElement('option');
+      op.value = o[0]; op.textContent = o[1];
+      s.appendChild(op);
+    });
+    s.value = mode === 'ordu' ? 'ordu' : 'ord';
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.textContent = '✕';
+    del.title = 'ลบเวลานี้';
+    del.style.cssText = BOX_STYLE + ';cursor:pointer';
+    t.addEventListener('change', sendSchedule);
+    s.addEventListener('change', sendSchedule);
+    del.addEventListener('click', function () { row.remove(); sendSchedule(); });
+    row.append(t, s, del);
+    schedList.appendChild(row);
+  }
+
+  function readRows() {
+    if (!schedList) return [];
+    return Array.prototype.slice.call(schedList.querySelectorAll('.order-auto-row')).map(function (row) {
+      return { time: row.querySelector('input').value, mode: row.querySelector('select').value };
+    });
+  }
+
+  function renderRows(items) {
+    if (!schedList) return;
+    schedList.textContent = '';
+    (items || []).forEach(function (it) { addRow(it.time, it.mode); });
+  }
+
   function showSchedule(st) {
-    if (!schedInfo || !schedChk || !schedTimes) return;
+    if (!schedInfo || !schedChk || !schedList) return;
     if (st.error) { schedInfo.textContent = '⚠️ ' + st.error; return; }
     schedChk.checked = !!st.enabled;
-    if (modeSel && st.enabled && (st.mode === 'ord' || st.mode === 'ordu')) modeSel.value = st.mode; // แสดงแบบที่ตั้งเวลาไว้จริง
-    if (document.activeElement !== schedTimes) schedTimes.value = (st.times || []).join(', ');
+    // กำลังแก้ไขอยู่ (โฟกัสในรายการ หรือมีแถวที่ยังไม่ใส่เวลา) ไม่วาดทับ
+    const editing = schedList.contains(document.activeElement) || readRows().some(function (r) { return !r.time; });
+    if (!editing) renderRows(st.items || []);
     const bits = [];
     if (st.running) bits.push('⏳ กำลังโหลด...');
-    else if (st.enabled && st.nextAt) bits.push('⏰ ครั้งถัดไป ' + hhmm(st.nextAt) + ' น.');
+    else if (st.enabled && st.nextAt) bits.push('⏰ ครั้งถัดไป ' + hhmm(st.nextAt) + ' น.' + (st.nextModes && st.nextModes.length ? ' (' + st.nextModes.map(modeLabel).join(' + ') + ')' : ''));
     else if (st.enabled) bits.push('ยังไม่ได้ใส่เวลา');
     if (st.lastAt) bits.push((st.lastOk ? '✅ ' : '❌ ') + 'ล่าสุด ' + hhmm(st.lastAt) + ' น. — ' + (st.lastMsg || ''));
     schedInfo.textContent = bits.join(' · ');
   }
 
   function sendSchedule() {
-    if (!schedChk || !schedTimes) return;
-    const times = parseTimes(schedTimes.value);
-    const bad = times.filter(function (t) { return !TIME_RE.test(t); });
-    if (bad.length) { if (schedInfo) schedInfo.textContent = '⚠️ เวลาไม่ถูกต้อง: ' + bad.join(', ') + ' (ใช้รูปแบบ 09:00, 13:30)'; return; }
+    if (!schedChk || !schedList) return;
+    const items = readRows().filter(function (r) { return r.time; });
+    const bad = items.filter(function (r) { return !TIME_RE.test(r.time); });
+    if (bad.length) { if (schedInfo) schedInfo.textContent = '⚠️ เวลาไม่ถูกต้อง: ' + bad.map(function (r) { return r.time; }).join(', '); return; }
     if (document.documentElement.getAttribute('data-stock-sync') !== '1') {
       schedChk.checked = false;
       if (schedInfo) schedInfo.textContent = '⚠️ ไม่พบส่วนขยาย "ส่งสต็อก BigSeller เข้า ORDER" — ติดตั้ง/รีโหลดส่วนขยายแล้วรีเฟรชหน้านี้ (F5)';
       return;
     }
-    if (schedChk.checked && !times.length) { if (schedInfo) schedInfo.textContent = 'ใส่เวลาก่อน เช่น 09:00, 13:30'; return; }
-    window.postMessage({ source: 'order-workspace', type: 'ordScheduleSet', enabled: schedChk.checked, mode: currentMode(), times: times }, '*');
+    if (schedChk.checked && !items.length) { if (schedInfo) schedInfo.textContent = 'กด + เพิ่มเวลา แล้วใส่เวลา เช่น 09:00'; return; }
+    window.postMessage({ source: 'order-workspace', type: 'ordScheduleSet', enabled: schedChk.checked, items: items }, '*');
   }
   if (schedChk) schedChk.addEventListener('change', sendSchedule);
-  if (schedTimes) {
-    schedTimes.addEventListener('change', sendSchedule);
-    schedTimes.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); sendSchedule(); } });
-  }
+  if (schedAdd) schedAdd.addEventListener('click', function () { addRow('', currentMode()); });
   // ขอสถานะปัจจุบันจากส่วนขยาย (ถ้ามี) ตอนเปิดหน้า
   setTimeout(function () {
     if (document.documentElement.getAttribute('data-stock-sync') === '1') {

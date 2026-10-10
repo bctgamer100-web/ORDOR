@@ -234,8 +234,9 @@
             <span id="orderAutoStatus" style="font-size:12px;opacity:.8;text-align:right"></span>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;font-size:13px">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="orderAutoSched"> ตั้งเวลาโหลดเอง</label>
-              <input type="text" id="orderAutoTimes" placeholder="เช่น 09:00, 13:30" size="16" autocomplete="off" title="ใส่เวลาได้หลายค่า คั่นด้วยจุลภาค (รูปแบบ 24 ชั่วโมง) ใช้กับเครื่อง/เบราว์เซอร์นี้เท่านั้น" style="padding:4px 8px;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit">
+              <button type="button" id="orderAutoAdd" title="เพิ่มเวลา (ตั้งได้แยกแบบต่อเวลา ใช้กับเครื่อง/เบราว์เซอร์นี้เท่านั้น)" style="padding:4px 10px;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer">+ เพิ่มเวลา</button>
             </div>
+            <div id="orderAutoTimes" style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"></div>
             <span id="orderAutoSchedInfo" style="font-size:12px;opacity:.8;text-align:right"></span>
           </div>
         </div>
@@ -593,7 +594,7 @@
 <script src="js/app.js?v=20261202"></script>
 <script src="js/scan-sheet.js?v=20261201"></script>
 <script src="js/saved-files.js?v=20261201"></script>
-<script src="js/auto-order.js?v=20261205"></script>
+<script src="js/auto-order.js?v=20261206"></script>
 <script src="js/layout.js?v=20261134"></script>
 <!-- Sunshine: ไลบรารี Supabase เก็บในเครื่องแล้ว แต่การดึง/อัปโหลดข้อมูลยังต้องต่ออินเทอร์เน็ต -->
 <script src="js/vendor/supabase.min.js"></script>

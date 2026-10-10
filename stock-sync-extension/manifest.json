@@ -1,7 +1,7 @@
-﻿{
+{
   "manifest_version": 3,
   "name": "ส่งสต็อก BigSeller เข้า ORDER",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "ส่งออกสต็อก/ตำแหน่งจาก BigSeller แล้วนำเข้าตาราง op_stock ของ ORDER Workspace ด้วยเงื่อนไขเดียวกับหน้านำเข้าข้อมูล",
   "permissions": ["downloads", "storage", "unlimitedStorage", "tabs", "debugger", "scripting", "alarms"],
   "host_permissions": [

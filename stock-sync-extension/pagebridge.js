@@ -12,7 +12,7 @@
     if (e.source !== window || !e.data || e.data.source !== 'order-workspace') return;
     // ตั้งเวลาโหลดไฟล์ ORDER อัตโนมัติ (ส่วนขยายเป็นตัวเก็บเวลา/ปลุก) ตอบกลับสถานะให้หน้าเว็บแสดง
     if (e.data.type === 'ordScheduleSet' || e.data.type === 'ordScheduleGet') {
-      chrome.runtime.sendMessage({ type: e.data.type, enabled: e.data.enabled, mode: e.data.mode, times: e.data.times }).then(function (st) {
+      chrome.runtime.sendMessage({ type: e.data.type, enabled: e.data.enabled, items: e.data.items }).then(function (st) {
         window.postMessage(Object.assign({ source: 'order-autoload', type: 'schedule' }, st || {}), '*');
       }).catch(function (err) {
         window.postMessage({ source: 'order-autoload', type: 'schedule', error: 'ติดต่อส่วนขยายไม่ได้: ' + err.message }, '*');

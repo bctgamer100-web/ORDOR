@@ -409,26 +409,39 @@ chrome.downloads.onChanged.addListener(async function (delta) {
 const ORD_ALARM = 'ordRun';
 let ordRunning = false;
 
+// รายการตั้งเวลา = [{ time: 'HH:MM', mode: 'ord' (ทั้งหมด เมื่อวาน–วันนี้) | 'ordu' (ยังไม่พิมพ์ใบปะหน้า) }] แต่ละเวลาเลือกแบบได้เอง
 async function getSched() {
-  const s = (await chrome.storage.local.get('ordSchedule')).ordSchedule;
-  return Object.assign({ enabled: false, mode: 'ord', times: [], lastAt: 0, lastOk: null, lastMsg: '' }, s || {});
+  const s = (await chrome.storage.local.get('ordSchedule')).ordSchedule || {};
+  const out = Object.assign({ enabled: false, items: [], lastAt: 0, lastOk: null, lastMsg: '' }, s);
+  // รุ่นเก่าเก็บเป็น times + mode เดียว
+  if (!Array.isArray(s.items) && Array.isArray(s.times)) {
+    out.items = s.times.map(function (t) { return { time: t, mode: s.mode === 'ordu' ? 'ordu' : 'ord' }; });
+  }
+  return out;
 }
 async function saveSched(s) {
   await chrome.storage.local.set({ ordSchedule: s });
 }
-function cleanTimes(arr) {
-  const out = new Set();
-  (arr || []).forEach(function (t) {
-    const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
-    if (m && +m[1] < 24 && +m[2] < 60) out.add(String(+m[1]).padStart(2, '0') + ':' + m[2]);
+function cleanItems(arr) {
+  const seen = new Set();
+  const out = [];
+  (arr || []).forEach(function (it) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String((it && it.time) || '').trim());
+    if (!m || +m[1] > 23 || +m[2] > 59) return;
+    const time = String(+m[1]).padStart(2, '0') + ':' + m[2];
+    const mode = it.mode === 'ordu' ? 'ordu' : 'ord';
+    if (seen.has(time + '|' + mode)) return;
+    seen.add(time + '|' + mode);
+    out.push({ time: time, mode: mode });
   });
-  return Array.from(out).sort();
+  return out.sort(function (a, b) { return a.time < b.time ? -1 : a.time > b.time ? 1 : 0; });
 }
-function nextRunAt(times, now) {
+// รอบถัดไป: คืน { at, modes } (เวลาเดียวกันอาจมีหลายแบบ ทำต่อกันตามลำดับ)
+function nextRun(items, now) {
   let best = null;
   for (let d = 0; d < 2; d++) {
-    times.forEach(function (t) {
-      const hm = t.split(':').map(Number);
+    items.forEach(function (it) {
+      const hm = it.time.split(':').map(Number);
       const dt = new Date(now);
       dt.setDate(dt.getDate() + d);
       dt.setHours(hm[0], hm[1], 0, 0);
@@ -436,38 +449,54 @@ function nextRunAt(times, now) {
       if (ms > now && (best === null || ms < best)) best = ms;
     });
   }
-  return best;
+  if (best === null) return null;
+  const modes = [];
+  items.forEach(function (it) {
+    const hm = it.time.split(':').map(Number);
+    const dt = new Date(best);
+    if (dt.getHours() === hm[0] && dt.getMinutes() === hm[1] && modes.indexOf(it.mode) === -1) modes.push(it.mode);
+  });
+  return { at: best, modes: modes };
 }
 async function applySchedule() {
   const s = await getSched();
   await chrome.alarms.clear(ORD_ALARM);
-  if (!s.enabled || !s.times.length) return null;
-  const next = nextRunAt(s.times, Date.now());
-  if (next) await chrome.alarms.create(ORD_ALARM, { when: next });
+  const next = s.enabled && s.items.length ? nextRun(s.items, Date.now()) : null;
+  await chrome.storage.local.set({ ordNext: next });
+  if (next) await chrome.alarms.create(ORD_ALARM, { when: next.at });
   return next;
 }
 async function schedStatus() {
   const s = await getSched();
   const a = await chrome.alarms.get(ORD_ALARM);
-  return { enabled: s.enabled, mode: s.mode, times: s.times, nextAt: a ? a.scheduledTime : null, lastAt: s.lastAt, lastOk: s.lastOk, lastMsg: s.lastMsg, running: ordRunning };
+  const next = (await chrome.storage.local.get('ordNext')).ordNext;
+  return {
+    enabled: s.enabled, items: s.items,
+    nextAt: a ? a.scheduledTime : null, nextModes: a && next ? next.modes : [],
+    lastAt: s.lastAt, lastOk: s.lastOk, lastMsg: s.lastMsg, running: ordRunning
+  };
 }
 async function pushSchedStatus() {
   await sendToOrderPages(Object.assign({ type: 'ordScheduleStatus' }, await schedStatus()));
 }
 
-async function runScheduledOrder() {
+async function runScheduledOrder(modes) {
   if (ordRunning) return;
   ordRunning = true;
   pushSchedStatus();
   const keepAlive = setInterval(function () { chrome.runtime.getPlatformInfo(function () {}); }, 20000);
   let ok = false, msg = '';
   try {
-    const rec = await exportViaTab(function () {}, (await getSched()).mode === 'ordu' ? 'ordu' : 'ord');
-    const f = await readDownload(rec);
-    const message = { type: 'orderFile', name: f.name, b64: bytesToB64(f.bytes), at: Date.now() };
-    if (!(await sendToOrderPages(message))) await chrome.storage.local.set({ orderPending: message });
+    const names = [];
+    for (const mode of (modes && modes.length ? modes : ['ord'])) {
+      const rec = await exportViaTab(function () {}, mode === 'ordu' ? 'ordu' : 'ord');
+      const f = await readDownload(rec);
+      const message = { type: 'orderFile', name: f.name, b64: bytesToB64(f.bytes), at: Date.now() };
+      if (!(await sendToOrderPages(message))) await chrome.storage.local.set({ orderPending: message });
+      names.push(f.name);
+    }
     ok = true;
-    msg = 'โหลด ' + f.name + ' แล้ว';
+    msg = 'โหลด ' + names.join(', ') + ' แล้ว';
   } catch (err) {
     msg = err.message;
   } finally {
@@ -481,8 +510,10 @@ async function runScheduledOrder() {
   }
 }
 
-chrome.alarms.onAlarm.addListener(function (alarm) {
-  if (alarm.name === ORD_ALARM) runScheduledOrder();
+chrome.alarms.onAlarm.addListener(async function (alarm) {
+  if (alarm.name !== ORD_ALARM) return;
+  const next = (await chrome.storage.local.get('ordNext')).ordNext;
+  runScheduledOrder(next && next.modes);
 });
 chrome.runtime.onStartup.addListener(applySchedule);
 chrome.runtime.onInstalled.addListener(applySchedule);
@@ -494,8 +525,8 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (msg.type === 'ordScheduleSet') {
       const s = await getSched();
       s.enabled = !!msg.enabled;
-      s.mode = msg.mode === 'ordu' ? 'ordu' : 'ord';
-      s.times = cleanTimes(msg.times);
+      s.items = cleanItems(msg.items);
+      delete s.times; delete s.mode;
       await saveSched(s);
       await applySchedule();
     }
