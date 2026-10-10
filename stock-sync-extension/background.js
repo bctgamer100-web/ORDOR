@@ -335,6 +335,81 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 });
 chrome.debugger.onDetach.addListener(function (source) { ATTACHED.delete(source.tabId); });
 
+// ===== โหลดไฟล์ ORDER เข้าหน้า รับORDER อัตโนมัติ =====
+// ไฟล์ที่โหลดจาก BigSeller เสร็จและชื่อเข้าข่าย (เช่น Order-SKU-inprocess20261010030437492.xlsx ตัวเลขท้ายเปลี่ยนทุกครั้ง)
+// → อ่านไฟล์ แล้วส่งให้หน้า ORDER Workspace ที่เปิดอยู่ใส่เข้าช่อง รับORDER เอง (ไม่มีหน้าเปิดอยู่ → เก็บไว้ ส่งให้ตอนเปิดหน้า)
+// แก้ชื่อไฟล์ที่ให้โหลดอัตโนมัติได้ที่ ORDER_FILE_RE
+const ORDER_FILE_RE = /^order[-_ ]?sku/i;
+const ORDER_PAGE_URLS = [
+  'https://bctgamer100-web.github.io/ORDER/*',
+  'https://bctgamer100-web.github.io/ORDOR/*',
+  'http://localhost/*',
+  'file:///*'
+];
+const ORDER_PENDING_MAX_AGE = 6 * 60 * 60 * 1000; // ไฟล์ที่ค้างรอเปิดหน้า เก็บไว้ไม่เกิน 6 ชั่วโมง
+const orderHandled = new Set();
+
+function bytesToB64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+async function orderPageTabs() {
+  const found = [];
+  for (const pattern of ORDER_PAGE_URLS) {
+    try { (await chrome.tabs.query({ url: pattern })).forEach(function (t) { found.push(t); }); } catch (e) { /* รูปแบบที่ใช้ไม่ได้: ข้าม */ }
+  }
+  return found;
+}
+
+// ส่งถึงทุกหน้า ORDER ที่เปิดอยู่ (ตัวสะพาน pagebridge.js ต้องฝังอยู่) คืนจำนวนแท็บที่รับ
+async function sendToOrderPages(message) {
+  let delivered = 0;
+  for (const t of await orderPageTabs()) {
+    try { await chrome.tabs.sendMessage(t.id, message); delivered++; } catch (e) { /* แท็บนี้ไม่มีสะพาน (ยังไม่รีเฟรชหลังติดตั้ง) */ }
+  }
+  return delivered;
+}
+
+chrome.downloads.onChanged.addListener(async function (delta) {
+  if (!delta.state || delta.state.current !== 'complete') return;
+  if (orderHandled.has(delta.id)) return;
+  const items = await chrome.downloads.search({ id: delta.id });
+  const it = items && items[0];
+  if (!it) return;
+  const name = (it.filename || '').split(/[\\/]/).pop();
+  if (!/\.(xlsx|xls|csv)$/i.test(name) || !ORDER_FILE_RE.test(name)) return;
+  orderHandled.add(delta.id);
+  try {
+    const f = await readDownload(it);
+    const message = { type: 'orderFile', name: f.name, b64: bytesToB64(f.bytes), at: Date.now() };
+    if (!(await sendToOrderPages(message))) {
+      await chrome.storage.local.set({ orderPending: message });
+    }
+  } catch (err) {
+    await sendToOrderPages({ type: 'orderFileError', name: name, error: err.message });
+  }
+});
+
+// หน้า ORDER เพิ่งเปิด/รีเฟรช: ถ้ามีไฟล์ค้างรออยู่ ส่งให้
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || msg.type !== 'orderPageReady') return;
+  (async function () {
+    const pending = (await chrome.storage.local.get('orderPending')).orderPending;
+    if (pending && Date.now() - pending.at < ORDER_PENDING_MAX_AGE && sender.tab) {
+      try {
+        await chrome.tabs.sendMessage(sender.tab.id, pending);
+        await chrome.storage.local.remove('orderPending');
+      } catch (e) { /* ลองใหม่ครั้งหน้า */ }
+    } else if (pending) {
+      await chrome.storage.local.remove('orderPending');
+    }
+    sendResponse({ ok: true });
+  })();
+  return true;
+});
+
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (!msg || ['prepareDownload', 'prepareFiles', 'reevaluate', 'upload'].indexOf(msg.type) === -1) return;
   handle(msg, sender).then(sendResponse, function (err) { sendResponse({ ok: false, error: err.message }); });

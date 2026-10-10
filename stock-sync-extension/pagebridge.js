@@ -20,6 +20,20 @@
     }
   });
 
+  // ไฟล์ ORDER ที่โหลดจาก BigSeller (ชื่อ Order-SKU-...) ส่งต่อให้หน้าเว็บใส่เข้าช่อง รับORDER เอง (js/auto-order.js)
+  chrome.runtime.onMessage.addListener(function (msg) {
+    if (!msg || (msg.type !== 'orderFile' && msg.type !== 'orderFileError')) return;
+    window.postMessage({
+      source: 'order-autoload',
+      type: msg.type === 'orderFile' ? 'file' : 'error',
+      name: msg.name, b64: msg.b64, error: msg.error
+    }, '*');
+  });
+  // หน้าเว็บโหลดเสร็จแล้ว (สคริปต์หน้าพร้อมรับข้อความ) ค่อยขอไฟล์ที่ค้างรออยู่
+  window.addEventListener('load', function () {
+    chrome.runtime.sendMessage({ type: 'orderPageReady' }).catch(function () { /* ไม่กระทบ */ });
+  });
+
   chrome.runtime.onMessage.addListener(function (msg) {
     if (!msg || ['bridgeProgress', 'bridgeFile', 'bridgeError'].indexOf(msg.type) === -1) return;
     window.postMessage({
