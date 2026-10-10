@@ -39,6 +39,9 @@ chrome.downloads.onChanged.addListener(async function (delta) {
   const items = await chrome.downloads.search({ id: delta.id });
   const it = items && items[0];
   if (!it) return;
+  // จำโฟลเดอร์ไฟล์ส่งออกของบัญชีนี้ (…/temp/excel/<เลข>/) ไว้ใช้ดึงไฟล์โดยตรง (directDownload)
+  const learnedBase = cosBaseFrom(it.finalUrl || it.url);
+  if (learnedBase) chrome.storage.local.set({ cosBase: learnedBase });
   if (!/\.(xlsx|xls|csv|zip)$/i.test(it.filename || '')) return;
   // ไฟล์ของ BigSeller ดูจากที่อยู่/หน้าต้นทาง แต่ไฟล์ออเดอร์อาจมาจากที่เก็บไฟล์ชื่ออื่นและไม่มี referrer
   // → ถ้ามีงานที่เพิ่งกดดาวน์โหลดไปและรอไฟล์อยู่ (ถือสิทธิ์อยู่) ก็นับว่าเป็นไฟล์ของงานนั้น
@@ -255,7 +258,8 @@ async function exportViaTabNow(progress, kind) {
     };
     let res = await runInTab();
     // แท็บเบื้องหลังเปิดเมนูไม่ขึ้น (เบราว์เซอร์หยุดงานด้านภาพของแท็บที่ไม่ได้ดู) → สลับไปแท็บนั้นชั่วคราว แล้วสลับกลับ
-    if ((!res || !res.ok) && /เมนู ส่งออก|ปุ่ม ส่งออก|กล่องส่งออก/.test((res && res.error) || '')) {
+    // ORD/ORDU (ปุ่มหน้า รับORDER + ตั้งเวลา) ไม่สลับแท็บของผู้ใช้ กันกวนงานที่ทำอยู่
+    if ((!res || !res.ok) && kind !== 'ord' && kind !== 'ordu' && /เมนู ส่งออก|ปุ่ม ส่งออก|กล่องส่งออก/.test((res && res.error) || '')) {
       progress('แท็บเบื้องหลังเปิดเมนูไม่ได้ — สลับไปแท็บนั้นชั่วคราวเพื่อกดส่งออก ...');
       const turn = activateChain.then(async function () {
         const prev = (await chrome.tabs.query({ active: true, windowId: tab.windowId }))[0];
@@ -314,13 +318,48 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   }).finally(function () { clearInterval(keepAlive); });
 });
 
+// ไฟล์ส่งออกคำสั่งซื้อของ BigSeller อยู่ที่ลิงก์สาธารณะ: <base>/temp/excel/<เลขบัญชี>/<ชื่อไฟล์>.xlsx (ไม่ต้องมีลายเซ็น)
+// กล่องส่งออกบอกชื่อไฟล์ (Order-SKU-inprocess2026…) → ประกอบลิงก์เองแล้วดึงตรงๆ ไม่ต้องกดปุ่มดาวน์โหลด/ไม่สนซูม/ไม่สลับแท็บ
+// เลขบัญชีจำจากไฟล์ที่เคยโหลดจาก BigSeller (cosBase) ถ้ายังไม่เคยใช้ค่าเริ่มต้นนี้
+const COS_DEFAULT_BASE = 'https://bigseller-1251220924.cos.accelerate.myqcloud.com/temp/excel/729517/';
+function cosBaseFrom(url) {
+  const m = /^(https:\/\/[^/]+\.myqcloud\.com\/temp\/excel\/\d+\/)/.exec(url || '');
+  return m ? m[1] : null;
+}
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || msg.type !== 'directDownload') return;
+  (async function () {
+    const job = jobs.get(msg.jobId);
+    if (!job) throw new Error('ไม่พบงานที่รอไฟล์อยู่');
+    const learned = (await chrome.storage.local.get('cosBase')).cosBase;
+    const bases = [learned, COS_DEFAULT_BASE].filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+    for (const base of bases) {
+      for (const ext of ['.xlsx', '.zip', '.csv']) {
+        const url = base + encodeURIComponent(msg.name) + ext;
+        try {
+          const r = await fetch(url, { method: 'HEAD' });
+          if (!r.ok) continue;
+          const rec = { id: null, filename: msg.name + ext, url: url, finalUrl: url, at: Date.now() };
+          await chrome.storage.local.set({ lastDownload: rec });
+          job.resolve(rec);
+          releaseSlot(msg.jobId);
+          return { ok: true, url: url };
+        } catch (e) { /* ลองแบบถัดไป */ }
+      }
+    }
+    throw new Error('ไม่พบไฟล์ ' + msg.name + ' ที่ที่เก็บไฟล์ของ BigSeller');
+  })().then(sendResponse, function (err) { sendResponse({ ok: false, error: err.message }); });
+  return true;
+});
+
 // ตัวกดปุ่มในแท็บ BigSeller ถามว่าหลังกดดาวน์โหลด มีไฟล์เริ่มโหลดจริงหรือยัง + ขอสลับมาแท็บนั้นชั่วคราว (เมาส์จริงในแท็บเบื้องหลังอาจไม่ติด)
 let lastDownloadCreatedAt = 0;
 chrome.downloads.onCreated.addListener(function () { lastDownloadCreatedAt = Date.now(); });
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
-  if (!msg || ['downloadSince', 'activateMe', 'restoreTab'].indexOf(msg.type) === -1) return;
+  if (!msg || ['downloadSince', 'activateMe', 'restoreTab', 'getZoom'].indexOf(msg.type) === -1) return;
   (async function () {
     if (msg.type === 'downloadSince') return { started: lastDownloadCreatedAt >= msg.t };
+    if (msg.type === 'getZoom') return { zoom: sender.tab ? await chrome.tabs.getZoom(sender.tab.id) : 1 };
     if (msg.type === 'restoreTab') {
       if (msg.prevId != null) await chrome.tabs.update(msg.prevId, { active: true });
       return { ok: true };

@@ -424,21 +424,26 @@
     setStatus('ส่งออกสำเร็จแล้ว กำลังกด ดาวน์โหลด ...');
     const dlTarget = findByText('ดาวน์โหลด', 'a, button, span') || link;
     const dlEl = (dlTarget.closest && dlTarget.closest('button, a')) || dlTarget;
-    if (kind === 'm3') {
-      // 3M (ไฟล์ใหญ่ BigSeller อาจใช้เวลานานก่อนไฟล์เริ่มโหลด): กดครั้งเดียว ไม่ตรวจว่าไฟล์เริ่มโหลดเมื่อไร กันกดซ้ำ
+    // ลองดึงไฟล์ตรงจากที่เก็บไฟล์ของ BigSeller ก่อน (ชื่อไฟล์อยู่ในกล่องส่งออก) ไม่ต้องกดปุ่ม/ไม่สนซูม/ไม่สลับแท็บ
+    let handedOff = false;
+    if (jobId && (kind === 'm3' || kind === 'ord' || kind === 'ordu')) {
+      const names = visibleModalText().match(/Order-SKU-[^\s:：]+(?=\s*[:：]\s*ส่งออกข้อมูลสำเร็จ)/g);
+      const fname = names && names[names.length - 1];
+      if (fname) {
+        setStatus('พบไฟล์ ' + fname + ' กำลังดึงจากที่เก็บไฟล์ของ BigSeller โดยตรง ...');
+        try {
+          const res = await chrome.runtime.sendMessage({ type: 'directDownload', name: fname, jobId: jobId });
+          handedOff = !!(res && res.ok);
+          if (!handedOff) setStatus('ดึงโดยตรงไม่ได้ (' + ((res && res.error) || 'ไม่ตอบกลับ') + ') — ใช้การกดปุ่มแทน');
+        } catch (e) { setStatus('ดึงโดยตรงไม่ได้ (' + e.message + ') — ใช้การกดปุ่มแทน'); }
+      }
+    }
+    if (handedOff) {
+      await sleep(300);
+    } else if (kind === 'm3' || kind === 'ord' || kind === 'ordu') {
       // ปุ่มดาวน์โหลดของหน้าออเดอร์ไม่ตอบคลิกจำลอง (น่าจะเปิดไฟล์ด้วยคำสั่งที่ต้องมาจากการคลิกของคนจริง) → คลิกด้วยเมาส์จริงผ่านระบบดีบักของ Chrome
-      dlEl.scrollIntoView({ block: 'center' });
-      await sleep(400);
-      const r3 = dlEl.getBoundingClientRect();
-      let trusted3 = false;
-      try {
-        const res = await chrome.runtime.sendMessage({ type: 'trustedClick', x: Math.round(r3.left + r3.width / 2), y: Math.round(r3.top + r3.height / 2) });
-        trusted3 = !!(res && res.ok);
-      } catch (e) { trusted3 = false; }
-      setStatus(trusted3 ? 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงแล้ว รอไฟล์โหลด ...' : 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงไม่ได้ ลองคลิกจำลอง ...');
-      if (!trusted3) realClick(dlEl);
-    } else if (kind === 'ord' || kind === 'ordu') {
-      // ORD/ORDU (ไฟล์เล็ก): คลิกด้วยเมาส์จริงเหมือน 3M แต่เช็กว่าไฟล์เริ่มโหลดจริง ถ้าไม่ → ลองใหม่ตามลำดับ: เมาส์จริงอีกครั้ง → สลับมาแท็บนี้ชั่วคราวแล้วเมาส์จริง → คลิกจำลอง
+      // กดแล้วเช็กว่าไฟล์เริ่มโหลดจริง ถ้าไม่ → ลองใหม่ตามลำดับ: เมาส์จริงปรับตามซูมหน้าเว็บ → สลับมาแท็บนี้ชั่วคราว → คลิกจำลอง
+      // (ถ้าหน้า BigSeller ซูมไม่ใช่ 100% พิกัดเมาส์จริงของดีบักจะคลาดเคลื่อน)
       const downloadStarted = async function (since, waitMs) {
         const end = Date.now() + waitMs;
         while (Date.now() < end) {
@@ -450,41 +455,44 @@
         }
         return false;
       };
-      const trustedAttempt = async function (label) {
+      const t0 = Date.now(); // นับไฟล์ที่เริ่มโหลดตั้งแต่การกดครั้งแรก (ถ้าเริ่มช้าหลังรอบแรก จะไม่กดซ้ำจนได้ไฟล์ซ้ำ)
+      const currentDlEl = function () {
         const target = findByText('ดาวน์โหลด', 'a, button, span') || dlTarget;
-        const el = (target.closest && target.closest('button, a')) || target;
+        return (target.closest && target.closest('button, a')) || target;
+      };
+      const trustedAttempt = async function (label, scale, waitMs) {
+        const el = currentDlEl();
         el.scrollIntoView({ block: 'center' });
         await sleep(400);
         const r = el.getBoundingClientRect();
         setStatus('ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริง (' + label + ') ...');
-        const since = Date.now();
         let ok = false;
         try {
-          const res = await chrome.runtime.sendMessage({ type: 'trustedClick', x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
+          const res = await chrome.runtime.sendMessage({
+            type: 'trustedClick',
+            x: Math.round((r.left + r.width / 2) * scale), y: Math.round((r.top + r.height / 2) * scale)
+          });
           ok = !!(res && res.ok);
           if (!ok) setStatus('เมาส์จริงใช้ไม่ได้: ' + ((res && res.error) || 'ไม่ตอบกลับ'));
         } catch (e) { setStatus('เมาส์จริงใช้ไม่ได้: ' + e.message); }
-        return ok && await downloadStarted(since, 25000); // BigSeller อาจเตรียมไฟล์ก่อนเริ่มโหลดช้า ให้เวลาพอ กันกดซ้ำแล้วได้ไฟล์ซ้ำ
-      };
-      let started = await trustedAttempt('ครั้งที่ 1');
-      if (!started) {
         chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
-        await sleep(500);
-        // แท็บเบื้องหลังอาจไม่รับเมาส์จริง → สลับมาแท็บนี้ชั่วคราว
-        let prevId = null;
-        try { prevId = (await chrome.runtime.sendMessage({ type: 'activateMe' })).prevId; } catch (e) { /* ข้าม */ }
-        await sleep(1200);
-        started = await trustedAttempt('แท็บอยู่หน้าจอ');
-        if (prevId != null) chrome.runtime.sendMessage({ type: 'restoreTab', prevId: prevId }).catch(function () {});
+        return ok && await downloadStarted(t0, waitMs);
+      };
+      let zoom = 1;
+      try { zoom = (await chrome.runtime.sendMessage({ type: 'getZoom' })).zoom || 1; } catch (e) { zoom = 1; }
+      const scales = zoom !== 1 ? [1, zoom] : [1];
+      let started = false;
+      for (let i = 0; i < scales.length && !started; i++) {
+        started = await trustedAttempt(scales[i] === 1 ? 'ครั้งที่ 1' : 'ปรับตามซูม ' + Math.round(zoom * 100) + '%', scales[i], i === 0 ? 20000 : 8000);
       }
+      // ไม่สลับแท็บของผู้ใช้เด็ดขาด (กวนงานที่ทำอยู่) — ถ้าเมาส์จริงในแท็บเบื้องหลังไม่ติด ปล่อยให้กดดาวน์โหลดเองได้
       if (!started) {
         setStatus('เมาส์จริงไม่ติด ลองคลิกจำลอง ...');
-        const since = Date.now();
-        realClick(findByText('ดาวน์โหลด', 'a, button, span') ? ((findByText('ดาวน์โหลด', 'a, button, span').closest('button, a')) || findByText('ดาวน์โหลด', 'a, button, span')) : dlEl);
-        started = await downloadStarted(since, 15000);
+        realClick(currentDlEl());
+        started = await downloadStarted(t0, 15000);
       }
       // ไม่เห็นไฟล์เริ่มโหลด: ไม่ล้มงาน (อาจเริ่มช้า) ปล่อยให้ background รอไฟล์ต่อ ถ้าไม่มาจริงจะหมดเวลาและแจ้งเอง
-      if (!started) setStatus('กดดาวน์โหลดแล้วแต่ยังไม่เห็นไฟล์เริ่มโหลด — รอต่อ (ถ้าไม่มา กดดาวน์โหลดเองในแท็บ BigSeller ได้)');
+      if (!started) setStatus('⚠️ กดดาวน์โหลดอัตโนมัติไม่ติด (แท็บอยู่เบื้องหลัง) — รอต่อ: ไปที่แท็บ BigSeller ที่เปิดไว้แล้วกด "ดาวน์โหลด" เองหนึ่งครั้ง ไฟล์จะเข้าหน้า ORDER ให้เอง');
     } else {
       realClick(dlEl);
     }
