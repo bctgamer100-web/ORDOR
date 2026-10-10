@@ -424,19 +424,70 @@
     setStatus('ส่งออกสำเร็จแล้ว กำลังกด ดาวน์โหลด ...');
     const dlTarget = findByText('ดาวน์โหลด', 'a, button, span') || link;
     const dlEl = (dlTarget.closest && dlTarget.closest('button, a')) || dlTarget;
-    let trusted = false;
-    if (kind === 'm3' || kind === 'ord' || kind === 'ordu') {
+    if (kind === 'm3') {
+      // 3M (ไฟล์ใหญ่ BigSeller อาจใช้เวลานานก่อนไฟล์เริ่มโหลด): กดครั้งเดียว ไม่ตรวจว่าไฟล์เริ่มโหลดเมื่อไร กันกดซ้ำ
       // ปุ่มดาวน์โหลดของหน้าออเดอร์ไม่ตอบคลิกจำลอง (น่าจะเปิดไฟล์ด้วยคำสั่งที่ต้องมาจากการคลิกของคนจริง) → คลิกด้วยเมาส์จริงผ่านระบบดีบักของ Chrome
       dlEl.scrollIntoView({ block: 'center' });
       await sleep(400);
-      const r = dlEl.getBoundingClientRect();
+      const r3 = dlEl.getBoundingClientRect();
+      let trusted3 = false;
       try {
-        const res = await chrome.runtime.sendMessage({ type: 'trustedClick', x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
-        trusted = !!(res && res.ok);
-      } catch (e) { trusted = false; }
-      setStatus(trusted ? 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงแล้ว รอไฟล์โหลด ...' : 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงไม่ได้ ลองคลิกจำลอง ...');
+        const res = await chrome.runtime.sendMessage({ type: 'trustedClick', x: Math.round(r3.left + r3.width / 2), y: Math.round(r3.top + r3.height / 2) });
+        trusted3 = !!(res && res.ok);
+      } catch (e) { trusted3 = false; }
+      setStatus(trusted3 ? 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงแล้ว รอไฟล์โหลด ...' : 'ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริงไม่ได้ ลองคลิกจำลอง ...');
+      if (!trusted3) realClick(dlEl);
+    } else if (kind === 'ord' || kind === 'ordu') {
+      // ORD/ORDU (ไฟล์เล็ก): คลิกด้วยเมาส์จริงเหมือน 3M แต่เช็กว่าไฟล์เริ่มโหลดจริง ถ้าไม่ → ลองใหม่ตามลำดับ: เมาส์จริงอีกครั้ง → สลับมาแท็บนี้ชั่วคราวแล้วเมาส์จริง → คลิกจำลอง
+      const downloadStarted = async function (since, waitMs) {
+        const end = Date.now() + waitMs;
+        while (Date.now() < end) {
+          try {
+            const res = await chrome.runtime.sendMessage({ type: 'downloadSince', t: since });
+            if (res && res.started) return true;
+          } catch (e) { /* ลองใหม่ */ }
+          await sleep(500);
+        }
+        return false;
+      };
+      const trustedAttempt = async function (label) {
+        const target = findByText('ดาวน์โหลด', 'a, button, span') || dlTarget;
+        const el = (target.closest && target.closest('button, a')) || target;
+        el.scrollIntoView({ block: 'center' });
+        await sleep(400);
+        const r = el.getBoundingClientRect();
+        setStatus('ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริง (' + label + ') ...');
+        const since = Date.now();
+        let ok = false;
+        try {
+          const res = await chrome.runtime.sendMessage({ type: 'trustedClick', x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) });
+          ok = !!(res && res.ok);
+          if (!ok) setStatus('เมาส์จริงใช้ไม่ได้: ' + ((res && res.error) || 'ไม่ตอบกลับ'));
+        } catch (e) { setStatus('เมาส์จริงใช้ไม่ได้: ' + e.message); }
+        return ok && await downloadStarted(since, 25000); // BigSeller อาจเตรียมไฟล์ก่อนเริ่มโหลดช้า ให้เวลาพอ กันกดซ้ำแล้วได้ไฟล์ซ้ำ
+      };
+      let started = await trustedAttempt('ครั้งที่ 1');
+      if (!started) {
+        chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
+        await sleep(500);
+        // แท็บเบื้องหลังอาจไม่รับเมาส์จริง → สลับมาแท็บนี้ชั่วคราว
+        let prevId = null;
+        try { prevId = (await chrome.runtime.sendMessage({ type: 'activateMe' })).prevId; } catch (e) { /* ข้าม */ }
+        await sleep(1200);
+        started = await trustedAttempt('แท็บอยู่หน้าจอ');
+        if (prevId != null) chrome.runtime.sendMessage({ type: 'restoreTab', prevId: prevId }).catch(function () {});
+      }
+      if (!started) {
+        setStatus('เมาส์จริงไม่ติด ลองคลิกจำลอง ...');
+        const since = Date.now();
+        realClick(findByText('ดาวน์โหลด', 'a, button, span') ? ((findByText('ดาวน์โหลด', 'a, button, span').closest('button, a')) || findByText('ดาวน์โหลด', 'a, button, span')) : dlEl);
+        started = await downloadStarted(since, 15000);
+      }
+      // ไม่เห็นไฟล์เริ่มโหลด: ไม่ล้มงาน (อาจเริ่มช้า) ปล่อยให้ background รอไฟล์ต่อ ถ้าไม่มาจริงจะหมดเวลาและแจ้งเอง
+      if (!started) setStatus('กดดาวน์โหลดแล้วแต่ยังไม่เห็นไฟล์เริ่มโหลด — รอต่อ (ถ้าไม่มา กดดาวน์โหลดเองในแท็บ BigSeller ได้)');
+    } else {
+      realClick(dlEl);
     }
-    if (!trusted) realClick(dlEl);
     await sleep(1500);
     chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
     const close = findByText('ปิด', 'button');

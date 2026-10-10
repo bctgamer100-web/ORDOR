@@ -314,6 +314,26 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   }).finally(function () { clearInterval(keepAlive); });
 });
 
+// ตัวกดปุ่มในแท็บ BigSeller ถามว่าหลังกดดาวน์โหลด มีไฟล์เริ่มโหลดจริงหรือยัง + ขอสลับมาแท็บนั้นชั่วคราว (เมาส์จริงในแท็บเบื้องหลังอาจไม่ติด)
+let lastDownloadCreatedAt = 0;
+chrome.downloads.onCreated.addListener(function () { lastDownloadCreatedAt = Date.now(); });
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || ['downloadSince', 'activateMe', 'restoreTab'].indexOf(msg.type) === -1) return;
+  (async function () {
+    if (msg.type === 'downloadSince') return { started: lastDownloadCreatedAt >= msg.t };
+    if (msg.type === 'restoreTab') {
+      if (msg.prevId != null) await chrome.tabs.update(msg.prevId, { active: true });
+      return { ok: true };
+    }
+    const tab = sender.tab;
+    if (!tab) return { prevId: null };
+    const prev = (await chrome.tabs.query({ active: true, windowId: tab.windowId }))[0];
+    await chrome.tabs.update(tab.id, { active: true });
+    return { prevId: prev && prev.id !== tab.id ? prev.id : null };
+  })().then(sendResponse, function (err) { sendResponse({ error: err.message }); });
+  return true;
+});
+
 // เมาส์จริง (trusted) ผ่าน chrome.debugger: ย้ายเมาส์ไปที่พิกัด เพื่อให้เมนูแบบ hover เด้ง (ปล่อยตอนกดเมนูเสร็จ)
 const ATTACHED = new Set();
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
