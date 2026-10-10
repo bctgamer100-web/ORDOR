@@ -1234,26 +1234,13 @@
     return bits.join(' · ');
   }
 
-  function pdfNameFor(rec) {
-    const d = new Date(rec.savedAt);
-    const pad = n => String(n).padStart(2, '0');
-    return `ORDER_Pivot_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.pdf`;
-  }
-
+  // ใบปริ้นของเครื่องอื่น pdf ยังอยู่บนเซิร์ฟเวอร์ ให้ SavedPrints ดึงให้ (js/saved-files.js)
   function openPdf(rec) {
-    if (!rec || !rec.pdf) return;
-    const url = URL.createObjectURL(rec.pdf);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+    if (rec && rec.pdf && window.SavedPrints) window.SavedPrints.openPdf(rec);
   }
 
   function downloadPdf(rec) {
-    if (!rec || !rec.pdf) return;
-    const url = URL.createObjectURL(rec.pdf);
-    const a = document.createElement('a');
-    a.href = url; a.download = pdfNameFor(rec); a.style.display = 'none';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 1000);
+    if (rec && rec.pdf && window.SavedPrints) window.SavedPrints.downloadPdf(rec);
   }
 
   function mkBtn(cls, text, title, fn) {

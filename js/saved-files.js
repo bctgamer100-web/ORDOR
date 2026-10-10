@@ -1,7 +1,9 @@
 /* ===== ข้อมูลที่เก็บในเบราว์เซอร์ (IndexedDB) =====
    1) ไฟล์ ORDER ที่เคยใช้ (หน้า รับORDER): บันทึกอัตโนมัติเมื่อโหลดสำเร็จ เปิดกลับมาใช้/ลบได้
    2) ใบปริ้น (SavedPrints): เมื่อกดปุ่มปริ้นจะเก็บ "รายการที่ปริ้นจริง" + ไฟล์ PDF ไว้ใช้ต่อในหน้า ตรวจใบปริ้น
-   ข้อมูลอยู่เฉพาะเบราว์เซอร์/เครื่องนี้ ไม่ถูกส่งไปที่ใด
+   3) ยืนยันก่อนสั่ง (SavedConfirms): บันทึกตอนกดยืนยัน
+   ทั้ง 3 อย่างเก็บใน IndexedDB ของเครื่องนี้ (cache/ใช้ออฟไลน์) และซิงค์ขึ้น Supabase (ตาราง op_share_items + bucket op-share)
+   ให้ทุกเครื่องเห็นร่วมกัน เก็บ 1 วันแล้วล้างตอนเที่ยงคืนไทย (ดู supabase/op_share.sql) — ซิงค์ไม่ได้ก็ใช้ของในเครื่องต่อไป
    ใช้ฟังก์ชัน/ตัวแปรร่วมจาก app.js: loadOrderFile, orderRows, html2pdf */
 (function () {
   'use strict';
@@ -65,6 +67,149 @@
     for (const rec of all.slice(max)) await api.del(rec.id);
   }
 
+  /* ------------------------------------------------------------------ */
+  /* ซิงค์ขึ้น Supabase (ใช้ร่วมกันทุกเครื่อง)                              */
+  /* ------------------------------------------------------------------ */
+  const SUPABASE_URL = 'https://yvfqxlgkwaylivopctno.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_xNq2vHHwVe8v_rujH3P_QQ_ep6-g6ol'; // publishable key เท่านั้น
+  const BUCKET = 'op-share';
+  const MAX_REMOTE_BYTES = 50 * 1024 * 1024;   // เท่ากับ file_size_limit ของ bucket
+
+  let sbClient = null;
+  function sb() {
+    if (sbClient) return sbClient;
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') return null; // ไลบรารีโหลดทีหลัง: เรียกซ้ำภายหลังได้
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    });
+    return sbClient;
+  }
+
+  async function rpc(name, args) {
+    const c = sb();
+    if (!c) throw new Error('supabase ไม่พร้อม');
+    const res = await c.rpc(name, args || {});
+    if (res.error) throw res.error;
+    return res.data;
+  }
+
+  function bkkDay(ms) {
+    try { return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); }
+    catch (e) { return new Date(ms).toISOString().slice(0, 10); }
+  }
+
+  function extOf(name, fallback) {
+    const m = /\.([A-Za-z0-9]{1,5})$/.exec(name || '');
+    return (m ? m[1] : fallback).toLowerCase();
+  }
+
+  function hashId(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36) + s.length.toString(36);
+  }
+
+  // รายการจากเซิร์ฟเวอร์ (ของวันนี้) แคชสั้นๆ กันยิงซ้ำ; คืน null ถ้าเรียกไม่สำเร็จ (ออฟไลน์/ยังไม่ได้รัน op_share.sql)
+  const remoteCache = {};
+  const remoteInflight = {};
+  function invalidate(kind) {
+    if (kind) delete remoteCache[kind]; else Object.keys(remoteCache).forEach(k => delete remoteCache[k]);
+  }
+  function rList(kind) {
+    const c = remoteCache[kind];
+    if (c && Date.now() - c.t < 4000) return Promise.resolve(c.list);
+    if (remoteInflight[kind]) return remoteInflight[kind];
+    const p = rpc('op_share_list', { p_kind: kind, p_with_data: kind !== 'file' })
+      .then(list => {
+        list = Array.isArray(list) ? list : [];
+        remoteCache[kind] = { t: Date.now(), list };
+        return list;
+      })
+      .catch(() => null)
+      .finally(() => { delete remoteInflight[kind]; });
+    remoteInflight[kind] = p;
+    return p;
+  }
+
+  async function uploadBlob(path, blob, mime) {
+    const c = sb();
+    if (!c) throw new Error('supabase ไม่พร้อม');
+    const res = await c.storage.from(BUCKET).upload(path, blob, { contentType: mime || 'application/octet-stream', upsert: false });
+    const err = res.error;
+    if (err && !/exist|duplicate/i.test(err.message || '') && String(err.statusCode) !== '409') throw err;
+  }
+
+  async function downloadBlob(path) {
+    const c = sb();
+    if (!c) throw new Error('supabase ไม่พร้อม');
+    const res = await c.storage.from(BUCKET).download(path);
+    if (res.error) throw res.error;
+    return res.data;
+  }
+
+  function removeObjects(paths) {
+    const c = sb();
+    const list = (paths || []).filter(Boolean);
+    if (!c || !list.length) return Promise.resolve();
+    return c.storage.from(BUCKET).remove(list).catch(() => { /* ไฟล์ค้างไม่กระทบการใช้งาน */ });
+  }
+
+  function rSave(kind, id, o) {
+    return rpc('op_share_save', {
+      p_kind: kind, p_id: id,
+      p_name: o.name || '', p_count: o.count || 0, p_qty: o.qty || 0,
+      p_data: o.data == null ? null : o.data,
+      p_meta: o.meta == null ? null : o.meta,
+      p_file_path: o.path || null,
+      p_file_size: o.size == null ? null : o.size,
+      p_mime: o.mime || null
+    }).then(() => invalidate(kind));
+  }
+
+  async function rDelete(kind, id) {
+    try { removeObjects([await rpc('op_share_delete', { p_kind: kind, p_id: id })]); } catch (e) { /* ไม่กระทบ */ }
+    invalidate(kind);
+  }
+
+  async function rClear(kind) {
+    try { removeObjects(await rpc('op_share_clear', { p_kind: kind })); } catch (e) { /* ไม่กระทบ */ }
+    invalidate(kind);
+  }
+
+  async function rPurge() {
+    try { removeObjects(await rpc('op_share_purge')); } catch (e) { /* ไม่กระทบ */ }
+  }
+
+  // เครื่องนี้เคยอัปขึ้นเซิร์ฟเวอร์แล้ว (synced) แต่ไม่อยู่ในรายการ = ถูกลบจากเครื่องอื่น → ลบของในเครื่องตาม
+  // ยังไม่เคยอัป → อัปขึ้น (ครั้งเดียวต่อ session)
+  const pushTried = new Set();
+  async function markSynced(api, id) {
+    try {
+      const cur = await api.one(id);
+      if (cur && !cur.synced) { cur.synced = true; await api.put(cur); }
+    } catch (e) { /* ไม่กระทบ */ }
+  }
+  async function reconcile(kind, api, localRecs, remoteList, push) {
+    if (remoteList === null) return localRecs;
+    const ids = new Set(remoteList.map(r => r.id));
+    const keep = [];
+    for (const l of localRecs) {
+      if (ids.has(l.id)) {
+        if (!l.synced) { l.synced = true; markSynced(api, l.id); }
+        keep.push(l);
+        continue;
+      }
+      if (l.synced) { try { await api.del(l.id); } catch (e) { /* ข้าม */ } continue; }
+      keep.push(l);
+      const k = kind + ':' + l.id;
+      if (!pushTried.has(k)) {
+        pushTried.add(k);
+        push(l).then(() => markSynced(api, l.id)).catch(() => { /* ลองใหม่เมื่อรีเฟรชหน้า */ });
+      }
+    }
+    return keep;
+  }
+
   function toast(msg, type) {
     if (typeof window.fxToast === 'function') window.fxToast(msg, type || '');
   }
@@ -93,18 +238,55 @@
     // เปิดไฟล์เดิมซ้ำ: คงเวลาที่บันทึกครั้งแรกไว้
     let first = null;
     try { first = await files.one(id); } catch (e) { first = null; }
-    await files.put({
+    const rec = {
       id,
       name: file.name, size: file.size, type: file.type, lastModified: file.lastModified,
-      savedAt: first && first.savedAt ? first.savedAt : Date.now(), rows: rows, blob: file
-    });
+      savedAt: first && first.savedAt ? first.savedAt : Date.now(), rows: rows, blob: file,
+      synced: !!(first && first.synced)
+    };
+    await files.put(rec);
     await prune(files, MAX_FILES);
+    if (!rec.synced) pushFile(rec).then(() => markSynced(files, id)).catch(() => { /* ซิงค์ไม่ได้: ใช้ของในเครื่องต่อ */ });
+  }
+
+  async function pushFile(rec) {
+    if (!rec.blob || rec.size > MAX_REMOTE_BYTES) return;
+    if (!sb()) throw new Error('supabase ไม่พร้อม');
+    const existing = await rList('file');
+    if (existing && existing.some(r => r.id === rec.id)) return;
+    const path = `file/${bkkDay(rec.savedAt)}/${hashId(rec.id)}.${extOf(rec.name, 'xlsx')}`;
+    const mime = rec.type || 'application/octet-stream';
+    await uploadBlob(path, rec.blob, mime);
+    await rSave('file', rec.id, {
+      name: rec.name, count: rec.rows || 0, meta: { lastModified: rec.lastModified },
+      path, size: rec.size, mime
+    });
+  }
+
+  // ไฟล์ที่เคยใช้: ของในเครื่อง + ของเครื่องอื่น (ผ่านเซิร์ฟเวอร์)
+  async function listFiles() {
+    let local = [];
+    try { local = await files.all(); } catch (e) { local = []; }
+    const remote = await rList('file');
+    local = await reconcile('file', files, local, remote, pushFile);
+    if (remote) {
+      const have = new Set(local.map(r => r.id));
+      remote.forEach(r => {
+        if (have.has(r.id)) return;
+        const t = Date.parse(r.saved_at) || Date.now();
+        local.push({
+          id: r.id, name: r.name, size: Number(r.file_size) || 0, type: r.mime || '',
+          lastModified: (r.meta && r.meta.lastModified) || t, savedAt: t, rows: r.count, remotePath: r.file_path
+        });
+      });
+    }
+    return local.sort((a, b) => b.savedAt - a.savedAt);
   }
 
   async function renderFiles() {
     if (!panel || !listEl) return;
     let all = [];
-    try { all = await files.all(); } catch (e) { all = []; }
+    try { all = await listFiles(); } catch (e) { all = []; }
     listEl.textContent = '';
     panel.hidden = all.length === 0;
     if (!all.length) return;
@@ -139,6 +321,7 @@
       delBtn.title = 'ลบไฟล์นี้ออกจากรายการ';
       delBtn.addEventListener('click', async () => {
         try { await files.del(rec.id); } catch (e) { /* ไม่กระทบ */ }
+        await rDelete('file', rec.id);
         renderFiles();
       });
 
@@ -151,6 +334,14 @@
   async function openFile(id) {
     let rec = null;
     try { rec = await files.one(id); } catch (e) { rec = null; }
+    if (!rec || !rec.blob) {
+      // ไฟล์จากเครื่องอื่น: ดาวน์โหลดจากเซิร์ฟเวอร์
+      let r = null;
+      try { r = (await listFiles()).find(x => x.id === id) || null; } catch (e) { r = null; }
+      if (r && r.remotePath) {
+        try { r.blob = await downloadBlob(r.remotePath); rec = r; } catch (e) { rec = null; }
+      }
+    }
     if (!rec || !rec.blob) {
       toast('ไม่พบไฟล์ที่บันทึกไว้', '');
       renderFiles();
@@ -179,6 +370,7 @@
       clearBtn.addEventListener('click', async () => {
         if (!confirm('ลบไฟล์ที่บันทึกไว้ทั้งหมด?')) return;
         try { await files.clear(); } catch (e) { /* ไม่กระทบ */ }
+        await rClear('file');
         renderFiles();
       });
     }
@@ -278,26 +470,102 @@
       console.error('สร้าง PDF ไม่สำเร็จ:', e);
       toast('บันทึกรายการที่ปริ้นแล้ว แต่สร้างไฟล์ PDF ไม่สำเร็จ', '');
     }
+    // ส่งขึ้นเซิร์ฟเวอร์ให้เครื่องอื่นเห็น (ไม่สำเร็จ = ลองใหม่เองตอนซิงค์รอบถัดไป)
+    pushTried.add('print:' + rec.id);
+    pushPrint(rec).then(() => markSynced(prints, rec.id)).then(emitChange).catch(() => { /* ใช้ของในเครื่องต่อ */ });
     return rec.id;
+  }
+
+  async function pushPrint(rec) {
+    if (!sb()) throw new Error('supabase ไม่พร้อม');
+    let path = null, size = null;
+    if (rec.pdf instanceof Blob && rec.pdf.size <= MAX_REMOTE_BYTES) {
+      path = `print/${bkkDay(rec.savedAt)}/${rec.id}.pdf`;
+      size = rec.pdf.size;
+      await uploadBlob(path, rec.pdf, 'application/pdf');
+    }
+    await rSave('print', rec.id, {
+      name: rec.title || '', count: rec.count || (rec.rows || []).length, data: rec.rows,
+      meta: { title: rec.title || '', orderFile: rec.orderFile || '' },
+      path, size, mime: path ? 'application/pdf' : null
+    });
+  }
+
+  // ใบปริ้น: ของในเครื่อง + ของเครื่องอื่น (pdf ของเครื่องอื่นเป็นตัวแทน {size, remote} ดึงจริงตอนกดเปิด/ดาวน์โหลด)
+  async function listPrints() {
+    let local = [];
+    try { local = await prints.all(); } catch (e) { local = []; }
+    const remote = await rList('print');
+    local = await reconcile('print', prints, local, remote, pushPrint);
+    if (remote) {
+      const byId = new Map(remote.map(r => [r.id, r]));
+      local.forEach(l => {
+        const r = byId.get(l.id);
+        if (!r || !r.file_path) return;
+        l.remotePath = r.file_path;
+        if (!l.pdf) l.pdf = { size: Number(r.file_size) || 0, remote: true };
+      });
+      const have = new Set(local.map(r => r.id));
+      remote.forEach(r => {
+        if (have.has(r.id)) return;
+        local.push({
+          id: r.id, savedAt: Date.parse(r.saved_at) || Date.now(), count: r.count,
+          title: r.name || '', orderFile: (r.meta && r.meta.orderFile) || '',
+          rows: Array.isArray(r.data) ? r.data : [],
+          pdf: r.file_path ? { size: Number(r.file_size) || 0, remote: true } : null,
+          pdfSize: Number(r.file_size) || 0, remotePath: r.file_path
+        });
+      });
+    }
+    return local.sort((a, b) => b.savedAt - a.savedAt);
+  }
+
+  async function pdfBlobOf(rec) {
+    if (rec.pdf instanceof Blob) return rec.pdf;
+    if (rec.remotePath) return downloadBlob(rec.remotePath);
+    return null;
   }
 
   window.SavedPrints = {
     saveFromPrint,
-    list: () => prints.all(),
+    list: listPrints,
     get: id => prints.one(id),
-    remove: async id => { await prints.del(id); emitChange(); },
-    clear: async () => { await prints.clear(); emitChange(); },
-    openPdf: rec => {
-      if (!rec || !rec.pdf) return;
-      const url = URL.createObjectURL(rec.pdf);
-      window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+    remove: async id => {
+      try { await prints.del(id); } catch (e) { /* ไม่กระทบ */ }
+      await rDelete('print', id);
+      emitChange();
     },
-    downloadPdf: rec => {
+    clear: async () => {
+      try { await prints.clear(); } catch (e) { /* ไม่กระทบ */ }
+      await rClear('print');
+      emitChange();
+    },
+    openPdf: async rec => {
       if (!rec || !rec.pdf) return;
+      if (rec.pdf instanceof Blob) {
+        const url = URL.createObjectURL(rec.pdf);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+        return;
+      }
+      const w = window.open('', '_blank'); // เปิดหน้าต่างก่อนดึงไฟล์ ไม่ให้ถูกบล็อกป็อปอัป
+      try {
+        const url = URL.createObjectURL(await pdfBlobOf(rec));
+        if (w) w.location.href = url; else window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+      } catch (e) {
+        if (w) w.close();
+        toast('เปิดไฟล์ PDF ไม่สำเร็จ ลองใหม่อีกครั้ง', '');
+      }
+    },
+    downloadPdf: async rec => {
+      if (!rec || !rec.pdf) return;
+      let blob = null;
+      try { blob = await pdfBlobOf(rec); } catch (e) { blob = null; }
+      if (!blob) { toast('ดาวน์โหลด PDF ไม่สำเร็จ ลองใหม่อีกครั้ง', ''); return; }
       const d = new Date(rec.savedAt);
       const pad = n => String(n).padStart(2, '0');
-      const url = URL.createObjectURL(rec.pdf);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `ORDER_Pivot_${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.pdf`;
@@ -336,13 +604,58 @@
       await prune(confirms, MAX_CONFIRMS);
     } catch (e) { return null; }
     confCurrentId = rec.id;
+    pushTried.add('confirm:' + rec.id);
+    pushConfirm(rec).then(() => markSynced(confirms, rec.id)).then(renderConfirms).catch(() => { /* ใช้ของในเครื่องต่อ */ });
     renderConfirms();
     return rec.id;
+  }
+
+  async function pushConfirm(rec) {
+    if (!sb()) throw new Error('supabase ไม่พร้อม');
+    let path = null, size = null;
+    const mime = rec.type || 'application/octet-stream';
+    if (rec.blob && rec.blob.size <= MAX_REMOTE_BYTES) {
+      path = `confirm/${bkkDay(rec.savedAt)}/${rec.id}.${extOf(rec.name, 'xlsx')}`;
+      size = rec.blob.size;
+      await uploadBlob(path, rec.blob, mime);
+    }
+    await rSave('confirm', rec.id, {
+      name: rec.name, count: rec.count, qty: rec.qty, data: rec.brandMap || [],
+      path, size, mime: path ? mime : null
+    });
+  }
+
+  // รายการที่ยืนยัน: ของในเครื่อง + ของเครื่องอื่น (ไฟล์ของเครื่องอื่นดึงจริงตอนกดเปิด)
+  async function listConfirms() {
+    let local = [];
+    try { local = await confirms.all(); } catch (e) { local = []; }
+    const remote = await rList('confirm');
+    local = await reconcile('confirm', confirms, local, remote, pushConfirm);
+    if (remote) {
+      const have = new Set(local.map(r => r.id));
+      remote.forEach(r => {
+        if (have.has(r.id)) return;
+        local.push({
+          id: r.id, savedAt: Date.parse(r.saved_at) || Date.now(), name: r.name,
+          type: r.mime || '', count: r.count, qty: Number(r.qty) || 0,
+          brandMap: Array.isArray(r.data) ? r.data : [], remotePath: r.file_path
+        });
+      });
+    }
+    return local.sort((a, b) => b.savedAt - a.savedAt);
   }
 
   async function openConfirm(id) {
     let rec = null;
     try { rec = await confirms.one(id); } catch (e) { rec = null; }
+    if (!rec || !rec.blob) {
+      // รายการจากเครื่องอื่น: ดาวน์โหลดไฟล์จากเซิร์ฟเวอร์
+      let r = null;
+      try { r = (await listConfirms()).find(x => x.id === id) || null; } catch (e) { r = null; }
+      if (r && r.remotePath) {
+        try { r.blob = await downloadBlob(r.remotePath); rec = r; } catch (e) { rec = null; }
+      }
+    }
     if (!rec || !rec.blob) { toast('ไม่พบรายการที่บันทึกไว้', ''); renderConfirms(); return; }
     window.scanBrandMap = new Map(rec.brandMap || []);
     const file = new File([rec.blob], rec.name, { type: rec.type || rec.blob.type });
@@ -355,7 +668,7 @@
   async function renderConfirms() {
     if (!confPanel || !confList) return;
     let all = [];
-    try { all = await confirms.all(); } catch (e) { all = []; }
+    try { all = await listConfirms(); } catch (e) { all = []; }
     confList.textContent = '';
     confPanel.hidden = all.length === 0;
     if (!all.length) return;
@@ -386,6 +699,7 @@
       delBtn.title = 'ลบรายการนี้';
       delBtn.addEventListener('click', async () => {
         try { await confirms.del(rec.id); } catch (e) { /* ไม่กระทบ */ }
+        await rDelete('confirm', rec.id);
         if (confCurrentId === rec.id) confCurrentId = null;
         renderConfirms();
       });
@@ -400,6 +714,7 @@
     confClear.addEventListener('click', async () => {
       if (!confirm('ลบรายการที่ยืนยันไว้ทั้งหมด?')) return;
       try { await confirms.clear(); } catch (e) { /* ไม่กระทบ */ }
+      await rClear('confirm');
       confCurrentId = null;
       renderConfirms();
     });
@@ -442,6 +757,34 @@
     if (now !== purgeDay) { purgeDay = now; purgeOld(); }
   }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) purgeOld(); });
+
+  /* ------------------------------------------------------------------ */
+  /* 4) ซิงค์กับเครื่องอื่น: ตอนโหลดหน้า / กลับมาที่แท็บ / ทุก 60 วินาที       */
+  /*    แจ้ง savedprints:changed เฉพาะเมื่อรายการใบปริ้นเปลี่ยนจริง           */
+  /*    (หน้า ตรวจใบปริ้น รีเซ็ตยอดที่นับไว้ทุกครั้งที่ได้รับเหตุการณ์นี้)       */
+  /* ------------------------------------------------------------------ */
+  let printSig = null;
+  let syncing = false;
+  async function syncRemote() {
+    if (syncing || !sb()) return;
+    syncing = true;
+    try {
+      await rPurge();
+      invalidate();
+      await Promise.all([renderFiles(), renderConfirms()]);
+      const list = await listPrints();
+      const sig = list.map(r => r.id + ':' + (r.pdf ? 1 : 0)).join('|');
+      if (sig !== printSig) {
+        const first = printSig === null;
+        printSig = sig;
+        if (!first || list.length) emitChange();
+      }
+    } catch (e) { /* ซิงค์ไม่ได้: ใช้ของในเครื่องต่อ */ }
+    syncing = false;
+  }
+  window.addEventListener('load', () => setTimeout(syncRemote, 300));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncRemote(); });
+  setInterval(() => { if (!document.hidden) syncRemote(); }, 60000);
 
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ไม่กระทบ */ }
 })();
