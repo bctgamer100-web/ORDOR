@@ -1593,12 +1593,20 @@
     rows.forEach(function (r) { lockedByTarget[r.kind] = !!r.locked; });
     KIND_IDS.forEach(function (k) {
       const isLocked = !!lockedByTarget[KINDS[k].target];
+      const wasLocked = kidAll('Card', k).some(function (card) { return card.classList.contains('sun-imp-locked'); });
       kidAll('Card', k).forEach(function (card) { card.classList.toggle('sun-imp-locked', isLocked); });
+      if (wasLocked && !isLocked) setCardStatus(k, '🔓 ปลดล็อกแล้ว อัปโหลดได้อีกครั้ง', 0);
       const input = kid('In', k);
       if (input) input.disabled = isLocked;
-      if (isLocked) setCardStatus(k, '🔒 ชนิดนี้อัปโหลดไปแล้ววันนี้ (จำกัด 1 ครั้ง/วัน) รีเซ็ตหลังเที่ยงคืน', 100);
+      if (isLocked) {
+        setCardStatus(k, k === 'st'
+          ? '🔒 ST อัปโหลดไปแล้วในรอบนี้ (จำกัด 1 ครั้ง/รอบ) รีเซ็ตหลังเที่ยงวัน 12:00 และหลังเที่ยงคืน'
+          : '🔒 ชนิดนี้อัปโหลดไปแล้ววันนี้ (จำกัด 1 ครั้ง/วัน) รีเซ็ตหลังเที่ยงคืน', 100);
+      }
     });
   }
+  // เปิดหน้าค้างข้ามเวลารีเซ็ต (เที่ยงวัน/เที่ยงคืน) การ์ดต้องปลดล็อกเอง: เช็กโควตาซ้ำทุก 5 นาทีตอนหน้าอยู่หน้าจอ
+  setInterval(function () { if (!document.hidden) refreshUploadLocks(); }, 5 * 60 * 1000);
 
   // ปุ่มบนสุดปุ่มเดียว: สรุปว่าพร้อมอัปโหลดอะไรบ้าง
   function updateAllBar() {
