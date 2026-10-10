@@ -391,9 +391,11 @@
       const cur = menuItem() || item;
       // ตัวรับคลิกของเมนูคือ LI.ant-dropdown-menu-item (ข้อความอยู่ใน SPAN ข้างใน)
       realClick(cur.closest('li') || cur);
-      if (kind === 'm3') await handleOrderExportModal();
-      else if (kind === 'ord' || kind === 'ordu') await handleOrderExportModal(ORD_TEMPLATE); // false = กล่องไม่ขึ้น → ผลลัพธ์ started จะเป็นเท็จแล้ววนกดเมนูใหม่
-      started = await waitFor(exportStarted, 4000, '').then(function () { return true; }, function () { return false; });
+      let modalSent = false;
+      if (kind === 'm3') modalSent = await handleOrderExportModal();
+      else if (kind === 'ord' || kind === 'ordu') modalSent = await handleOrderExportModal(ORD_TEMPLATE); // false = กล่องไม่ขึ้น → วนกดเมนูใหม่
+      // กดปุ่ม ส่งออก ในกล่องไปแล้ว = BigSeller รับคำสั่งแล้ว ห้ามวนกดใหม่ (ไฟล์ใหญ่ข้อความอาจยังไม่เปลี่ยนใน 4 วินาที แล้วจะสั่งส่งออกซ้ำจนเริ่มใหม่)
+      started = modalSent ? true : await waitFor(exportStarted, 4000, '').then(function () { return true; }, function () { return false; });
       if (!started) {
         hover(btn); // เมนูอาจปิดไปแล้ว เปิดใหม่ (เมาส์จำลองไม่เคยออกจากปุ่ม เมนูจึงควรค้างอยู่ แต่กันไว้)
         await sleep(1500);
@@ -412,89 +414,122 @@
     }, 5000);
     let link;
     try {
-      link = await waitForDom(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' || kind === 'ord' || kind === 'ordu' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+      if (kind === 'ord' || kind === 'ordu' || kind === 'm3') {
+        // ปุ่ม ⚡ / ตั้งเวลา / 3M: รอจนกล่องแสดง "Order-SKU-… : ส่งออกข้อมูลสำเร็จ" (ไม่รอปุ่ม ดาวน์โหลด เพราะบนหน้ามีข้อความ ดาวน์โหลด อื่นที่อาจเจอก่อน)
+        // ไฟล์ 3M ใหญ่ BigSeller สร้างนาน: รอได้ถึง 30 นาที ไม่ตัดจบกลางคัน และไม่กดส่งออกซ้ำระหว่างรอ
+        link = await waitForDom(function () {
+          const t = (document.body.innerText || '').replace(/\s+/g, ' ');
+          return /Order-SKU-[^\s:：]+\s*[:：]\s*ส่งออกข้อมูลสำเร็จ/.test(t) ? document.body : null;
+        }, 30 * 60 * 1000, 'ไฟล์ส่งออกยังสร้างไม่เสร็จ (ไม่เห็นข้อความ ส่งออกข้อมูลสำเร็จ)');
+      } else {
+        link = await waitForDom(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+      }
     } finally {
       clearInterval(ticker);
     }
+    // ===== ST (ตำแหน่งสต็อก): ดึงไฟล์ตรงจากที่เก็บไฟล์ของ BigSeller (…/temp/shelfSkuRelation/<เลขบัญชี>/<ชื่อไฟล์>.zip) =====
+    // ชื่อไฟล์อ่านจากกล่องส่งออก (รูปแบบ ชื่อ_ตัวเลข 14+ หลัก : ส่งออกข้อมูลสำเร็จ) · ถ้าไม่พบชื่อ ถอยไปใช้ขั้นตอนเดิม (คิว + กดปุ่ม)
+    // พบชื่อแล้วดึงไม่ได้ = ขึ้น ERROR
+    let stDirectDone = false;
+    if (kind === 'st' && jobId) {
+      const stName = function () {
+        const t = (document.body.innerText || '').replace(/\s+/g, ' ');
+        const all = t.match(/[^\s:：]*\d{14,}(?=\s*[:：]\s*ส่งออกข้อมูลสำเร็จ)/g);
+        return all && all[all.length - 1];
+      };
+      const stFile = await waitFor(stName, 15000, '').catch(function () { return null; });
+      if (stFile) {
+        setStatus('ST: พบไฟล์ ' + stFile + ' กำลังดึงจากที่เก็บไฟล์ของ BigSeller โดยตรง ...');
+        let stRes = null;
+        try {
+          stRes = await chrome.runtime.sendMessage({ type: 'stDirectDownload', name: stFile, jobId: jobId });
+        } catch (e) {
+          throw new Error('ST: ดึงไฟล์ ' + stFile + ' โดยตรงไม่ได้: ' + e.message);
+        }
+        if (!stRes || !stRes.ok) throw new Error('ST: ดึงไฟล์ ' + stFile + ' โดยตรงไม่ได้: ' + ((stRes && stRes.error) || 'ไม่ตอบกลับ'));
+        stDirectDone = true;
+      } else {
+        setStatus('ST: ไม่พบชื่อไฟล์ในกล่องส่งออก ใช้ขั้นตอนเดิม (รอคิว + กดดาวน์โหลด) ...');
+      }
+    }
+    // ===== SI (การเคลื่อนไหวสต็อก): ดึงไฟล์ตรง (…/temp/shelfInoutRecord/<เลขบัญชี>/<ชื่อไฟล์>.xlsx) โค้ดของ SI เอง แยกจาก ST =====
+    // ถ้าไม่พบชื่อไฟล์ในกล่องส่งออก ถอยไปใช้ขั้นตอนเดิม (คิว + กดปุ่ม) · พบชื่อแล้วดึงไม่ได้ = ขึ้น ERROR
+    let siDirectDone = false;
+    if (kind === 'si' && jobId) {
+      const siName = function () {
+        const t = (document.body.innerText || '').replace(/\s+/g, ' ');
+        const all = t.match(/[^\s:：]*\d{14,}(?=\s*[:：]\s*ส่งออกข้อมูลสำเร็จ)/g);
+        return all && all[all.length - 1];
+      };
+      const siFile = await waitFor(siName, 15000, '').catch(function () { return null; });
+      if (siFile) {
+        setStatus('SI: พบไฟล์ ' + siFile + ' กำลังดึงจากที่เก็บไฟล์ของ BigSeller โดยตรง ...');
+        let siRes = null;
+        try {
+          siRes = await chrome.runtime.sendMessage({ type: 'siDirectDownload', name: siFile, jobId: jobId });
+        } catch (e) {
+          throw new Error('SI: ดึงไฟล์ ' + siFile + ' โดยตรงไม่ได้: ' + e.message);
+        }
+        if (!siRes || !siRes.ok) throw new Error('SI: ดึงไฟล์ ' + siFile + ' โดยตรงไม่ได้: ' + ((siRes && siRes.error) || 'ไม่ตอบกลับ'));
+        siDirectDone = true;
+      } else {
+        setStatus('SI: ไม่พบชื่อไฟล์ในกล่องส่งออก ใช้ขั้นตอนเดิม (รอคิว + กดดาวน์โหลด) ...');
+      }
+    }
     // หลายแท็บส่งออกพร้อมกันได้ แต่กดดาวน์โหลดผลัดกันทีละแท็บ (background จะบอกว่าไฟล์ที่โหลดเสร็จเป็นของแท็บไหน)
-    if (jobId) {
+    // คิวนี้ไว้ผลัดกัน "กดปุ่ม" ดาวน์โหลดทีละแท็บ — ORD/ORDU/3M/ST/SI(ดึงตรง) ไม่ต้องกดปุ่ม จึงไม่ต้องรอคิว (ทำงานคนละแท็บพร้อมกันได้)
+    if (jobId && !stDirectDone && !siDirectDone && kind !== 'ord' && kind !== 'ordu' && kind !== 'm3') {
       setStatus('ส่งออกสำเร็จแล้ว รอคิวกดดาวน์โหลด ...');
       await chrome.runtime.sendMessage({ type: 'requestDownloadSlot', jobId: jobId });
     }
     setStatus('ส่งออกสำเร็จแล้ว กำลังกด ดาวน์โหลด ...');
-    const dlTarget = findByText('ดาวน์โหลด', 'a, button, span') || link;
+    const dlTarget = (kind === 'ord' || kind === 'ordu' || kind === 'm3') ? link : (findByText('ดาวน์โหลด', 'a, button, span') || link);
     const dlEl = (dlTarget.closest && dlTarget.closest('button, a')) || dlTarget;
-    // ลองดึงไฟล์ตรงจากที่เก็บไฟล์ของ BigSeller ก่อน (ชื่อไฟล์อยู่ในกล่องส่งออก) ไม่ต้องกดปุ่ม/ไม่สนซูม/ไม่สลับแท็บ
-    let handedOff = false;
-    if (jobId && (kind === 'm3' || kind === 'ord' || kind === 'ordu')) {
-      const names = visibleModalText().match(/Order-SKU-[^\s:：]+(?=\s*[:：]\s*ส่งออกข้อมูลสำเร็จ)/g);
+    if (kind === 'ord' || kind === 'ordu') {
+      // ปุ่ม ⚡ / ตั้งเวลาของหน้า รับORDER: ดึงตรงจากที่เก็บไฟล์ของ BigSeller เท่านั้น (ชื่อไฟล์อยู่ในกล่องส่งออก)
+      // ไม่กดปุ่มดาวน์โหลด — ไม่สนซูม/ไม่สลับแท็บ/ไม่พึ่งเมาส์จริง · ดึงไม่ได้ = ขึ้น ERROR
+      if (!jobId) throw new Error('ไม่มีงานรอไฟล์ (jobId) จึงดึงไฟล์โดยตรงไม่ได้');
+      // หาชื่อไฟล์จากข้อความทั้งหน้า (กล่องส่งออกมีหลายชั้น ตัวที่อ่านจาก "กล่องที่สั้นสุด" จะได้แค่หัวข้อ)
+      const pageText = (document.body.innerText || '').replace(/\s+/g, ' ');
+      const names = pageText.match(/Order-SKU-[^\s:：]+(?=\s*[:：]\s*ส่งออกข้อมูลสำเร็จ)/g);
       const fname = names && names[names.length - 1];
-      if (fname) {
-        setStatus('พบไฟล์ ' + fname + ' กำลังดึงจากที่เก็บไฟล์ของ BigSeller โดยตรง ...');
-        try {
-          const res = await chrome.runtime.sendMessage({ type: 'directDownload', name: fname, jobId: jobId });
-          handedOff = !!(res && res.ok);
-          if (!handedOff) setStatus('ดึงโดยตรงไม่ได้ (' + ((res && res.error) || 'ไม่ตอบกลับ') + ') — ใช้การกดปุ่มแทน');
-        } catch (e) { setStatus('ดึงโดยตรงไม่ได้ (' + e.message + ') — ใช้การกดปุ่มแทน'); }
+      if (!fname) {
+        const around = pageText.indexOf('ส่งออก') >= 0 ? pageText.slice(Math.max(0, pageText.indexOf('ส่งออก') - 40), pageText.indexOf('ส่งออก') + 220) : pageText.slice(0, 200);
+        throw new Error('อ่านชื่อไฟล์จากกล่องส่งออกไม่ได้ (ไม่พบข้อความ "Order-SKU-… : ส่งออกข้อมูลสำเร็จ") ข้อความที่เห็น: ' + around);
       }
-    }
-    if (handedOff) {
+      setStatus('พบไฟล์ ' + fname + ' กำลังดึงจากที่เก็บไฟล์ของ BigSeller โดยตรง ...');
+      let res = null;
+      try {
+        res = await chrome.runtime.sendMessage({ type: 'directDownload', name: fname, jobId: jobId });
+      } catch (e) {
+        throw new Error('ดึงไฟล์ ' + fname + ' โดยตรงไม่ได้: ' + e.message);
+      }
+      if (!res || !res.ok) throw new Error('ดึงไฟล์ ' + fname + ' โดยตรงไม่ได้: ' + ((res && res.error) || 'ไม่ตอบกลับ'));
       await sleep(300);
-    } else if (kind === 'm3' || kind === 'ord' || kind === 'ordu') {
-      // ปุ่มดาวน์โหลดของหน้าออเดอร์ไม่ตอบคลิกจำลอง (น่าจะเปิดไฟล์ด้วยคำสั่งที่ต้องมาจากการคลิกของคนจริง) → คลิกด้วยเมาส์จริงผ่านระบบดีบักของ Chrome
-      // กดแล้วเช็กว่าไฟล์เริ่มโหลดจริง ถ้าไม่ → ลองใหม่ตามลำดับ: เมาส์จริงปรับตามซูมหน้าเว็บ → สลับมาแท็บนี้ชั่วคราว → คลิกจำลอง
-      // (ถ้าหน้า BigSeller ซูมไม่ใช่ 100% พิกัดเมาส์จริงของดีบักจะคลาดเคลื่อน)
-      const downloadStarted = async function (since, waitMs) {
-        const end = Date.now() + waitMs;
-        while (Date.now() < end) {
-          try {
-            const res = await chrome.runtime.sendMessage({ type: 'downloadSince', t: since });
-            if (res && res.started) return true;
-          } catch (e) { /* ลองใหม่ */ }
-          await sleep(500);
-        }
-        return false;
-      };
-      const t0 = Date.now(); // นับไฟล์ที่เริ่มโหลดตั้งแต่การกดครั้งแรก (ถ้าเริ่มช้าหลังรอบแรก จะไม่กดซ้ำจนได้ไฟล์ซ้ำ)
-      const currentDlEl = function () {
-        const target = findByText('ดาวน์โหลด', 'a, button, span') || dlTarget;
-        return (target.closest && target.closest('button, a')) || target;
-      };
-      const trustedAttempt = async function (label, scale, waitMs) {
-        const el = currentDlEl();
-        el.scrollIntoView({ block: 'center' });
-        await sleep(400);
-        const r = el.getBoundingClientRect();
-        setStatus('ส่งออกสำเร็จแล้ว กดดาวน์โหลดด้วยเมาส์จริง (' + label + ') ...');
-        let ok = false;
-        try {
-          const res = await chrome.runtime.sendMessage({
-            type: 'trustedClick',
-            x: Math.round((r.left + r.width / 2) * scale), y: Math.round((r.top + r.height / 2) * scale)
-          });
-          ok = !!(res && res.ok);
-          if (!ok) setStatus('เมาส์จริงใช้ไม่ได้: ' + ((res && res.error) || 'ไม่ตอบกลับ'));
-        } catch (e) { setStatus('เมาส์จริงใช้ไม่ได้: ' + e.message); }
-        chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});
-        return ok && await downloadStarted(t0, waitMs);
-      };
-      let zoom = 1;
-      try { zoom = (await chrome.runtime.sendMessage({ type: 'getZoom' })).zoom || 1; } catch (e) { zoom = 1; }
-      const scales = zoom !== 1 ? [1, zoom] : [1];
-      let started = false;
-      for (let i = 0; i < scales.length && !started; i++) {
-        started = await trustedAttempt(scales[i] === 1 ? 'ครั้งที่ 1' : 'ปรับตามซูม ' + Math.round(zoom * 100) + '%', scales[i], i === 0 ? 20000 : 8000);
-      }
-      // ไม่สลับแท็บของผู้ใช้เด็ดขาด (กวนงานที่ทำอยู่) — ถ้าเมาส์จริงในแท็บเบื้องหลังไม่ติด ปล่อยให้กดดาวน์โหลดเองได้
-      if (!started) {
-        setStatus('เมาส์จริงไม่ติด ลองคลิกจำลอง ...');
-        realClick(currentDlEl());
-        started = await downloadStarted(t0, 15000);
-      }
-      // ไม่เห็นไฟล์เริ่มโหลด: ไม่ล้มงาน (อาจเริ่มช้า) ปล่อยให้ background รอไฟล์ต่อ ถ้าไม่มาจริงจะหมดเวลาและแจ้งเอง
-      if (!started) setStatus('⚠️ กดดาวน์โหลดอัตโนมัติไม่ติด (แท็บอยู่เบื้องหลัง) — รอต่อ: ไปที่แท็บ BigSeller ที่เปิดไว้แล้วกด "ดาวน์โหลด" เองหนึ่งครั้ง ไฟล์จะเข้าหน้า ORDER ให้เอง');
     } else {
-      realClick(dlEl);
+      if (kind === 'm3') {
+        // ===== 3M (ยอดขายย้อนหลัง): โค้ดของตัวเอง แยกจากปุ่ม ⚡ ของหน้า รับORDER =====
+        // ดึงไฟล์ตรงจากที่เก็บไฟล์ของ BigSeller (ชื่อไฟล์อยู่ในกล่องส่งออก) ไม่กดปุ่มดาวน์โหลด · ดึงไม่ได้ = ขึ้น ERROR
+        if (!jobId) throw new Error('3M: ไม่มีงานรอไฟล์ (jobId) จึงดึงไฟล์โดยตรงไม่ได้');
+        const m3Name = function () {
+          const t = (document.body.innerText || '').replace(/\s+/g, ' ');
+          const all = t.match(/Order-SKU-[^\s:：]+(?=\s*[:：]\s*ส่งออกข้อมูลสำเร็จ)/g);
+          return all && all[all.length - 1];
+        };
+        // ถึงตรงนี้ขั้นรอข้างบนเห็นข้อความ "ส่งออกข้อมูลสำเร็จ" แล้ว ชื่อไฟล์จึงควรมีอยู่ทันที (รอเผื่อ 2 นาที)
+        const m3File = await waitFor(m3Name, 120000, '3M: ชื่อไฟล์ในกล่องส่งออก (ข้อความ Order-SKU-… : ส่งออกข้อมูลสำเร็จ)');
+        setStatus('3M: พบไฟล์ ' + m3File + ' กำลังดึงจากที่เก็บไฟล์ของ BigSeller โดยตรง ...');
+        let m3Res = null;
+        try {
+          m3Res = await chrome.runtime.sendMessage({ type: 'm3DirectDownload', name: m3File, jobId: jobId });
+        } catch (e) {
+          throw new Error('3M: ดึงไฟล์ ' + m3File + ' โดยตรงไม่ได้: ' + e.message);
+        }
+        if (!m3Res || !m3Res.ok) throw new Error('3M: ดึงไฟล์ ' + m3File + ' โดยตรงไม่ได้: ' + ((m3Res && m3Res.error) || 'ไม่ตอบกลับ'));
+      } else if (!stDirectDone && !siDirectDone) {
+        // ST / SI เมื่อไม่พบชื่อไฟล์: ขั้นตอนเดิม (ไม่แตะ)
+        realClick(dlEl);
+      }
     }
     await sleep(1500);
     chrome.runtime.sendMessage({ type: 'trustedRelease' }).catch(function () {});

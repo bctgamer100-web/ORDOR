@@ -1733,6 +1733,67 @@
       }
     });
   });
+
+  // ===== ดึง ST และ SI จาก BigSeller อัตโนมัติเมื่อเปิดหน้า (ต้องมีส่วนขยาย) =====
+  // กดปุ่ม "ดึงจาก BigSeller อัตโนมัติ" ของการ์ด ST แล้วตามด้วย SI ให้เองตามลำดับ ขั้นตอนหลังจากนั้นเป็นของเดิมทั้งหมด
+  // (ตรวจไฟล์ แล้วอัปโหลดให้เอง ถ้าผ่านเงื่อนไขความปลอดภัยเดิม) · ชนิดที่อัปโหลดไปแล้ววันนี้ (ล็อก 1 ครั้ง/วัน) จะข้าม
+  // กันยิงซ้ำตอนรีเฟรชถี่ๆ: ชนิดเดิมเว้นอย่างน้อย 5 นาที · ปิดได้ด้วยช่องติ๊กบนหน้า (จำค่าในเบราว์เซอร์นี้)
+  (function startupAutoPull() {
+    const chk = $('sunAutoStartup');
+    const info = $('sunAutoStartupInfo');
+    const KEY = 'sun_auto_startup_v1';
+    const LAST_PREFIX = 'sun_auto_startup_last_';
+    const COOLDOWN_MS = 5 * 60 * 1000;
+    let enabled = true;
+    try { enabled = localStorage.getItem(KEY) !== '0'; } catch (e) { enabled = true; }
+    if (chk) {
+      chk.checked = enabled;
+      chk.addEventListener('change', function () {
+        try { localStorage.setItem(KEY, chk.checked ? '1' : '0'); } catch (e) { /* ไม่กระทบ */ }
+        if (info) info.textContent = chk.checked ? '(จะทำงานตอนเปิดหน้า/รีเฟรชครั้งถัดไป)' : '(ปิดอยู่)';
+      });
+    }
+    const say = function (t) { if (info) info.textContent = t; };
+    const lastOf = function (k) { try { return Number(localStorage.getItem(LAST_PREFIX + k)) || 0; } catch (e) { return 0; } };
+    const markRun = function (k) { try { localStorage.setItem(LAST_PREFIX + k, String(Date.now())); } catch (e) { /* ไม่กระทบ */ } };
+    const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+    // รอจนปุ่มของชนิดนั้นกลับมากดได้ (ดึงไฟล์เสร็จหรือผิดพลาด) แล้วรอให้ขั้นอัปโหลดอัตโนมัติจบอีกพักหนึ่ง
+    async function waitPullDone(btn) {
+      const end = Date.now() + 35 * 60 * 1000;
+      while (btn.disabled && Date.now() < end) await sleep(1000);
+      await sleep(1500);
+      const st = $('sunAllStatus');
+      const endUp = Date.now() + 5 * 60 * 1000;
+      while (Date.now() < endUp) {
+        const t = st ? st.textContent : '';
+        if (!/กำลัง/.test(t)) break; // กำลังเตรียมข้อมูล / กำลังอัปโหลด ... ยังไม่จบ
+        await sleep(1000);
+      }
+    }
+
+    async function run() {
+      if (chk ? !chk.checked : !enabled) return;
+      if (document.documentElement.getAttribute('data-stock-sync') !== '1') { say('(ไม่พบส่วนขยาย จึงไม่ดึงอัตโนมัติ)'); return; }
+      await refreshUploadLocks(); // รู้ก่อนว่าชนิดไหนอัปโหลดไปแล้ววันนี้
+      for (const k of ['st', 'si']) {
+        const btn = $('sunAuto_' + k);
+        const input = kid('In', k);
+        if (!btn || !input) continue;
+        if (input.disabled) { say('(' + k.toUpperCase() + ' อัปโหลดไปแล้ววันนี้ ข้าม)'); continue; }
+        if (Date.now() - lastOf(k) < COOLDOWN_MS) { say('(' + k.toUpperCase() + ' เพิ่งดึงไปไม่ถึง 5 นาที ข้าม)'); continue; }
+        markRun(k);
+        say('(กำลังดึง ' + k.toUpperCase() + ' อัตโนมัติ ...)');
+        btn.click();
+        await sleep(500);
+        await waitPullDone(btn);
+      }
+      say('(ดึงอัตโนมัติตอนเปิดหน้าเสร็จแล้ว ' + new Date().toLocaleTimeString('th-TH') + ')');
+    }
+    // รอให้ส่วนขยายฝังสะพานและเช็กโควตาก่อนเริ่ม
+    setTimeout(function () { run().catch(function (e) { say('(ดึงอัตโนมัติผิดพลาด: ' + (e && e.message || e) + ')'); }); }, 3000);
+  })();
+
   KIND_IDS.forEach(function (k) {
     PREFIXES.forEach(function (pre) {
       const input = $(pre + 'In_' + k), drop = $(pre + 'Drop_' + k);

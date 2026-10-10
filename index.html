@@ -58,6 +58,10 @@
         </div>
         <button type="button" class="sun-primary" id="sunGoAll" disabled>⬆️ อัปโหลดทั้งหมด</button>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="sunAutoStartup">
+        <span>ดึง ST และ SI จาก BigSeller อัตโนมัติเมื่อเปิดหน้านี้ <span id="sunAutoStartupInfo" style="opacity:.75"></span></span>
+      </label>
       <div class="sun-imp-grid" id="sunImportGrid"></div>
     </div>
     </section>
@@ -598,7 +602,7 @@
 <script src="js/layout.js?v=20261134"></script>
 <!-- Sunshine: ไลบรารี Supabase เก็บในเครื่องแล้ว แต่การดึง/อัปโหลดข้อมูลยังต้องต่ออินเทอร์เน็ต -->
 <script src="js/vendor/supabase.min.js"></script>
-<script src="js/sunshine.js?v=20261150"></script>
+<script src="js/sunshine.js?v=20261207"></script>
 </body>
 
 </html>

@@ -257,8 +257,8 @@ async function exportViaTabNow(progress, kind) {
       }
     };
     let res = await runInTab();
-    // แท็บเบื้องหลังเปิดเมนูไม่ขึ้น (เบราว์เซอร์หยุดงานด้านภาพของแท็บที่ไม่ได้ดู) → สลับไปแท็บนั้นชั่วคราว แล้วสลับกลับ
-    // ORD/ORDU (ปุ่มหน้า รับORDER + ตั้งเวลา) ไม่สลับแท็บของผู้ใช้ กันกวนงานที่ทำอยู่
+    // ST / SI / 3M (ขั้นตอนเดิม): แท็บเบื้องหลังเปิดเมนูไม่ขึ้น (เบราว์เซอร์หยุดงานด้านภาพของแท็บที่ไม่ได้ดู) → สลับไปแท็บนั้นชั่วคราว แล้วสลับกลับ
+    // ORD/ORDU (ปุ่ม ⚡ / ตั้งเวลาของหน้า รับORDER): ไม่สลับแท็บของผู้ใช้ ขึ้น error แทน
     if ((!res || !res.ok) && kind !== 'ord' && kind !== 'ordu' && /เมนู ส่งออก|ปุ่ม ส่งออก|กล่องส่งออก/.test((res && res.error) || '')) {
       progress('แท็บเบื้องหลังเปิดเมนูไม่ได้ — สลับไปแท็บนั้นชั่วคราวเพื่อกดส่งออก ...');
       const turn = activateChain.then(async function () {
@@ -323,8 +323,14 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 // เลขบัญชีจำจากไฟล์ที่เคยโหลดจาก BigSeller (cosBase) ถ้ายังไม่เคยใช้ค่าเริ่มต้นนี้
 const COS_DEFAULT_BASE = 'https://bigseller-1251220924.cos.accelerate.myqcloud.com/temp/excel/729517/';
 function cosBaseFrom(url) {
-  const m = /^(https:\/\/[^/]+\.myqcloud\.com\/temp\/excel\/\d+\/)/.exec(url || '');
-  return m ? m[1] : null;
+  // จำเฉพาะโฮสต์ + เลขบัญชี จากโฟลเดอร์ไหนก็ได้ (temp/excel, temp/shelfSkuRelation, ...) แล้วเก็บเป็นรูปแบบ …/temp/excel/<เลข>/
+  const m = /^(https:\/\/[^/]+\.myqcloud\.com)\/temp\/[^/]+\/(\d+)\//.exec(url || '');
+  return m ? m[1] + '/temp/excel/' + m[2] + '/' : null;
+}
+// โฮสต์/เลขบัญชีของที่เก็บไฟล์ จาก base ที่จำไว้ (ใช้ประกอบลิงก์โฟลเดอร์อื่น เช่น ST = shelfSkuRelation)
+function cosParts(base) {
+  const m = /^(https:\/\/[^/]+)\/temp\/[^/]+\/(\d+)\//.exec(base || '');
+  return m ? { host: m[1], acct: m[2] } : null;
 }
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (!msg || msg.type !== 'directDownload') return;
@@ -352,24 +358,97 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   return true;
 });
 
-// ตัวกดปุ่มในแท็บ BigSeller ถามว่าหลังกดดาวน์โหลด มีไฟล์เริ่มโหลดจริงหรือยัง + ขอสลับมาแท็บนั้นชั่วคราว (เมาส์จริงในแท็บเบื้องหลังอาจไม่ติด)
-let lastDownloadCreatedAt = 0;
-chrome.downloads.onCreated.addListener(function () { lastDownloadCreatedAt = Date.now(); });
+// ===== ST (ตำแหน่งสต็อก): ดึงไฟล์ตรง (โค้ดของ ST เอง แยกจากของ 3M และปุ่ม ⚡ หน้า รับORDER) =====
+// ลิงก์ = <โฮสต์>/temp/shelfSkuRelation/<เลขบัญชี>/<ชื่อไฟล์>.zip เช่น …/729517/สต็อกตำแหน่ง_20261010061827190.zip
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
-  if (!msg || ['downloadSince', 'activateMe', 'restoreTab', 'getZoom'].indexOf(msg.type) === -1) return;
+  if (!msg || msg.type !== 'stDirectDownload') return;
   (async function () {
-    if (msg.type === 'downloadSince') return { started: lastDownloadCreatedAt >= msg.t };
-    if (msg.type === 'getZoom') return { zoom: sender.tab ? await chrome.tabs.getZoom(sender.tab.id) : 1 };
-    if (msg.type === 'restoreTab') {
-      if (msg.prevId != null) await chrome.tabs.update(msg.prevId, { active: true });
-      return { ok: true };
+    const job = jobs.get(msg.jobId);
+    if (!job) throw new Error('ไม่พบงานที่รอไฟล์อยู่');
+    const learned = (await chrome.storage.local.get('cosBase')).cosBase;
+    const parts = [cosParts(learned), cosParts(COS_DEFAULT_BASE)].filter(function (v, i, a) {
+      return v && a.findIndex(function (w) { return w && w.host === v.host && w.acct === v.acct; }) === i;
+    });
+    const tried = [];
+    for (const p of parts) {
+      for (const ext of ['.zip', '.xlsx', '.csv']) {
+        const url = p.host + '/temp/shelfSkuRelation/' + p.acct + '/' + encodeURIComponent(msg.name) + ext;
+        try {
+          const r = await fetch(url, { method: 'HEAD' });
+          tried.push(ext + '=' + r.status);
+          if (!r.ok) continue;
+          const rec = { id: null, filename: msg.name + ext, url: url, finalUrl: url, at: Date.now() };
+          await chrome.storage.local.set({ lastDownload: rec });
+          job.resolve(rec);
+          releaseSlot(msg.jobId);
+          return { ok: true, url: url };
+        } catch (e) { tried.push(ext + '=' + e.message); }
+      }
     }
-    const tab = sender.tab;
-    if (!tab) return { prevId: null };
-    const prev = (await chrome.tabs.query({ active: true, windowId: tab.windowId }))[0];
-    await chrome.tabs.update(tab.id, { active: true });
-    return { prevId: prev && prev.id !== tab.id ? prev.id : null };
-  })().then(sendResponse, function (err) { sendResponse({ error: err.message }); });
+    throw new Error('ไม่พบไฟล์ ' + msg.name + ' ที่ที่เก็บไฟล์ของ BigSeller (ลอง: ' + tried.join(', ') + ')');
+  })().then(sendResponse, function (err) { sendResponse({ ok: false, error: err.message }); });
+  return true;
+});
+
+// ===== SI (การเคลื่อนไหวสต็อก): ดึงไฟล์ตรง (โค้ดของ SI เอง แยกจาก ST / 3M / ปุ่ม ⚡) =====
+// ลิงก์ = <โฮสต์>/temp/shelfInoutRecord/<เลขบัญชี>/<ชื่อไฟล์>.xlsx เช่น …/729517/บันทึกการอัปเดตพื้นที่สต็อก_20261010062150403.xlsx
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || msg.type !== 'siDirectDownload') return;
+  (async function () {
+    const job = jobs.get(msg.jobId);
+    if (!job) throw new Error('ไม่พบงานที่รอไฟล์อยู่');
+    const learned = (await chrome.storage.local.get('cosBase')).cosBase;
+    const parts = [cosParts(learned), cosParts(COS_DEFAULT_BASE)].filter(function (v, i, a) {
+      return v && a.findIndex(function (w) { return w && w.host === v.host && w.acct === v.acct; }) === i;
+    });
+    const tried = [];
+    for (const p of parts) {
+      for (const ext of ['.xlsx', '.zip', '.csv']) {
+        const url = p.host + '/temp/shelfInoutRecord/' + p.acct + '/' + encodeURIComponent(msg.name) + ext;
+        try {
+          const r = await fetch(url, { method: 'HEAD' });
+          tried.push(ext + '=' + r.status);
+          if (!r.ok) continue;
+          const rec = { id: null, filename: msg.name + ext, url: url, finalUrl: url, at: Date.now() };
+          await chrome.storage.local.set({ lastDownload: rec });
+          job.resolve(rec);
+          releaseSlot(msg.jobId);
+          return { ok: true, url: url };
+        } catch (e) { tried.push(ext + '=' + e.message); }
+      }
+    }
+    throw new Error('ไม่พบไฟล์ ' + msg.name + ' ที่ที่เก็บไฟล์ของ BigSeller (ลอง: ' + tried.join(', ') + ')');
+  })().then(sendResponse, function (err) { sendResponse({ ok: false, error: err.message }); });
+  return true;
+});
+
+// ===== 3M: ดึงไฟล์ตรง (โค้ดของ 3M เอง แยกจาก directDownload ของปุ่ม ⚡ หน้า รับORDER) =====
+// ลิงก์ = <โฟลเดอร์ไฟล์ส่งออกของบัญชี>/<ชื่อไฟล์>.(zip|xlsx|csv) · ลอง zip ก่อน เพราะการ์ด 3M รับ ZIP
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || msg.type !== 'm3DirectDownload') return;
+  (async function () {
+    const job = jobs.get(msg.jobId);
+    if (!job) throw new Error('ไม่พบงานที่รอไฟล์อยู่');
+    const learned = (await chrome.storage.local.get('cosBase')).cosBase;
+    const bases = [learned, COS_DEFAULT_BASE].filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+    const tried = [];
+    for (const base of bases) {
+      for (const ext of ['.zip', '.xlsx', '.csv']) {
+        const url = base + encodeURIComponent(msg.name) + ext;
+        try {
+          const r = await fetch(url, { method: 'HEAD' });
+          tried.push(ext + '=' + r.status);
+          if (!r.ok) continue;
+          const rec = { id: null, filename: msg.name + ext, url: url, finalUrl: url, at: Date.now() };
+          await chrome.storage.local.set({ lastDownload: rec });
+          job.resolve(rec);
+          releaseSlot(msg.jobId);
+          return { ok: true, url: url };
+        } catch (e) { tried.push(ext + '=' + e.message); }
+      }
+    }
+    throw new Error('ไม่พบไฟล์ ' + msg.name + ' ที่ที่เก็บไฟล์ของ BigSeller (' + (bases[0] || '') + ' ลอง: ' + tried.join(', ') + ')');
+  })().then(sendResponse, function (err) { sendResponse({ ok: false, error: err.message }); });
   return true;
 });
 
