@@ -10,8 +10,17 @@
 
   window.addEventListener('message', function (e) {
     if (e.source !== window || !e.data || e.data.source !== 'order-workspace') return;
-    // stSyncRequest = การ์ด ST · siSyncRequest = การ์ด SI · m3SyncRequest = การ์ด 3M
-    const m = /^(st|si|m3)SyncRequest$/.exec(e.data.type || '');
+    // ตั้งเวลาโหลดไฟล์ ORDER อัตโนมัติ (ส่วนขยายเป็นตัวเก็บเวลา/ปลุก) ตอบกลับสถานะให้หน้าเว็บแสดง
+    if (e.data.type === 'ordScheduleSet' || e.data.type === 'ordScheduleGet') {
+      chrome.runtime.sendMessage({ type: e.data.type, enabled: e.data.enabled, times: e.data.times }).then(function (st) {
+        window.postMessage(Object.assign({ source: 'order-autoload', type: 'schedule' }, st || {}), '*');
+      }).catch(function (err) {
+        window.postMessage({ source: 'order-autoload', type: 'schedule', error: 'ติดต่อส่วนขยายไม่ได้: ' + err.message }, '*');
+      });
+      return;
+    }
+    // stSyncRequest = การ์ด ST · siSyncRequest = การ์ด SI · m3SyncRequest = การ์ด 3M · ordSyncRequest = ปุ่มหน้า รับORDER
+    const m = /^(st|si|m3|ord)SyncRequest$/.exec(e.data.type || '');
     if (m) {
       const kind = m[1];
       chrome.runtime.sendMessage({ type: 'bridgeExport', kind: kind }).catch(function (err) {
@@ -21,6 +30,10 @@
   });
 
   // ไฟล์ ORDER ที่โหลดจาก BigSeller (ชื่อ Order-SKU-...) ส่งต่อให้หน้าเว็บใส่เข้าช่อง รับORDER เอง (js/auto-order.js)
+  chrome.runtime.onMessage.addListener(function (msg) {
+    if (!msg || msg.type !== 'ordScheduleStatus') return;
+    window.postMessage(Object.assign({ source: 'order-autoload' }, msg, { type: 'schedule' }), '*');
+  });
   chrome.runtime.onMessage.addListener(function (msg) {
     if (!msg || (msg.type !== 'orderFile' && msg.type !== 'orderFileError')) return;
     window.postMessage({
@@ -32,6 +45,9 @@
   // หน้าเว็บโหลดเสร็จแล้ว (สคริปต์หน้าพร้อมรับข้อความ) ค่อยขอไฟล์ที่ค้างรออยู่
   window.addEventListener('load', function () {
     chrome.runtime.sendMessage({ type: 'orderPageReady' }).catch(function () { /* ไม่กระทบ */ });
+    chrome.runtime.sendMessage({ type: 'ordScheduleGet' }).then(function (st) {
+      window.postMessage(Object.assign({ source: 'order-autoload', type: 'schedule' }, st || {}), '*');
+    }).catch(function () { /* ไม่กระทบ */ });
   });
 
   chrome.runtime.onMessage.addListener(function (msg) {

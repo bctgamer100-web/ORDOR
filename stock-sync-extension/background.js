@@ -128,7 +128,10 @@ async function handle(msg, sender) {
 const EXPORT_PAGES = {
   st: { file: 'inventory/warehouseInventory.htm', path: '/web/inventory/warehouseInventory.htm', name: 'ตำแหน่งสต็อก' },
   si: { file: 'inventory/warehouseInOutRecord.htm', path: '/web/inventory/warehouseInOutRecord.htm', name: 'การเคลื่อนไหวสต็อก' },
-  m3: { file: 'order/index.htm', path: '/web/order/index.htm?status=all', name: 'คำสั่งซื้อ', fresh: true, timeoutMs: 30 * 60 * 1000 }
+  m3: { file: 'order/index.htm', path: '/web/order/index.htm?status=all', name: 'คำสั่งซื้อ', fresh: true, timeoutMs: 30 * 60 * 1000 },
+  // ord = ไฟล์ ORDER ของหน้า รับORDER (Order-SKU-inprocess...): ส่งออกจากหน้าคำสั่งซื้อที่ผู้ใช้เปิดค้างไว้ (ตั้งแท็บ/ตัวกรองไว้แล้ว)
+  // ไม่เปิดหน้าใหม่ให้เอง เพราะไม่รู้ว่าต้องกรองสถานะอะไร ไม่มีแท็บเปิดอยู่ = แจ้งให้เปิดก่อน
+  ord: { file: 'order/index.htm', path: '/web/order/index.htm', name: 'คำสั่งซื้อ', needsOpenTab: true, timeoutMs: 30 * 60 * 1000 }
 };
 
 // รอให้ตัวกดปุ่ม (content.js) ในแท็บพร้อมรับคำสั่ง
@@ -221,6 +224,9 @@ async function exportViaTabNow(progress, kind) {
   let created = false;
   let jobId = null;
   try {
+    if (!tab && page.needsOpenTab) {
+      throw new Error('ไม่พบแท็บ BigSeller > คำสั่งซื้อ ที่เปิดอยู่ — เปิดหน้าคำสั่งซื้อ แล้วเลือกแท็บ/ตัวกรองที่ต้องการ (เช่น กำลังดำเนินการ) ทิ้งไว้ก่อน แล้วกดปุ่มอีกครั้ง');
+    }
     if (!tab) {
       const any = (await bigsellerTabs())[0];
       const origin = any ? new URL(any.url).origin : 'https://www.bigseller.com';
@@ -374,6 +380,9 @@ async function sendToOrderPages(message) {
 
 chrome.downloads.onChanged.addListener(async function (delta) {
   if (!delta.state || delta.state.current !== 'complete') return;
+  // ส่วนขยายกำลังส่งออก ST / SI / 3M อยู่ (ปุ่มดึงจาก BigSeller อัตโนมัติ): ไฟล์ที่โหลดมาเป็นของงานนั้น ไม่ใช่ไฟล์ ORDER
+  // ต้องเช็กก่อน await ใดๆ เพราะงานจะถูกลบออกจาก jobs ทันทีที่ไฟล์ถูกส่งต่อให้งานนั้น
+  if (jobs.size) return;
   if (orderHandled.has(delta.id)) return;
   const items = await chrome.downloads.search({ id: delta.id });
   const it = items && items[0];
@@ -390,6 +399,106 @@ chrome.downloads.onChanged.addListener(async function (delta) {
   } catch (err) {
     await sendToOrderPages({ type: 'orderFileError', name: name, error: err.message });
   }
+});
+
+// ===== ตั้งเวลาโหลดไฟล์ ORDER อัตโนมัติ (แต่ละเครื่อง/แต่ละคนตั้งเวลาของตัวเองในหน้า รับORDER) =====
+// ถึงเวลา → ส่งออกจากแท็บ BigSeller > คำสั่งซื้อ (เหมือนปุ่ม ⚡ โหลดจาก BigSeller) → ส่งไฟล์เข้าหน้า ORDER ที่เปิดอยู่
+// เงื่อนไข: Chrome เปิดอยู่ + แท็บ BigSeller > คำสั่งซื้อ เปิดค้างและล็อกอินอยู่ · ถึงเวลาแล้ว Chrome ปิดอยู่ = ข้ามรอบนั้น
+const ORD_ALARM = 'ordRun';
+let ordRunning = false;
+
+async function getSched() {
+  const s = (await chrome.storage.local.get('ordSchedule')).ordSchedule;
+  return Object.assign({ enabled: false, times: [], lastAt: 0, lastOk: null, lastMsg: '' }, s || {});
+}
+async function saveSched(s) {
+  await chrome.storage.local.set({ ordSchedule: s });
+}
+function cleanTimes(arr) {
+  const out = new Set();
+  (arr || []).forEach(function (t) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
+    if (m && +m[1] < 24 && +m[2] < 60) out.add(String(+m[1]).padStart(2, '0') + ':' + m[2]);
+  });
+  return Array.from(out).sort();
+}
+function nextRunAt(times, now) {
+  let best = null;
+  for (let d = 0; d < 2; d++) {
+    times.forEach(function (t) {
+      const hm = t.split(':').map(Number);
+      const dt = new Date(now);
+      dt.setDate(dt.getDate() + d);
+      dt.setHours(hm[0], hm[1], 0, 0);
+      const ms = dt.getTime();
+      if (ms > now && (best === null || ms < best)) best = ms;
+    });
+  }
+  return best;
+}
+async function applySchedule() {
+  const s = await getSched();
+  await chrome.alarms.clear(ORD_ALARM);
+  if (!s.enabled || !s.times.length) return null;
+  const next = nextRunAt(s.times, Date.now());
+  if (next) await chrome.alarms.create(ORD_ALARM, { when: next });
+  return next;
+}
+async function schedStatus() {
+  const s = await getSched();
+  const a = await chrome.alarms.get(ORD_ALARM);
+  return { enabled: s.enabled, times: s.times, nextAt: a ? a.scheduledTime : null, lastAt: s.lastAt, lastOk: s.lastOk, lastMsg: s.lastMsg, running: ordRunning };
+}
+async function pushSchedStatus() {
+  await sendToOrderPages(Object.assign({ type: 'ordScheduleStatus' }, await schedStatus()));
+}
+
+async function runScheduledOrder() {
+  if (ordRunning) return;
+  ordRunning = true;
+  pushSchedStatus();
+  const keepAlive = setInterval(function () { chrome.runtime.getPlatformInfo(function () {}); }, 20000);
+  let ok = false, msg = '';
+  try {
+    const rec = await exportViaTab(function () {}, 'ord');
+    const f = await readDownload(rec);
+    const message = { type: 'orderFile', name: f.name, b64: bytesToB64(f.bytes), at: Date.now() };
+    if (!(await sendToOrderPages(message))) await chrome.storage.local.set({ orderPending: message });
+    ok = true;
+    msg = 'โหลด ' + f.name + ' แล้ว';
+  } catch (err) {
+    msg = err.message;
+  } finally {
+    clearInterval(keepAlive);
+    const cur = await getSched(); // อ่านใหม่ กันทับค่าที่ผู้ใช้เพิ่งแก้ระหว่างรอ
+    cur.lastAt = Date.now(); cur.lastOk = ok; cur.lastMsg = msg;
+    await saveSched(cur);
+    ordRunning = false;
+    await applySchedule();
+    pushSchedStatus();
+  }
+}
+
+chrome.alarms.onAlarm.addListener(function (alarm) {
+  if (alarm.name === ORD_ALARM) runScheduledOrder();
+});
+chrome.runtime.onStartup.addListener(applySchedule);
+chrome.runtime.onInstalled.addListener(applySchedule);
+applySchedule(); // service worker ตื่นขึ้นมาใหม่ = ตั้งนาฬิกาปลุกให้ตรงตามที่บันทึกไว้
+
+chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (!msg || (msg.type !== 'ordScheduleSet' && msg.type !== 'ordScheduleGet')) return;
+  (async function () {
+    if (msg.type === 'ordScheduleSet') {
+      const s = await getSched();
+      s.enabled = !!msg.enabled;
+      s.times = cleanTimes(msg.times);
+      await saveSched(s);
+      await applySchedule();
+    }
+    sendResponse(await schedStatus());
+  })().catch(function (err) { sendResponse({ error: err.message }); });
+  return true;
 });
 
 // หน้า ORDER เพิ่งเปิด/รีเฟรช: ถ้ามีไฟล์ค้างรออยู่ ส่งให้

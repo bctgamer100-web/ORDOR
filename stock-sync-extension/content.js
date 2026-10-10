@@ -133,12 +133,26 @@
 
   // หน้าออเดอร์ (3M): หลังกด "ส่งออกทั้งหมด" จะมีกล่อง "ส่งออกคำสั่งซื้อ" ให้เลือกเทมเพลต → เลือก "ยอดขาย 3 เดือน" แล้วกดปุ่ม ส่งออก ในกล่อง
   // คืน true เมื่อกดปุ่มในกล่องแล้ว · false ถ้ากล่องไม่ขึ้น (ให้ผู้เรียกลองกดเมนูใหม่)
-  const M3_TEMPLATE = 'ยอดขาย 3 เดือน';
-  async function handleOrderExportModal() {
+  const M3_TEMPLATE_DEFAULT = 'ยอดขาย 3 เดือน';
+  // ORD (ปุ่ม "โหลดจาก BigSeller" หน้า รับORDER = ไฟล์ Order-SKU-inprocess...): ไม่เปลี่ยนเทมเพลต ใช้ตัวที่ BigSeller เลือกค้างไว้
+  // ถ้าอยากให้เลือกเทมเพลตเฉพาะ ใส่ชื่อเทมเพลตตรงนี้ (เช่น 'Order-SKU')
+  const ORD_TEMPLATE = '';
+  async function handleOrderExportModal(template) {
+    const M3_TEMPLATE = template === undefined ? M3_TEMPLATE_DEFAULT : template;
     setStatus('3M: รอกล่อง ส่งออกคำสั่งซื้อ ...');
     const title = await waitFor(function () { return findByText('ส่งออกคำสั่งซื้อ'); }, 8000, '').catch(function () { return null; });
     if (!title) return false;
     const modal = title.closest('.ant-modal') || title.closest('[class*="modal"]') || document.body;
+    if (!M3_TEMPLATE) {
+      // ไม่ระบุเทมเพลต: กดส่งออกในกล่องเลย ด้วยเทมเพลตที่ค้างอยู่
+      await sleep(1500);
+      const go = Array.prototype.slice.call(modal.querySelectorAll('button')).find(function (b) {
+        return visible(b) && (b.textContent || '').replace(/\s+/g, '') === 'ส่งออก';
+      });
+      if (!go) throw new Error('ไม่พบปุ่ม ส่งออก ในกล่องส่งออกคำสั่งซื้อ');
+      realClick(go);
+      return true;
+    }
     // ช่องเทมเพลตเป็นคอมโพเนนต์ของ BigSeller เอง (ไม่ใช่ ant-select): ตัวเลือกคือ div.combobox_sel_option[title] อยู่ใน div.combobox_out
     // (ดูจากข้อมูลวินิจฉัยของจริง) จึงหาจากตัวเลือก "ยอดขาย 3 เดือน" แล้วขึ้นไปหา .combobox_out ของมัน ไม่ต้องเดาจากป้ายหรือช่องอื่น
     const optSelector = '.combobox_sel_option';
@@ -279,7 +293,8 @@
       const cur = menuItem() || item;
       // ตัวรับคลิกของเมนูคือ LI.ant-dropdown-menu-item (ข้อความอยู่ใน SPAN ข้างใน)
       realClick(cur.closest('li') || cur);
-      if (kind === 'm3') await handleOrderExportModal(); // false = กล่องไม่ขึ้น → ผลลัพธ์ started จะเป็นเท็จแล้ววนกดเมนูใหม่
+      if (kind === 'm3') await handleOrderExportModal();
+      else if (kind === 'ord') await handleOrderExportModal(ORD_TEMPLATE); // false = กล่องไม่ขึ้น → ผลลัพธ์ started จะเป็นเท็จแล้ววนกดเมนูใหม่
       started = await waitFor(exportStarted, 4000, '').then(function () { return true; }, function () { return false; });
       if (!started) {
         hover(btn); // เมนูอาจปิดไปแล้ว เปิดใหม่ (เมาส์จำลองไม่เคยออกจากปุ่ม เมนูจึงควรค้างอยู่ แต่กันไว้)
@@ -299,7 +314,7 @@
     }, 5000);
     let link;
     try {
-      link = await waitForDom(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
+      link = await waitForDom(function () { return findByText('ดาวน์โหลด', 'a, button, span'); }, (kind === 'm3' || kind === 'ord' ? 30 : 10) * 60 * 1000, 'ลิงก์ ดาวน์โหลด (ไฟล์ยังสร้างไม่เสร็จ)');
     } finally {
       clearInterval(ticker);
     }
@@ -312,7 +327,7 @@
     const dlTarget = findByText('ดาวน์โหลด', 'a, button, span') || link;
     const dlEl = (dlTarget.closest && dlTarget.closest('button, a')) || dlTarget;
     let trusted = false;
-    if (kind === 'm3') {
+    if (kind === 'm3' || kind === 'ord') {
       // ปุ่มดาวน์โหลดของหน้าออเดอร์ไม่ตอบคลิกจำลอง (น่าจะเปิดไฟล์ด้วยคำสั่งที่ต้องมาจากการคลิกของคนจริง) → คลิกด้วยเมาส์จริงผ่านระบบดีบักของ Chrome
       dlEl.scrollIntoView({ block: 'center' });
       await sleep(400);
