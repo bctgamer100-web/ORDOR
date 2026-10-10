@@ -1623,11 +1623,11 @@ function buildMovePlan(){
         (a.prefix===MOVE_FULL_BOX_PREFIX && b.prefix===MOVE_FULL_BOX_PREFIX ? b.qty-a.qty : a.qty-b.qty) ||
         String(a.loc).localeCompare(String(b.loc),undefined,{numeric:true}));
 
-    const allocate=(pick,target,boxRule)=>{
+    const allocate=(target,boxRule)=>{
       const rows=[];
       let moved=0, usedBox=false;
       for(const p of places){
-        if(moved>=pick) break;
+        if(moved>=target) break;
         let qty;
         if(boxRule && p.prefix===MOVE_FULL_BOX_PREFIX){
           if(usedBox) continue;
@@ -1643,13 +1643,14 @@ function buildMovePlan(){
       return rows;
     };
 
-    // ตามเงื่อนไข: เพิ่มตำแหน่งถัดไปเฉพาะเมื่อยังไม่พอจำนวนที่จะเบิกจริง ส่วนเผื่อเอาเท่าที่ตำแหน่งที่ใช้อยู่มีให้
-    const autoRows=allocate(item.pick,Math.max(item.pick,moveBufferQty(item.sku)),true);
+    // ตามเงื่อนไข: เบิกอย่างน้อยตามค่าเผื่อของรหัสนั้น (ไม่อยู่ในกฎ = ตามจำนวนที่จะเบิกจริง)
+    // ตำแหน่งเดียวมีไม่พอ ก็เพิ่มตำแหน่งถัดไปจนครบ หรือจนสต็อกหมด
+    const autoRows=allocate(Math.max(item.pick,moveBufferQty(item.sku)),true);
     const auto=autoRows.reduce((s,r)=>s+r.qty,0);
     // แก้ตัวเลขเอง: เบิกตามตัวเลขนั้นตามลำดับตำแหน่งเดิม ไม่เกินสต็อกที่มี
     // แต่ลัง H ยังบังคับทั้งลังเสมอ ถ้าต้องเปิดลัง H ยอดรวมจึงอาจมากกว่าตัวเลขที่พิมพ์
     const manual=moveQtyOverrides.has(key) ? moveQtyOverrides.get(key) : null;
-    const rows=manual===null ? autoRows : allocate(manual,manual,true);
+    const rows=manual===null ? autoRows : allocate(manual,true);
     const stockTotal=places.reduce((s,p)=>s+p.qty,0);
     plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto,manual,stockTotal,pick:item.pick,restricted});
   });
