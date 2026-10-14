@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ทดสอบการอ่านใบปริ้น</title>
+<style>
+body{font:14px/1.6 system-ui,sans-serif;margin:24px;background:#111;color:#eee}
+.ok{color:#4ade80}.bad{color:#f87171}.warn{color:#fbbf24}
+pre{background:#1b1b1b;padding:12px;border-radius:8px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h1>ทดสอบการอ่านใบปริ้น</h1>
+<p>เปิดหน้านี้ผ่านเซิร์ฟเวอร์ในเครื่อง (เช่น <code>http://localhost:8934/tests/</code>) แล้วดูผลด้านล่าง</p>
+<div id="out">กำลังทดสอบ...</div>
+<script src="../js/scan-sheet.js"></script>
+<script>
+(async function () {
+  const out = document.getElementById('out');
+  let failed = 0;
+  const lines = [];
+  try {
+    const cfg = await (await fetch('expected.json?' + Date.now())).json();
+    for (const c of cfg.cases) {
+      const blob = await (await fetch(c.file + '?' + Date.now())).blob();
+      const cv = await ScanSheet.fileToCanvas(new File([blob], c.file));
+      const t0 = performance.now();
+      const res = ScanSheet.analyzeImage(cv, 'auto');
+      const ms = Math.round(performance.now() - t0);
+      const got = new Set(); res.rows.forEach((r, i) => { if (r.mark === 'cross') got.add(i); });
+      const truth = new Set(c.cross);
+      const missing = c.cross.filter(i => !got.has(i));
+      const falseX = [...got].filter(i => !truth.has(i));
+      const newMissing = missing.filter(i => !c.baselineMissing.includes(i));
+      const newFalse = falseX.filter(i => !c.baselineFalse.includes(i));
+      const improved = c.baselineMissing.filter(i => !missing.includes(i)).length + c.baselineFalse.filter(i => !falseX.includes(i)).length;
+      const okRows = res.rows.length === c.rows;
+      const pass = okRows && !newMissing.length && !newFalse.length;
+      if (!pass) failed++;
+      lines.push(`<div class="${pass ? 'ok' : 'bad'}">${pass ? 'ผ่าน' : 'ไม่ผ่าน'} — ${c.file} (${ms} ms)</div>` +
+        `<pre>บรรทัดที่พบ: ${res.rows.length} (ควรเป็น ${c.rows})\nกากบาทที่พลาด: [${missing}]${newMissing.length ? '  ← ใหม่: [' + newMissing + ']' : ''}\nกากบาทที่เกินมา: [${falseX}]${newFalse.length ? '  ← ใหม่: [' + newFalse + ']' : ''}${improved ? '\nดีขึ้นกว่าเดิม ' + improved + ' จุด (อัปเดต baseline ใน expected.json ได้)' : ''}</pre>`);
+    }
+  } catch (e) {
+    failed++;
+    lines.push('<div class="bad">เกิดข้อผิดพลาด: ' + e + '</div>');
+  }
+  out.innerHTML = `<h2 class="${failed ? 'bad' : 'ok'}">${failed ? 'ไม่ผ่าน ' + failed + ' รายการ' : 'ผ่านทั้งหมด'}</h2>` + lines.join('');
+  document.title = (failed ? 'FAIL' : 'PASS') + ' — ทดสอบการอ่านใบปริ้น';
+})();
+</script>
+</body>
+</html>

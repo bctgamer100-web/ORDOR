@@ -1,0 +1,5376 @@
+/* ===== Original inline script 1 ===== */
+// ===== WORK ACTIVITY HISTORY =====
+(function(){
+  const STORAGE_KEY = 'excel_order_work_history_v1';
+  const MAX_HISTORY = 2000;
+  let summaryMode = 'today';
+  let summaryDate = todayKey(new Date());
+  const tabNames = {
+    mergeTool: '🚀 นำเข้าข้อมูล',
+    compareTool: '🔎 ตรวจ ORDER กับ Stock',
+    orderTool: '📥 รับORDER',
+    summaryTool: '📋 สรุปงาน',
+    beforeOrderTool: '🛒 ก่อนสั่ง'
+  };
+  const actionNames = {
+    open: 'เปิดแท็บ',
+    file: 'เลือกไฟล์',
+    process: 'ประมวลผลข้อมูล',
+    download: 'ดาวน์โหลดไฟล์',
+    filter: 'กรองข้อมูล',
+    clear: 'ล้างข้อมูล',
+    refresh: 'เปิด/รีเฟรชเว็บ'
+  };
+
+  function getHistory(){
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch(e){ return []; }
+  }
+  function saveHistory(items){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(-MAX_HISTORY)));
+  }
+  function todayKey(d){
+    const x = d || new Date();
+    return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0');
+  }
+  function fmtDate(iso){
+    const d = new Date(iso);
+    return d.toLocaleDateString('th-TH',{year:'numeric',month:'2-digit',day:'2-digit'});
+  }
+  function fmtTime(iso){
+    return new Date(iso).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  function log(action, tabId, detail, fileName){
+    const item = {
+      id: Date.now() + Math.random(),
+      time: new Date().toISOString(),
+      tab: tabId || 'unknown',
+      action: action || 'open',
+      detail: detail || '',
+      file: fileName || ''
+    };
+    const h = getHistory(); h.push(item); saveHistory(h); renderSummary();
+  }
+  window.workHistoryLog = log;
+
+  function currentTab(){
+    const active = document.querySelector('.tab.active');
+    return active ? active.dataset.tool : 'unknown';
+  }
+
+  function renderSummary(){
+    const all = getHistory();
+    const today = todayKey();
+    const todayItems = all.filter(x => todayKey(new Date(x.time)) === today);
+    const items = summaryMode === 'today' ? todayItems : (summaryMode === 'date' ? all.filter(x => todayKey(new Date(x.time)) === summaryDate) : all);
+    const el = document.getElementById('summaryList');
+    if(!el) return;
+    document.getElementById('summaryCount').textContent = all.length.toLocaleString();
+    document.getElementById('summaryTodayCount').textContent = todayItems.length.toLocaleString();
+    document.getElementById('summaryFileCount').textContent = new Set(all.filter(x=>x.file).map(x=>x.file)).size.toLocaleString();
+    document.getElementById('summaryTabCount').textContent = new Set(todayItems.map(x=>x.tab).filter(x=>x!=='unknown')).size.toLocaleString();
+    if(!items.length){ el.innerHTML='<div class="empty">ยังไม่มีประวัติการทำงาน</div>'; return; }
+    const groups = {};
+    items.slice().reverse().forEach(x => {
+      const key = todayKey(new Date(x.time));
+      (groups[key] ||= []).push(x);
+    });
+    let html='';
+    Object.keys(groups).forEach(day=>{
+      html += `<div class="summary-day"><div class="summary-day-title">📅 ${fmtDate(groups[day][0].time)}</div>`;
+      groups[day].forEach(x=>{
+        html += `<div class="summary-row"><div class="summary-time">${fmtTime(x.time)}</div><div class="summary-tab">${tabNames[x.tab] || x.tab}</div><div class="summary-action"><b>${actionNames[x.action] || x.action}</b>${x.detail ? `<span>${escapeHtml(x.detail)}</span>`:''}${x.file ? `<small>📄 ${escapeHtml(x.file)}</small>`:''}</div></div>`;
+      });
+      html += '</div>';
+    });
+    el.innerHTML=html;
+  }
+  function escapeHtml(v){
+    return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  }
+
+  document.getElementById('summaryTodayBtn').onclick=()=>{summaryMode='today';renderSummary();};
+  document.getElementById('summaryAllBtn').onclick=()=>{summaryMode='all';renderSummary();};
+  const summaryDateInput=document.getElementById('summaryDate');
+  if(summaryDateInput){
+    summaryDateInput.value=summaryDate;
+    summaryDateInput.onchange=()=>{
+      summaryDate=summaryDateInput.value || todayKey(new Date());
+      summaryMode='date';
+      renderSummary();
+    };
+  }
+
+  // บันทึกการเปลี่ยนแท็บ
+  document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
+    log('open', btn.dataset.tool, 'ผู้ใช้เปิดแท็บ');
+    if(btn.dataset.tool==='summaryTool') setTimeout(renderSummary,0);
+    if(btn.dataset.tool==='compareTool'){
+      if(typeof maybeAutoLoadStockFromDb==='function') maybeAutoLoadStockFromDb();
+      if(typeof maybeAutoLoadSiFromDb==='function') maybeAutoLoadSiFromDb();
+    }
+  }));
+
+  // บันทึกการเลือกไฟล์ทุกแท็บ
+  document.querySelectorAll('input[type="file"]').forEach(input=>input.addEventListener('change',e=>{
+    const f=e.target.files && e.target.files[0];
+    if(f) log('file', currentTab(), `เลือกไฟล์ ${f.name}`, f.name);
+  }));
+
+  // ดักปุ่มสำคัญของแต่ละแท็บ
+  const buttonMap = {
+    download2:['compareTool','ดาวน์โหลดผลตรวจ ORDER กับ Stock Excel'],
+    orderProcess:['orderTool','เตรียมข้อมูล ORDER'],
+    orderDownload:['orderTool','พิมพ์ ORDER (Pivot)'],
+    orderPivotExcelDownload:['orderTool','ดาวน์โหลด Excel ตามตัวอย่าง'],
+    orderSelectAll:['orderTool','เลือกค่าทั้งหมดในตัวกรอง'],
+    orderClearFilters:['orderTool','ล้างตัวกรอง ORDER'],
+    clear2:['compareTool','ล้างข้อมูล'],
+    orderClear:['orderTool','ล้างข้อมูล ORDER'],
+    beforeOrderCreate:['beforeOrderTool','ยืนยันรายการพร้อมสั่ง'],
+    beforeOrderSelectAll:['beforeOrderTool','เลือกทั้งหมด'],
+    beforeOrderClearAll:['beforeOrderTool','ยกเลิกทั้งหมด']
+  };
+  Object.entries(buttonMap).forEach(([id,info])=>{
+    const b=document.getElementById(id);
+    if(b) b.addEventListener('click',()=>{
+      const action=/download/i.test(id)?'download':(/clear|Clear/.test(id)?'clear':(/process|compare|selectAll/i.test(id)?'process':'filter'));
+      log(action, info[0], info[1]);
+    });
+  });
+
+  // ตัวกรอง ORDER เปลี่ยนค่า
+  document.addEventListener('change',e=>{
+    if(e.target.closest('#orderFilters')) log('filter','orderTool','เปลี่ยนค่าตัวกรอง ORDER');
+  });
+
+  // บันทึกว่าเปิด/รีเฟรชเว็บ โดยไม่ลบประวัติเดิม
+  log('refresh', currentTab(), performance.getEntriesByType('navigation')[0]?.type === 'reload' ? 'รีเฟรชหน้าเว็บ' : 'เปิดเว็บ');
+  renderSummary();
+})();
+
+/* ===== Original inline script 2 ===== */
+// Tab switching
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".tool").forEach(x => x.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tool).classList.add("active");
+  });
+});
+
+/* ===== Original inline script 3 ===== */
+// เครื่องมือ "รวมไฟล์ ZIP" เดิมถูกเอาออกแล้ว (แทนที่ด้วยหน้านำเข้าข้อมูล Sunshine ที่อัปโหลดตรงขึ้นฐานข้อมูล)
+// เหลือไว้แค่ escapeHtml เพราะใช้ร่วมกันทั่วทั้งไฟล์
+function escapeHtml(x){
+  return String(x).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+/* ===== Original inline script 4 ===== */
+// ===== COMPARE TOOL : ORDER vs STOCK =====
+
+const $=id=>document.getElementById(id);
+
+let data1=null;              // Stock rows as objects
+let data2=null;              // ORDER rows as objects (combined Excel + text)
+let data2File=null;           // ORDER rows from uploaded Excel/CSV
+let data2Text=null;           // ORDER rows from textarea
+let stockFileName='';
+let orderFileName='';
+let stockSkuCol='';
+let stockQtyCol='';
+let stockPosCol='';
+let orderSkuCol='';
+let orderQtyCol='';
+let compareResults=[];
+
+// ล็อกการทำงานของช่องไฟล์ให้ตรงกับตำแหน่งบนหน้าจอแบบชัดเจน
+// ช่องแรก = ORDER, ช่องที่สอง = Stock
+$("file1").onchange=function(e){
+  const file=e.target.files && e.target.files[0];
+  if(file) loadOrderCompareFile(file);
+};
+$("file2").onchange=function(e){
+  const file=e.target.files && e.target.files[0];
+  if(file) loadStockFile(file);
+};
+$("download2").onclick=downloadStockCheckResult;
+$("clear2").onclick=clearAll;
+
+async function readCompareFile(file){
+  const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:"",raw:false});
+  if(!rows.length) throw new Error("ไม่พบข้อมูลหรือหัวตาราง");
+  return rows;
+}
+
+function cleanCompareHeader(v){
+  return String(v??"").trim().replace(/\s+/g,"").toLowerCase();
+}
+
+function detectColumn(headers, patterns, fallbackIndex=-1, exactNames=[]){
+  for(const name of exactNames){
+    const exact=headers.find(h=>cleanCompareHeader(h)===name);
+    if(exact!==undefined) return exact;
+  }
+  const found=headers.find(h=>patterns.some(re=>re.test(String(h))));
+  if(found!==undefined) return found;
+  return fallbackIndex>=0 && fallbackIndex<headers.length ? headers[fallbackIndex] : '';
+}
+
+function detectStockColumns(rows){
+  const headers=Object.keys(rows[0]||{});
+  const sku=detectColumn(headers,[/sku/i,/รหัส/i,/code/i,/product/i,/item/i],0,['skumerchant','sku']);
+  const qty=detectColumn(headers,[/จำนวน/i,/qty/i,/quantity/i,/amount/i,/count/i,/ยอด/i],headers.length>1?1:-1);
+
+  // ตรวจหัวคอลัมน์ตำแหน่งให้กว้างขึ้น เพราะไฟล์ Stock แต่ละไฟล์
+  // อาจใช้ชื่อ เช่น ตำแหน่ง, ที่เก็บ, location, loc, warehouse ฯลฯ
+  let pos=detectColumn(headers,[
+    /ตำแหน่ง/i,
+    /ที่เก็บ/i,
+    /สถานที่/i,
+    /คลัง/i,
+    /จุดเก็บ/i,
+    /location/i,
+    /loc(?:ation)?/i,
+    /warehouse/i,
+    /storage/i,
+    /bin/i,
+    /shelf/i,
+    /rack/i
+  ],-1);
+
+  // ถ้าหัวคอลัมน์ไม่ตรง ให้ดูจากข้อมูลจริง:
+  // ตำแหน่งมักมีรูปแบบ เช่น KT-001-01, C-00-01, WH-01 ฯลฯ
+  if(!pos){
+    const candidates=headers.filter(h=>h!==sku && h!==qty);
+    let bestHeader='';
+    let bestScore=0;
+
+    candidates.forEach(h=>{
+      let score=0;
+      rows.slice(0,500).forEach(r=>{
+        const v=String(r[h]??'').trim();
+        if(!v)return;
+        if(/^[A-Za-zก-ฮ]{1,10}[-_][A-Za-z0-9ก-ฮ]+/i.test(v)) score++;
+        else if(/^(KT|C|WH|FG|RM|ST|DC|B)[-_]/i.test(v)) score+=2;
+      });
+      if(score>bestScore){
+        bestScore=score;
+        bestHeader=h;
+      }
+    });
+
+    if(bestScore>0) pos=bestHeader;
+  }
+
+  return {headers,sku,qty,pos};
+}
+
+function detectOrderColumns(rows){
+  const headers=Object.keys(rows[0]||{});
+  const sku=detectColumn(headers,[/sku/i,/รหัส/i,/code/i,/product/i,/item/i],0,['skumerchant','sku']);
+  const qty=detectColumn(headers,[/จำนวน/i,/qty/i,/quantity/i,/amount/i,/count/i,/ยอด/i],headers.length>1?1:-1);
+  return {headers,sku,qty};
+}
+
+async function loadStockFile(file){
+  if(!file)return;
+  try{
+    if(!/\.(xlsx|xls|csv)$/i.test(file.name)) throw new Error("รองรับเฉพาะไฟล์ Excel (.xlsx/.xls) หรือ CSV");
+    setProgress(20);
+    data1=await readCompareFile(file);
+    setProgress(55);
+
+    stockFileName=file.name;
+    const d=detectStockColumns(data1);
+    stockSkuCol=d.sku;
+    stockQtyCol=d.qty;
+    stockPosCol=d.pos;
+
+    // loadStockFile ใช้เฉพาะช่องที่ 2
+    $("name2").textContent=file.name;
+    $("info2").textContent=`${data1.length.toLocaleString()} แถว | ${d.headers.length} คอลัมน์`;
+    setProgress(100);
+    setTimeout(()=>setProgress(0),300);
+
+    updateCompareReady();
+  }catch(e){
+    setProgress(0);
+    data1=null;
+    syncCompareVisibility();
+    alert("ไม่สามารถอ่านไฟล์ Stock ได้\n\n"+e.message);
+  }
+}
+
+// เปิดแท็บ "ตรวจ ORDER กับ Stock" ครั้งแรกที่ยังไม่มีไฟล์ Stock (ไม่ว่าจะจากไฟล์หรือฐานข้อมูล) ให้ดึงจากฐานข้อมูลให้อัตโนมัติ
+// ลองแค่ครั้งเดียวต่อการเปิดหน้าเว็บ (ถ้าจะดึงซ้ำ/อัปเดตล่าสุด ให้กดปุ่ม "ใช้ข้อมูลจากฐานข้อมูล" เอง) และไม่แทนที่ไฟล์ที่ผู้ใช้เลือกเอง
+let stockAutoLoadTried=false;
+function maybeAutoLoadStockFromDb(){
+  if(stockAutoLoadTried) return;
+  stockAutoLoadTried=true;
+  if(data1 && data1.length) return;
+  loadStockFromDb();
+}
+
+// ดึง Stock ล่าสุดจากฐานข้อมูล Sunshine (ตาราง op_stock) แทนการอัปโหลดไฟล์
+// ใช้คอลัมน์ชุดเดียวกับตอนอัปโหลดไฟล์ (SKU / ตำแหน่ง / จำนวน) เพื่อให้ detectStockColumns และกติกาตรวจเดิมทำงานเหมือนกันทุกอย่าง
+async function loadStockFromDb(){
+  const btn=$("file2FromDb");
+  if(!window.SunStock || typeof window.SunStock.fetchStock!=="function"){
+    alert("ยังโหลดส่วนฐานข้อมูล (Plan Order) ไม่สำเร็จ ลองรีเฟรชหน้าเว็บแล้วลองใหม่");
+    return;
+  }
+  try{
+    if(btn){ btn.disabled=true; btn.textContent="⏳ กำลังดึงข้อมูล..."; }
+    setProgress(20);
+    const rows=await window.SunStock.fetchStock();
+    setProgress(55);
+    if(!rows.length) throw new Error("ตาราง op_stock ในฐานข้อมูลยังไม่มีข้อมูล");
+
+    data1=rows.map(r=>({ SKU: r.sku, 'ตำแหน่ง': r.location, 'จำนวน': r.qty }));
+    stockFileName='ฐานข้อมูล Plan Order (op_stock)';
+    const d=detectStockColumns(data1);
+    stockSkuCol=d.sku;
+    stockQtyCol=d.qty;
+    stockPosCol=d.pos;
+
+    $("name2").textContent='ฐานข้อมูล Plan Order (op_stock)';
+    $("info2").textContent=`${data1.length.toLocaleString()} แถว | ${d.headers.length} คอลัมน์ | จากฐานข้อมูล`;
+    setProgress(100);
+    setTimeout(()=>setProgress(0),300);
+
+    updateCompareReady();
+  }catch(e){
+    setProgress(0);
+    data1=null;
+    syncCompareVisibility();
+    alert("ดึงข้อมูล Stock จากฐานข้อมูลไม่สำเร็จ\n\n"+e.message);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent="📥 ใช้ข้อมูลจากฐานข้อมูล (Plan Order)"; }
+  }
+}
+const file2FromDbBtn=$("file2FromDb");
+if(file2FromDbBtn) file2FromDbBtn.addEventListener('click', loadStockFromDb);
+
+// เปิดแท็บ "ตรวจ ORDER กับ Stock" ครั้งแรกที่ยังไม่มีไฟล์ SI (ไม่ว่าจะจากหน้า นำเข้าข้อมูล หรือฐานข้อมูล) ให้ดึงจากฐานข้อมูลให้อัตโนมัติ
+// ลองแค่ครั้งเดียวต่อการเปิดหน้าเว็บ ถ้าเลือกไฟล์ SI จากหน้า นำเข้าข้อมูลทีหลัง จะเขียนทับค่านี้ตามปกติ (ไฟล์ที่เลือกเองมาทีหลังชนะเสมอ)
+let siAutoLoadTried=false;
+function maybeAutoLoadSiFromDb(){
+  if(siAutoLoadTried) return;
+  siAutoLoadTried=true;
+  if(window.CompareSI && Array.isArray(window.CompareSI.rows) && window.CompareSI.rows.length) return;
+  loadSiFromDb();
+}
+
+// ดึงประวัติเคลื่อนไหว (SI) ล่าสุดจากฐานข้อมูล Sunshine (ตาราง op_stock_moves) แทนการเลือกไฟล์ที่หน้า นำเข้าข้อมูล
+// ใช้หัวคอลัมน์ชุดเดียวกับตอนเลือกไฟล์ SI เอง (SKU Merchant / จำนวน) เพื่อให้กติกาหักลบกับ ORDER (ไฟล์ที่ 1) เดิมทำงานเหมือนกันทุกอย่าง
+async function loadSiFromDb(){
+  const btn=$("si3FromDb");
+  if(!window.SunStock || typeof window.SunStock.fetchMoves!=="function"){
+    alert("ยังโหลดส่วนฐานข้อมูล (Plan Order) ไม่สำเร็จ ลองรีเฟรชหน้าเว็บแล้วลองใหม่");
+    return;
+  }
+  try{
+    if(btn){ btn.disabled=true; btn.textContent="⏳ กำลังดึงข้อมูล..."; }
+    const moves=await window.SunStock.fetchMoves();
+    if(!moves.length) throw new Error("ตาราง op_stock_moves ในฐานข้อมูลยังไม่มีข้อมูล");
+
+    // ค่า "เคลื่อนไหว" ในฐานข้อมูลบางแถวมีช่องว่างแทรกอยู่ (เช่น "+ 7") ซึ่ง num() ปกติ (ตัดแค่คอมมา/เว้นวรรคหัวท้าย) จะแปลงเป็น NaN แล้วกลายเป็น 0
+    // ทำให้แถวนั้นไม่ถึงเกณฑ์หัก SI (>= 4) ทั้งที่จริงมีจำนวนมากพอ จึงต้องตัดอักขระอื่นที่ไม่ใช่ตัวเลข/จุด/เครื่องหมายลบออกก่อนแปลงเป็นตัวเลข
+    const parseMove=v=>{ const n=Number(String(v??"").replace(/[^0-9.-]/g,"")); return Number.isFinite(n)?n:0; };
+    const rows=moves.map(r=>({ 'SKU Merchant': r.sku, 'จำนวน': parseMove(r.move) }));
+    window.CompareSI={ rows, sourceRows: moves, names: ['ฐานข้อมูล Plan Order (op_stock_moves)'] };
+
+    const nameEl=$('name3'), infoEl=$('info3'), box=$('siDropCompare'), clr=$('siCompareClear');
+    if(nameEl) nameEl.textContent='ฐานข้อมูล Plan Order (op_stock_moves)';
+    if(infoEl) infoEl.textContent=`${rows.length.toLocaleString()} แถว | หัวคอลัมน์ SKU Merchant + จำนวน | จากฐานข้อมูล`;
+    if(box) box.classList.add('has-file');
+    if(clr) clr.hidden=false;
+
+    if(typeof updateCompareReady==='function' && data1 && data2) updateCompareReady();
+  }catch(e){
+    alert("ดึงข้อมูล SI จากฐานข้อมูลไม่สำเร็จ\n\n"+e.message);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent="📥 ใช้ข้อมูลจากฐานข้อมูล (Plan Order)"; }
+  }
+}
+const si3FromDbBtn=$("si3FromDb");
+if(si3FromDbBtn) si3FromDbBtn.addEventListener('click', loadSiFromDb);
+async function loadOrderCompareFile(file){
+  if(!file)return;
+  try{
+    if(!/\.(xlsx|xls|csv)$/i.test(file.name)) throw new Error("รองรับเฉพาะไฟล์ Excel (.xlsx/.xls) หรือ CSV");
+    setProgress(20);
+    data2File=await readCompareFile(file);
+    setProgress(55);
+
+    // ไฟล์ ORDER สามารถทำงานร่วมกับข้อความในช่อง ORDER ได้
+    // ถ้ามีทั้งสองแหล่ง ระบบจะรวมเป็นชุดข้อมูลเดียวก่อนตรวจ Stock
+    data2=getCombinedOrderRows();
+    orderFileName=file.name;
+    const d=detectOrderColumns(data2File);
+    orderSkuCol=d.sku;
+    orderQtyCol=d.qty;
+
+    // loadOrderCompareFile ใช้เฉพาะช่องที่ 1
+    $("name1").textContent=file.name;
+    $("info1").textContent=`${data2.length.toLocaleString()} รายการ | ${d.headers.length} คอลัมน์${data2Text?.length ? ` | + ข้อความ ${data2Text.length.toLocaleString()} รายการ` : ''}`;
+    setProgress(100);
+    setTimeout(()=>setProgress(0),300);
+
+    updateCompareReady();
+  }catch(e){
+    setProgress(0);
+    data2=null;
+    syncCompareVisibility();
+    alert("ไม่สามารถอ่านไฟล์ ORDER ได้\n\n"+e.message);
+  }
+}
+
+function getCombinedOrderRows(){
+  const fileRows=Array.isArray(data2File)?data2File:[];
+  const textRows=Array.isArray(data2Text)?data2Text:[];
+
+  // ถ้ามีไฟล์ Excel ให้ยึดหัวคอลัมน์ของไฟล์เป็นหลัก
+  // แล้วแปลงข้อความจากช่องกรอกให้ใช้หัวคอลัมน์เดียวกัน เพื่อให้รวมยอด SKU ได้จริง
+  if(fileRows.length && textRows.length){
+    const fd=detectOrderColumns(fileRows);
+    const td=detectOrderColumns(textRows);
+    const mappedText=textRows.map(r=>({
+      [fd.sku]: r?.[td.sku] ?? '',
+      [fd.qty]: r?.[td.qty] ?? r?.[td.qty === 'จำนวน' ? 'จำนวน' : ''] ?? ''
+    }));
+    return fileRows.concat(mappedText);
+  }
+
+  return fileRows.concat(textRows);
+}
+
+function refreshCombinedOrderData(){
+  data2=getCombinedOrderRows();
+  if(!data2.length){
+    orderSkuCol='';
+    orderQtyCol='';
+    return;
+  }
+
+  // ใช้หัวคอลัมน์จากไฟล์เป็นหลักเมื่อมีไฟล์
+  const sourceRows=Array.isArray(data2File)&&data2File.length?data2File:data2Text;
+  const d=detectOrderColumns(sourceRows);
+  orderSkuCol=d.sku;
+  orderQtyCol=d.qty;
+
+  const name1=$("name1");
+  const info1=$("info1");
+  if(name1){
+    if(data2File?.length && data2Text?.length) name1.textContent=`${orderFileName} + ข้อความ ORDER`;
+    else if(data2File?.length) name1.textContent=orderFileName;
+    else name1.textContent='ORDER จากข้อความ';
+  }
+  if(info1){
+    info1.textContent=`${data2.length.toLocaleString()} รายการ | ${d.headers.length} คอลัมน์` +
+      (data2File?.length && data2Text?.length ? ` | ไฟล์ ${data2File.length.toLocaleString()} + ข้อความ ${data2Text.length.toLocaleString()}` : '');
+  }
+}
+
+// แสดงกล่องผลตรวจ/ตัวเลขสรุปเฉพาะเมื่อมีข้อมูลครบทั้ง 2 ไฟล์และตรวจเสร็จแล้ว (คุมด้วย CSS)
+function setCompareResultVisible(visible){
+  const tool=document.getElementById('compareTool');
+  if(tool) tool.classList.toggle('compare-has-result',!!visible);
+}
+
+// กล่องตรวจอัตโนมัติ/ข้อความสถานะแสดงเมื่อมีข้อมูลครบทั้ง 2 ไฟล์, ปุ่มล้างข้อมูลแสดงเมื่อมีข้อมูลอย่างน้อย 1 ไฟล์
+function syncCompareVisibility(){
+  const tool=document.getElementById('compareTool');
+  if(!tool) return;
+  tool.classList.toggle('compare-any',!!(data1||data2));
+  tool.classList.toggle('compare-both',!!(data1&&data2));
+}
+
+function updateCompareReady(){
+  syncCompareVisibility();
+  const info=$("autoCompareDetail");
+
+  if(!data1 || !data2){
+    setCompareResultVisible(false);
+    { const sd=document.getElementById('siDeductBox'); if(sd){ sd.hidden=true; sd.innerHTML=''; } }
+    $("compareStatus").textContent="● กรุณาเลือกไฟล์ ORDER และ Stock";
+    if(info){
+      if(data1){
+        info.innerHTML=`ตรวจพบ ORDER: SKU = <b>"${escapeHtml(orderSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(orderQtyCol)}"</b><br>รอเลือกไฟล์ Stock`;
+      }else if(data2){
+        info.innerHTML=`ตรวจพบ Stock: SKU = <b>"${escapeHtml(stockSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(stockQtyCol)}"</b>${stockPosCol?` | ตำแหน่ง = <b>"${escapeHtml(stockPosCol)}"</b>`:''}<br>รอเลือกไฟล์ ORDER`;
+      }else{
+        info.textContent="เลือกไฟล์ ORDER และ Stock แล้วระบบจะตรวจจับหัวคอลัมน์จากแถวบนสุดให้อัตโนมัติ";
+      }
+    }
+    return;
+  }
+
+  if(!stockSkuCol || !stockQtyCol || !orderSkuCol || !orderQtyCol){
+    setCompareResultVisible(false);
+    $("compareStatus").textContent="❌ ตรวจจับหัวคอลัมน์ SKU/จำนวนไม่ครบ";
+    if(info) info.textContent="ไม่พบหัวคอลัมน์ที่ใช้ตรวจสอบ กรุณาตรวจชื่อหัวคอลัมน์ในแถวบนสุดของไฟล์";
+    return;
+  }
+
+  if(cleanCompareHeader(stockSkuCol)!==cleanCompareHeader(orderSkuCol)){
+    // อนุญาตให้ชื่อหัวคอลัมน์ต่างกันได้ แต่แจ้งให้เห็นชื่อที่ตรวจพบ
+  }
+
+  if(info){
+    info.innerHTML=
+      `ตรวจพบอัตโนมัติ — Stock: SKU = <b>"${escapeHtml(stockSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(stockQtyCol)}"</b>`+
+      (stockPosCol?` | ตำแหน่ง = <b>"${escapeHtml(stockPosCol)}"</b>`:'')+
+      `<br>ORDER: SKU = <b>"${escapeHtml(orderSkuCol)}"</b> | จำนวน = <b>"${escapeHtml(orderQtyCol)}"</b>`;
+  }
+
+  $("compareStatus").textContent="⚡ พบไฟล์ครบแล้ว — กำลังตรวจ ORDER กับ Stock อัตโนมัติ...";
+  setTimeout(compareFiles,50);
+}
+
+function num(v){
+  const n=Number(String(v??"").replace(/,/g,"").trim());
+  return Number.isFinite(n)?n:0;
+}
+
+function norm(v){
+  return String(v??"").trim();
+}
+
+// คีย์ SKU สำหรับรวม ORDER: ตัดช่องว่างหัว/ท้ายและรวมช่องว่างที่เกินมา
+// เพื่อให้ SKU เดียวกันจากการพิมพ์, คัดลอกจาก Excel หรือคนละรูปแบบช่องว่าง
+// ถูกนับรวมเป็นรายการเดียวกัน
+/* ===== ความจำยี่ห้อของ SKU =====
+   จำ SKU Merchant → ชื่อยี่ห้อ (ชื่อ SKU Merchant) ทุกครั้งที่โหลดไฟล์ ORDER เก็บในเบราว์เซอร์ (ไม่ถูกรีเซ็ตตอนเที่ยงคืน)
+   ใช้เติมตัวเลือกยี่ห้อในหน้าตรวจ Stock เมื่อรายการมาจากใบปริ้น/ไฟล์ที่ไม่มีคอลัมน์ยี่ห้อ */
+const SKU_BRAND_KEY = 'order_sku_brand_v1';
+const SKU_BRAND_MAX = 30000;
+let skuBrandCache = null;
+
+function skuBrandDict() {
+  if (skuBrandCache) return skuBrandCache;
+  try { skuBrandCache = JSON.parse(localStorage.getItem(SKU_BRAND_KEY)) || {}; } catch (e) { skuBrandCache = {}; }
+  return skuBrandCache;
+}
+
+function skuBrandLearn(rows, skuIndex, brandIndex) {
+  if (!Array.isArray(rows) || skuIndex < 0 || brandIndex < 0 || skuIndex === brandIndex) return;
+  const d = skuBrandDict();
+  let changed = 0;
+  rows.forEach(row => {
+    const sku = normalizeOrderSku(row?.[skuIndex]);
+    const brand = String(row?.[brandIndex] ?? '').trim();
+    if (!sku || !brand || d[sku] === brand) return;
+    delete d[sku];          // ให้รายการที่เพิ่งใช้ไปอยู่ท้ายสุด
+    d[sku] = brand;
+    changed++;
+  });
+  if (!changed) return;
+  const keys = Object.keys(d);
+  if (keys.length > SKU_BRAND_MAX) keys.slice(0, keys.length - SKU_BRAND_MAX).forEach(k => delete d[k]);
+  try { localStorage.setItem(SKU_BRAND_KEY, JSON.stringify(d)); } catch (e) { /* พื้นที่เต็ม: ใช้ในหน่วยความจำต่อ */ }
+}
+
+// ลำดับความสำคัญ: ยี่ห้อจาก Pivot ปัจจุบัน → ที่ส่งมาจากหน้าตรวจใบปริ้น → ความจำยี่ห้อของ SKU
+function skuBrandNames(sku, pivotItem) {
+  if (pivotItem?.merchantNames?.length) return pivotItem.merchantNames;
+  const key = normalizeOrderSku(sku);
+  const fromScan = window.scanBrandMap && window.scanBrandMap.get(key);
+  if (fromScan && fromScan.length) return fromScan;
+  const b = skuBrandDict()[key];
+  return b ? [b] : [];
+}
+
+function normalizeOrderSku(v){
+  return String(v??"")
+    .trim()
+    .replace(/\s+/g," ")
+    .toUpperCase();
+}
+
+function extractCompareLocationPrefixes(value){
+  const raw=norm(value);
+  if(!raw)return [];
+
+  // รองรับตำแหน่งหลายค่าที่อยู่ในเซลล์เดียวกัน
+  // เช่น KT-001-01, C-00-01 / WH-01
+  const chunks=raw
+    .split(/[\\n,;\\/|]+/)
+    .map(x=>x.trim())
+    .filter(Boolean);
+
+  const result=[];
+  chunks.forEach(x=>{
+    const first=(x.split("-")[0]||x).trim();
+    if(!first)return;
+
+    // ตำแหน่งมาตรฐาน เช่น KT-001-01 / C-00-01 / WH-01
+    if(/^[A-Za-zก-ฮ][A-Za-z0-9ก-ฮ_]*$/i.test(first)){
+      result.push(first.toUpperCase());
+    }
+  });
+
+  return result.filter((x,i,a)=>a.indexOf(x)===i);
+}
+
+function formatComparePosition(v){
+  return extractCompareLocationPrefixes(v).join(", ");
+}
+
+// ตำแหน่งวางสินค้าชำรุด ไม่ใช้หยิบของ: ไม่นับทั้งจำนวนและตำแหน่งตอนตรวจ ORDER กับ Stock
+// ดูจากรหัสตำแหน่ง (ฐานข้อมูล op_stock ไม่มีคอลัมน์ประเภทตำแหน่ง) หรือคอลัมน์ "ประเภทตำแหน่ง" ที่มีคำว่า ชำรุด (ไฟล์ Stock)
+const COMPARE_DAMAGED_LOCATIONS = ['X001'];
+function isDamagedStockRow(row){
+  if(stockPosCol){
+    const loc=norm(row[stockPosCol]).toUpperCase();
+    if(COMPARE_DAMAGED_LOCATIONS.some(x=>loc===x || loc.startsWith(x+'-'))) return true;
+  }
+  return Object.keys(row).some(h=>/ประเภทตำแหน่ง/.test(h) && /ชำรุด/.test(norm(row[h])));
+}
+
+const COMPARE_SI_MIN_QTY = 4; // เอาเฉพาะจำนวนใน SI ที่ตั้งแต่ค่านี้ขึ้นไป (มากกว่าหรือเท่ากับ 4) ไปหักลบกับ ORDER
+
+// กล่อง "หักลบกับไฟล์ที่ 3 (SI)": บอกว่า SKU Merchant ไหนถูกหักลบ ORDER เดิม / SI / ORDER หลังหัก
+function renderSiDeductions(list, siData, stockMap){
+  const box=document.getElementById('siDeductBox');
+  if(!box)return;
+  if(!siData || !Array.isArray(siData.rows) || !siData.rows.length){ box.hidden=true; box.innerHTML=''; return; }
+  box.hidden=false;
+  if(!list.length){
+    box.innerHTML='<b>🗂️ หักลบกับไฟล์ที่ 3 (SI)</b><div class="compare-si-deduct-note">ไม่มี SKU Merchant ที่ตรงกับ ORDER (เอาเฉพาะจำนวน SI ตั้งแต่ '+COMPARE_SI_MIN_QTY+' ขึ้นไป)</div>';
+    return;
+  }
+  const totalSi=list.reduce((s,x)=>s+(x.before-x.after),0);
+  const covered=list.filter(x=>x.after<=0).length;
+  // ตำแหน่งในสต็อกของ SKU ที่ถูกหักด้วย SI (เช่น C=20, H=50) เวลาเบิกจะได้รู้ว่าของอยู่ไหน
+  const locOf=sku=>{
+    const st=stockMap && stockMap.get(normalizeOrderSku(sku));
+    if(!st || st.qty<=0) return '-';
+    return compareLocQtyLabel({places:st.places, locations:(st.locations||[]).join(', ')});
+  };
+  const rows=list.map(x=>`<tr><td>${escapeHtml(x.sku)}</td><td class="num">${formatPivotNumber(x.before)}</td><td class="num">${formatPivotNumber(x.si)}</td><td class="num">${formatPivotNumber(x.before-x.after)}</td><td class="num"><b>${formatPivotNumber(x.after)}</b></td><td>${escapeHtml(locOf(x.sku))}</td></tr>`).join('');
+  box.innerHTML=
+    `<b>🗂️ หักลบกับไฟล์ที่ 3 (SI)</b>`+
+    `<div class="compare-si-deduct-note">หัก ${list.length.toLocaleString()} SKU Merchant | รวมที่หักออก ${formatPivotNumber(totalSi)} ชิ้น | เหลือ 0 (ไม่นำไปเทียบ Stock) ${covered.toLocaleString()} SKU | เอาเฉพาะจำนวน SI ตั้งแต่ ${COMPARE_SI_MIN_QTY} ขึ้นไป แล้วเทียบกับ Stock ต่อ</div>`+
+    `<div class="compare-si-deduct-wrap"><table><thead><tr><th>SKU Merchant</th><th class="num">ORDER เดิม</th><th class="num">SI (≥ ${COMPARE_SI_MIN_QTY})</th><th class="num">หักออก</th><th class="num">ORDER หลังหัก</th><th>ตำแหน่ง</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function compareFiles(){
+  if(!data1 || !data2)return;
+  if(!stockSkuCol || !stockQtyCol || !orderSkuCol || !orderQtyCol){
+    alert("ไม่พบหัวคอลัมน์ SKU/จำนวน ที่จำเป็นสำหรับการตรวจ");
+    return;
+  }
+
+  try{
+    setProgress(15);
+
+    // รวม Stock ตาม SKU และเก็บตำแหน่งที่ไม่ซ้ำ
+    const stockMap=new Map();
+    const hBoxContents=new Map();
+    compareHBoxContents=hBoxContents;
+
+    data1.forEach(row=>{
+      const displaySku=norm(row[stockSkuCol]);
+      if(!displaySku)return;
+      if(isDamagedStockRow(row))return;
+
+      const sku=normalizeOrderSku(displaySku);
+      const qty=num(row[stockQtyCol]);
+      let item=stockMap.get(sku);
+      if(!item){
+        item={sku:displaySku,qty:0,locations:[],places:[]};
+        stockMap.set(sku,item);
+      }
+      item.qty+=qty;
+
+      // อ่านตำแหน่งจากคอลัมน์ที่ตรวจพบก่อน
+      // ถ้าไม่พบ/คอลัมน์นั้นว่าง ให้ค้นจากทุกคอลัมน์ของ Stock
+      // เพื่อรองรับไฟล์ที่ตั้งชื่อหัวคอลัมน์ตำแหน่งต่างจากมาตรฐาน
+      let locationPrefixes=[];
+
+      if(stockPosCol){
+        locationPrefixes=extractCompareLocationPrefixes(row[stockPosCol]);
+      }
+
+      if(!locationPrefixes.length){
+        Object.keys(row).forEach(header=>{
+          if(header===stockSkuCol || header===stockQtyCol)return;
+
+          const rawValue=norm(row[header]);
+          if(!rawValue)return;
+
+          // ดึงเฉพาะค่าที่มีลักษณะเป็นรหัสตำแหน่ง เช่น
+          // KT-001-01, C-00-01, WH-01
+          const chunks=rawValue
+            .split(/[\\n,;\\/|]+/)
+            .map(x=>x.trim())
+            .filter(Boolean);
+
+          chunks.forEach(chunk=>{
+            if(/^[A-Za-zก-ฮ][A-Za-z0-9ก-ฮ_]*-[A-Za-z0-9ก-ฮ_.]+(?:-[A-Za-z0-9ก-ฮ_.]+)*$/i.test(chunk)){
+              const prefix=(chunk.split("-")[0]||"").trim().toUpperCase();
+              if(prefix && !locationPrefixes.includes(prefix)){
+                locationPrefixes.push(prefix);
+              }
+            }
+          });
+        });
+      }
+
+      locationPrefixes.forEach(loc=>{
+        if(loc && !item.locations.some(x=>x.toUpperCase()===loc.toUpperCase())){
+          item.locations.push(loc);
+        }
+      });
+
+      // เก็บจำนวนรายตำแหน่งไว้ใช้ทำไฟล์เบิกของแยกตำแหน่ง (downloadPickListsByLocation)
+      if(locationPrefixes.length){
+        const fullLoc = stockPosCol ? norm(row[stockPosCol]) : '';
+        item.places.push({ loc: fullLoc, prefix: locationPrefixes[0], qty });
+        // ของทุก SKU ในลัง H แต่ละลัง: ย้ายลังไหน SKU อื่นในลังนั้นต้องติดไปด้วย
+        if(fullLoc && locationPrefixes[0]===MOVE_FULL_BOX_PREFIX && qty>0){
+          const boxKey=fullLoc.toUpperCase();
+          if(!hBoxContents.has(boxKey)) hBoxContents.set(boxKey,new Map());
+          const box=hBoxContents.get(boxKey);
+          box.set(displaySku,(box.get(displaySku)||0)+qty);
+        }
+      }
+    });
+
+    setProgress(40);
+
+    // รวม ORDER ตาม SKU
+    // ไม่ว่าจะมาจากการพิมพ์เองหรือ Excel ถ้า SKU ซ้ำกันให้รวมจำนวนทั้งหมด
+    const orderMap=new Map();
+
+    data2.forEach(row=>{
+      const displaySku=norm(row[orderSkuCol]);
+      if(!displaySku)return;
+
+      const key=normalizeOrderSku(displaySku);
+      const qty=num(row[orderQtyCol]);
+      const current=orderMap.get(key);
+
+      if(current){
+        current.orderQty+=qty;
+      }else{
+        orderMap.set(key,{sku:displaySku,orderQty:qty});
+      }
+    });
+
+    // ไฟล์ที่ 3 (SI): เอาเฉพาะแถวที่ "จำนวน" มากกว่าหรือเท่ากับ COMPARE_SI_MIN_QTY (4) ไปหักลบกับ ORDER (ไฟล์ที่ 1) ก่อน
+    // แล้วค่อยนำ ORDER ที่เหลือไปเทียบกับ Stock (ไฟล์ที่ 2) ตามเงื่อนไขเดิม
+    // SKU ที่หักจนเหลือ 0 จะไม่ถูกนำไปเทียบกับ Stock (แสดงไว้ในกล่อง "หักลบกับไฟล์ที่ 3")
+    const siDeductions=[];
+    const siData=window.CompareSI;
+    if(siData && Array.isArray(siData.rows) && siData.rows.length){
+      const siMap=new Map();
+      siData.rows.forEach(r=>{
+        const q=num(r["จำนวน"]);
+        if(q<COMPARE_SI_MIN_QTY)return;
+        const key=normalizeOrderSku(r["SKU Merchant"]);
+        if(!key)return;
+        siMap.set(key,(siMap.get(key)||0)+q);
+      });
+      siMap.forEach((siQty,key)=>{
+        const cur=orderMap.get(key);
+        if(!cur || cur.orderQty<=0)return;
+        const before=cur.orderQty;
+        const used=Math.min(before,siQty);
+        cur.orderQty=before-used;
+        cur.siBefore=before; // ORDER เดิมก่อนหัก SI ไว้แสดงในตาราง (หักจนเหลือ 0 ก็ยังแสดงแถว ไม่หายไป)
+        siDeductions.push({sku:cur.sku,before,si:siQty,after:cur.orderQty});
+      });
+    }
+    renderSiDeductions(siDeductions,siData,stockMap);
+
+    setProgress(65);
+
+    compareResults=[...orderMap.values()].map(({sku,orderQty,siBefore})=>{
+      let stock=stockMap.get(normalizeOrderSku(sku));
+      // รหัสที่ใช้แทนกันได้ (เช่น 004309-004318 ใน js/move-rules.js): รหัสที่สั่งไม่มีสต็อก ให้เบิกรหัสคู่ที่สี/ไซซ์เดียวกันแทน
+      // ถ้ามีทั้งคู่ เอาตามรหัสที่สั่ง
+      let stockSku='';
+      if(!stock || stock.qty<=0){
+        const alt=findInterchangeableStock(sku, stockMap);
+        if(alt){
+          // ORDER ที่สั่งรหัสคู่ตรงตัวได้สต็อกก่อน ตัวที่เบิกแทนได้แค่ที่เหลือ (สต็อกไม่ถูกนับซ้ำ)
+          const own=orderMap.get(normalizeOrderSku(alt.sku));
+          const left=alt.qty-Math.min(own ? own.orderQty : 0, alt.qty);
+          if(left>0){ stock={...alt,qty:left}; stockSku=alt.sku; }
+        }
+      }
+      const stockQty=stock ? stock.qty : 0;
+      const locations=stock ? stock.locations.join(", ") : "";
+
+      let status;
+      if(orderQty<=0 && siBefore){
+        status="✅ SI ครบ"; // SI หักครบแล้ว ไม่ต้องเบิกเพิ่ม (จำนวนเบิกเริ่มที่ 0 แก้เองได้)
+      }else if(!stock || stockQty<=0){
+        status="❌ ไม่มี Stock";
+      }else if(stockQty<orderQty){
+        status=`⚠️ ขาด ${formatPivotNumber(orderQty-stockQty)}`;
+      }else{
+        status="✅ พอ";
+      }
+
+      const pivotItem = orderPivotRows.find(x => normalizeOrderSku(x.sku) === normalizeOrderSku(sku));
+      return {
+        sku,
+        orderQty,
+        orderShown: siBefore || orderQty, // คอลัมน์ ORDER แสดงจำนวนที่สั่งจริง (ก่อนหัก SI)
+        stockQty,
+        status,
+        locations,
+        stockSku,
+        places: stock ? stock.places : [],
+        merchantNames: skuBrandNames(sku, pivotItem)
+      };
+    });
+
+    // ผลตรวจชุดใหม่: ให้ตัวเลือกยี่ห้อ/ตำแหน่งเริ่มต้นเป็น "เลือกทั้งหมด" ตามข้อมูลจริง
+    compareCopyBrandSelection.clear();
+    compareCopyLocationSelection.clear();
+    moveQtyOverrides.clear();
+    moveLocPicks.clear();
+    moveSkipped.clear();
+    snapshotPriorPicks(); // ผลตรวจชุดใหม่: จำว่า ณ ตอนนี้ SKU ไหนเคยส่งออกไปแล้ววันนี้ (ใช้ทำสีแถวที่ซ้ำ)
+    compareCopySelectionsInitialized = false;
+
+    // คงลำดับตามไฟล์ ORDER (ไฟล์ที่ 1) ไม่เรียง SKU ใหม่ตามพยัญชนะ
+    // เมื่อแยกลงแต่ละ Sheet แถวถัดไปจะเลื่อนขึ้นมาต่อกันตามลำดับเดิม
+
+    const total=compareResults.length;
+    const shortCount=compareResults.filter(x=>x.status.startsWith("⚠️")).length;
+    const okCount=compareResults.filter(x=>x.status.startsWith("✅")).length;
+    const noneCount=compareResults.filter(x=>x.status.startsWith("❌")).length;
+
+    $("total").textContent=total.toLocaleString();
+    $("affected").textContent=shortCount.toLocaleString();
+    $("remaining").textContent=okCount.toLocaleString();
+
+    // แถบสรุปใหม่ใช้ผลลัพธ์ชุดเดิม ไม่แตะ logic การตรวจ
+    const quickTotal = document.getElementById("compareQuickTotal");
+    const quickOk = document.getElementById("compareQuickOk");
+    const quickShort = document.getElementById("compareQuickShort");
+    const quickNone = document.getElementById("compareQuickNone");
+    if (quickTotal) quickTotal.textContent = total.toLocaleString();
+    if (quickOk) quickOk.textContent = okCount.toLocaleString();
+    if (quickShort) quickShort.textContent = shortCount.toLocaleString();
+    if (quickNone) quickNone.textContent = noneCount.toLocaleString();
+
+    $("remainingSku").textContent=total.toLocaleString();
+    $("partialSku").textContent=okCount.toLocaleString();
+    $("deletedSku").textContent=shortCount.toLocaleString();
+    $("remainingQty").textContent=noneCount.toLocaleString();
+
+    // กล่อง "ค้นหา SKU และกรองสถานะ" ซ่อนไว้ตลอด (ไม่ใช้แล้ว) แต่คง element ไว้เพราะโค้ดส่วนอื่นยังอ่านค่าช่องค้นหา/ตัวกรอง
+    $("resultBox").style.display="block";
+    $("downloadBox").style.display="flex";
+    setCompareResultVisible(true);
+
+    $("resultHeaderNote").textContent=
+      `Stock: ${stockSkuCol} / ${stockQtyCol}${stockPosCol?` / ${stockPosCol}`:''}  •  ORDER: ${orderSkuCol} / ${orderQtyCol}`;
+
+    $("compareExtraNote").textContent=`ทั้งหมด ${total.toLocaleString()} SKU`;
+    $("compareStatus").textContent=
+      `✅ ตรวจเสร็จแล้ว | Stock ${stockFileName} | ORDER ${orderFileName}`+
+      (siDeductions.length ? ` | หักลบไฟล์ที่ 3 (SI) ${siDeductions.length.toLocaleString()} SKU` : '');
+
+    renderCompareResults();
+
+    // แสดงผลตาราง "ยอดคงเหลือ" และ "รายการที่ถูกลบ-ถูกหัก" บนเว็บทันที
+    // หลังจากยืนยันจากหน้า "ก่อนสั่ง" หรือเมื่อการตรวจชุดใหม่เสร็จ
+    // โดยไม่ต้องกดปุ่มดาวน์โหลด/แสดงผลอีกครั้ง
+    renderCompareWebPreview('all', true);
+
+    setProgress(100);
+    setTimeout(()=>setProgress(0),400);
+  }catch(e){
+    setProgress(0);
+    alert("เกิดข้อผิดพลาด\n\n"+e.message);
+  }
+}
+
+function renderCompareResults(){
+  const search=norm($("compareSearch").value).toLowerCase();
+  const filter=$("compareStatusFilter").value;
+
+  const filtered=compareResults.filter(item=>{
+    if(filter==="ok" && !item.status.startsWith("✅"))return false;
+    if(filter==="short" && !item.status.startsWith("⚠️"))return false;
+    if(filter==="none" && !item.status.startsWith("❌"))return false;
+
+    if(search){
+      const text=[item.sku,item.stockSku,item.orderQty,item.stockQty,item.status,item.locations]
+        .join(" ").toLowerCase();
+      if(!text.includes(search))return false;
+    }
+    return true;
+  });
+
+  $("compareExtraNote").textContent=
+    `พบ ${filtered.length.toLocaleString()} / ${compareResults.length.toLocaleString()} SKU`;
+
+  // หน้าจอคงรูปแบบเดิม: SKU / ORDER / Stock รวม / สถานะ / ตำแหน่ง
+  const rows=filtered.slice(0,1000).map(item=>({
+    "SKU":compareSkuLabel(item),
+    "ORDER":formatPivotNumber(item.orderShown ?? item.orderQty),
+    "Stock รวม":formatPivotNumber(item.stockQty),
+    "สถานะ":item.status,
+    "ตำแหน่ง":item.locations || "-"
+  }));
+
+  renderTable(rows,"resultPreview",["SKU","ORDER","Stock รวม","สถานะ","ตำแหน่ง"]);
+}
+
+$("compareSearch").oninput=renderCompareResults;
+$("compareStatusFilter").onchange=renderCompareResults;
+$("orderTextInput").oninput=applyOrderTextAuto;
+
+function renderTable(rows,id,columns){
+  const box=$(id);
+  if(!rows.length){
+    box.innerHTML='<div class="empty">ไม่พบข้อมูลตามเงื่อนไข</div>';
+    return;
+  }
+
+  let h="<table><thead><tr>"+
+    columns.map(c=>`<th>${esc(c)}</th>`).join("")+
+    "</tr></thead><tbody>";
+
+  rows.forEach(r=>{
+    h+="<tr>"+columns.map(c=>`<td>${esc(r?.[c]??"")}</td>`).join("")+"</tr>";
+  });
+
+  h+="</tbody></table>";
+
+  if(rows.length>=1000){
+    h+='<div style="padding:10px;text-align:center;color:#687d83">แสดงสูงสุด 1,000 รายการ</div>';
+  }else{
+    h+=`<div style="padding:10px;text-align:center;color:#687d83">แสดงข้อมูล ${rows.length.toLocaleString()} รายการ</div>`;
+  }
+
+  box.innerHTML=h;
+}
+
+function previewCompareTable(headers, rows){
+  if(!rows.length){
+    return '<div class="compare-preview-empty">ไม่มีรายการในหัวข้อนี้</div>';
+  }
+
+  const head=headers.map(h=>`<th>${esc(h)}</th>`).join('');
+  // ช่องที่เป็น {html} (เช่น ช่องจำนวนเบิกที่แก้ได้) ใส่ HTML ตรงๆ ช่องอื่น escape ตามปกติ
+  const body=rows.map(row=>`<tr${row.rowClass?` class="${esc(row.rowClass)}"`:''}${row.rowTitle?` title="${esc(row.rowTitle)}"`:''}>${row.map(v=>`<td>${v && typeof v==='object' && 'html' in v ? v.html : esc(v ?? '')}</td>`).join('')}</tr>`).join('');
+  return `<div class="compare-preview-table-wrap"><table class="compare-preview-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+// ===== ตัวเลือกสำหรับคัดลอกผลตรวจ =====
+let compareCopyBrandSelection = new Set();
+let compareCopyLocationSelection = new Set();
+let comparePreviewMode = 'all';
+let compareCopySelectionsInitialized = false;
+
+function uniqueSorted(values){
+  return [...new Set((values||[]).map(v=>String(v??'').trim()).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
+}
+
+// ยี่ห้อที่ต่างกันแค่ท้ายชื่อ (เช่น EGO / EGO SPORT) ให้นับรวมเป็นชื่อหน้าคำแรก
+function compareBrandKey(name){
+  return String(name??''  ).trim().split(/\s+/)[0]||'';
+}
+
+function compareBrandPass(item){
+  const names=item.merchantNames||[];
+  if(!names.length) return true; // ไม่มีข้อมูลยี่ห้อ (เช่น รายการจากใบปริ้น) ให้แสดงเสมอ
+  return names.some(name=>compareCopyBrandSelection.has(compareBrandKey(name)));
+}
+
+function getCompareBrandOptions(){
+  const values=[];
+  compareResults.forEach(item=>{
+    (item.merchantNames||[]).forEach(v=>values.push(compareBrandKey(v)));
+  });
+  return uniqueSorted(values);
+}
+
+function getCompareLocationOptions(rows){
+  const values=[];
+  rows.forEach(item=>{
+    String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean).forEach(v=>values.push(v));
+  });
+  return uniqueSorted(values);
+}
+
+function copyControlHtml(type, options, selected){
+  const selectedSet=selected||new Set();
+  const label=type==='brand'?'🏷️ เลือกยี่ห้อ':'📍 เลือกตำแหน่ง';
+  const id=type==='brand'?'compareBrandPicker':'compareLocationPicker';
+  const copyId=type==='brand'?'copyRemainingBtn':'copyDeductedBtn';
+  const copyText=type==='brand'?'📋 คัดลอกทั้งหมด':'📋 คัดลอก SKU Merchant';
+  const optionHtml=options.length ? options.map((value,i)=>{
+    const key=encodeURIComponent(value);
+    const checked=selectedSet.has(value)?' checked':'';
+    return `<label class="compare-copy-option"><input type="checkbox" data-copy-type="${type}" data-copy-value="${key}"${checked}><span>${esc(value)}</span></label>`;
+  }).join('') : (type==='brand' ? '<div class="compare-copy-empty">ไม่มีข้อมูลยี่ห้อของรายการเหล่านี้ (แสดงทุกรายการ)<br><small>ยี่ห้อจะเริ่มมีเมื่อเคยเปิดไฟล์ ORDER ที่หน้า รับORDER บนเครื่องนี้</small></div>' : '<div class="compare-copy-empty">ไม่พบตัวเลือก</div>');
+  return `<div class="compare-copy-tools">
+    <button type="button" class="compare-copy-btn" id="${copyId}">${copyText}</button>
+    <details class="compare-copy-picker" id="${id}">
+      <summary>${label} <span class="compare-copy-count">${selectedSet.size ? `เลือก ${selectedSet.size}` : 'ไม่เลือก'}</span></summary>
+      <div class="compare-copy-picker-body">
+        <div class="compare-copy-picker-actions">
+          <button type="button" data-copy-action="all" data-copy-type="${type}" onclick="event.preventDefault();event.stopPropagation();window.__compareSetCopySelection('${type}',true)">เลือกทั้งหมด</button>
+          <button type="button" data-copy-action="clear" data-copy-type="${type}" onclick="event.preventDefault();event.stopPropagation();window.__compareSetCopySelection('${type}',false)">ล้างตัวเลือก</button>
+        </div>
+        <div class="compare-copy-options">${optionHtml}</div>
+      </div>
+    </details>
+  </div>`;
+}
+
+window.__compareSetCopySelection = function(type, selectAll){
+  const target=type==='brand'?compareCopyBrandSelection:compareCopyLocationSelection;
+  const options=type==='brand'
+    ? getCompareBrandOptions()
+    : getCompareLocationOptions(compareResults.filter(x=>x.stockQty>0));
+
+  // เปลี่ยนสถานะชุดข้อมูลจริงก่อน แล้วสะท้อนกลับไปที่ checkbox ที่อยู่บนหน้าจอ
+  target.clear();
+  if(selectAll) options.forEach(v=>target.add(v));
+
+  const pickerId=type==='brand'?'compareBrandPicker':'compareLocationPicker';
+  const picker=document.getElementById(pickerId);
+  if(picker){
+    picker.querySelectorAll('input[type="checkbox"][data-copy-type]').forEach(cb=>{
+      const value=decodeURIComponent(cb.dataset.copyValue||'');
+      cb.checked=target.has(value);
+    });
+    const count=picker.querySelector('.compare-copy-count');
+    if(count) count.textContent=target.size?`เลือก ${target.size}`:'ไม่เลือก';
+  }
+
+  // อัปเดตเฉพาะแถวข้อมูล ไม่สร้างเมนูใหม่ จึงไม่ทำให้ checkbox กลับไปสถานะเดิม
+  updateComparePreviewTables();
+};
+
+function bindCompareCopyControls(){
+  document.querySelectorAll('[data-copy-type]').forEach(el=>{
+    if(el.dataset.bound==='1') return;
+    el.dataset.bound='1';
+    if(el.matches('input[type="checkbox"]')){
+      el.addEventListener('change',()=>{
+        const type=el.dataset.copyType;
+        const value=decodeURIComponent(el.dataset.copyValue||'');
+        const target=type==='brand'?compareCopyBrandSelection:compareCopyLocationSelection;
+        if(el.checked) target.add(value); else target.delete(value);
+        const picker=el.closest('.compare-copy-picker');
+        const count=picker?.querySelector('.compare-copy-count');
+        if(count) count.textContent=target.size?`เลือก ${target.size}`:'ไม่เลือก';
+        // เก็บสถานะที่ติ๊กไว้ โดยไม่สร้างเมนูใหม่/ไม่ปิด dropdown
+        updateComparePreviewTables();
+      });
+    }
+  });
+
+  // ปุ่มเลือกทั้งหมด/ล้างตัวเลือกใช้ handler กลางด้านล่าง เพื่อไม่ให้ DOM ที่ถูกสร้างใหม่ทำให้ event หลุด
+
+  const remainingBtn=document.getElementById('copyRemainingBtn');
+  if(remainingBtn && remainingBtn.dataset.bound!=='1'){
+    remainingBtn.dataset.bound='1';
+    remainingBtn.addEventListener('click',()=>copyRemainingByBrand());
+  }
+  const deductedBtn=document.getElementById('copyDeductedBtn');
+  if(deductedBtn && deductedBtn.dataset.bound!=='1'){
+    deductedBtn.dataset.bound='1';
+    deductedBtn.addEventListener('click',()=>copyDeductedByLocation());
+  }
+}
+
+async function copyTextToClipboard(text, successText){
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    }else{
+      const ta=document.createElement('textarea');
+      ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    if(typeof window.fxToast==='function') window.fxToast(successText,'success');
+    else alert(successText);
+  }catch(e){
+    alert('ไม่สามารถคัดลอกอัตโนมัติได้ กรุณากด Ctrl+C หลังเลือกข้อความ');
+  }
+}
+
+// ยอดคงเหลือ (ต้องสั่งเพิ่ม): ORDER ที่สต็อกไม่พอ + ส่วนที่แก้จำนวนเบิกเกินสต็อกที่มี (ส่วนเกินย้ายมาอยู่ที่นี่)
+// คืนค่า [{item, qty}] เรียงตาม ORDER เดิม
+function getRemainingRows(){
+  const rows=compareResults
+    .filter(item=>item.orderQty>0 && (item.stockQty<=0 || item.stockQty<item.orderQty))
+    .map(item=>({item,qty:Math.max(item.orderQty-item.stockQty,0)}));
+  const plan=buildMovePlan();
+  plan.forEach((p,key)=>{
+    // แก้ตัวเลขเอง หรือเลือกตำแหน่งเอง แล้วสต็อกที่ใช้ได้ไม่พอ: ส่วนที่ขาดไปอยู่ยอดคงเหลือ
+    const want=p.manual!==null ? p.manual : (p.restricted ? p.pick : null);
+    if(want===null || want<=p.stockTotal) return;
+    const excess=want-p.stockTotal;
+    const item=compareResults.find(x=>moveKeyOf(x)===key);
+    if(!item) return;
+    // ตัวเลขที่พิมพ์แทนจำนวนที่ต้องการทั้งหมด: ยอดคงเหลือของ SKU นี้ = ตัวเลขที่พิมพ์ - สต็อกที่มี (แทนค่าเดิม ไม่บวกซ้ำ)
+    const cur=rows.find(r=>r.item===item);
+    if(cur) cur.qty=excess;
+    else rows.push({item,qty:excess});
+  });
+  const order=new Map(compareResults.map((x,i)=>[x,i]));
+  return rows.sort((a,b)=>order.get(a.item)-order.get(b.item));
+}
+
+function copyRemainingByBrand(){
+  const filtered=getRemainingRows().filter(r=>compareBrandPass(r.item));
+  const text=filtered.map(r=>`${r.item.sku}	${r.qty}`).join('\n');
+  if(!text) return alert('ไม่พบรายการตามยี่ห้อที่เลือก');
+  copyTextToClipboard(text,`คัดลอกยอดคงเหลือ ${filtered.length.toLocaleString()} รายการแล้ว`);
+}
+
+function copyDeductedByLocation(){
+  const rows=compareResults.filter(deductedVisible);
+  const selected=compareCopyLocationSelection;
+  const filtered=selected.size ? rows.filter(item=>{
+    const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
+    return locs.some(loc=>selected.has(loc));
+  }) : [];
+  const text=filtered.map(item=>item.sku).join('\n');
+  if(!text) return alert('ไม่พบรายการตามตำแหน่งที่เลือก');
+  copyTextToClipboard(text,`คัดลอก SKU Merchant ${filtered.length.toLocaleString()} รายการแล้ว`);
+}
+
+function updateComparePreviewTables(){
+  const remaining=getRemainingRows().filter(r=>compareBrandPass(r.item)).map(r=>[r.item.sku,r.qty]);
+
+  const deductedSource=compareResults.filter(deductedVisible);
+  const deductedFiltered=compareCopyLocationSelection.size ? deductedSource.filter(item=>{
+    const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
+    return locs.some(loc=>compareCopyLocationSelection.has(loc));
+  }) : [];
+  const plan=buildMovePlan();
+  const deducted=deductedFiltered.map(item=>decorateDeductedRow([
+    compareSkuLabel(item),item.orderShown ?? item.orderQty,item.stockQty,
+    moveQtyCell(item,plan),moveLocCell(item),item.status,moveSkipCell(item)
+  ],item));
+
+  // วาดตารางใหม่แล้วคงตำแหน่งที่เลื่อนไว้ (กดเลือกตำแหน่ง/แก้จำนวนเบิกแล้วไม่เด้งกลับไปบนสุด)
+  // คืนค่า 2 รอบ: ทันที และหลังตัวเรียงลำดับคอลัมน์ (MutationObserver) จัดแถวเสร็จ
+  const keepScroll=(holder,html)=>{
+    if(!holder) return;
+    const els=()=>[holder,...holder.querySelectorAll('.compare-preview-table-wrap')];
+    const saved=els().map(el=>[el.scrollTop,el.scrollLeft]);
+    holder.innerHTML=html;
+    const restore=()=>els().forEach((el,i)=>{ if(saved[i]){ el.scrollTop=saved[i][0]; el.scrollLeft=saved[i][1]; } });
+    restore();
+    setTimeout(restore,0);
+  };
+
+  keepScroll(document.querySelector('[data-preview-table="remaining"]'),previewCompareTable(['SKU Merchant','จำนวน'],remaining));
+  const remCount=document.querySelector('[data-preview-count="remaining"]');
+  if(remCount) remCount.textContent=`${remaining.length.toLocaleString()} รายการ`;
+
+  keepScroll(document.querySelector('[data-preview-table="deducted"]'),deductedTableHtml(deducted));
+  const dedCount=document.querySelector('[data-preview-count="deducted"]');
+  if(dedCount) dedCount.textContent=`${deducted.length.toLocaleString()} รายการ`;
+}
+
+// silent: เรียกอัตโนมัติหลังตรวจเสร็จ (compareFiles) ไม่มีผลก็ไม่ต้องเด้งแจ้งเตือน
+function renderCompareWebPreview(mode='all', silent=false){
+  comparePreviewMode = mode;
+  if(!compareResults.length){
+    if(silent){
+      const box=document.getElementById('compareWebPreview');
+      if(box) box.style.display='none';
+      return;
+    }
+    alert('ยังไม่มีผลตรวจสำหรับแสดง');
+    return;
+  }
+
+  // ครั้งแรกของผลตรวจชุดนี้ ให้ติ๊กทุกตัวเลือกที่มีอยู่จริงไว้ก่อน
+  // หลังจากผู้ใช้ล้างตัวเลือกแล้ว จะไม่เติมกลับอัตโนมัติ
+  if(!compareCopySelectionsInitialized){
+    getCompareBrandOptions().forEach(v=>compareCopyBrandSelection.add(v));
+    getCompareLocationOptions(compareResults.filter(x=>x.stockQty>0)).forEach(v=>compareCopyLocationSelection.add(v));
+    compareCopySelectionsInitialized = true;
+  }
+
+  const box=document.getElementById('compareWebPreview');
+  const body=document.getElementById('compareWebPreviewBody');
+  const title=document.getElementById('compareWebPreviewTitle');
+  if(!box || !body || !title)return;
+
+  let html='';
+
+  if(mode==='all'){
+    title.textContent='📋 ผลตรวจทั้งหมด';
+
+    // ส่วนที่ 1 ตรงกับ Sheet "ยอดคงเหลือ" ในไฟล์ Excel
+    const remaining=getRemainingRows().filter(r=>compareBrandPass(r.item)).map(r=>[r.item.sku,r.qty]);
+
+    // ส่วนที่ 2 ตรงกับ Sheet "รายการที่ถูกลบ-ถูกหัก" ในไฟล์ Excel
+    const deductedSource=compareResults.filter(deductedVisible);
+    const deductedFiltered=compareCopyLocationSelection.size ? deductedSource.filter(item=>{
+      const locs=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
+      return locs.some(loc=>compareCopyLocationSelection.has(loc));
+    }) : [];
+    const plan=buildMovePlan();
+    const deducted=deductedFiltered.map(item=>decorateDeductedRow([
+        compareSkuLabel(item),
+        item.orderShown ?? item.orderQty,
+        item.stockQty,
+        moveQtyCell(item,plan),
+        moveLocCell(item),
+        item.status,
+        moveSkipCell(item)
+      ],item));
+
+    html += `<details class="compare-preview-section" open>
+      <summary>📦 ยอดคงเหลือ <span class="preview-count" data-preview-count="remaining">${remaining.length.toLocaleString()} รายการ</span></summary>
+      ${copyControlHtml('brand', getCompareBrandOptions(), compareCopyBrandSelection)}
+      <div data-preview-table="remaining">${previewCompareTable(['SKU Merchant','จำนวน'],remaining)}</div>
+    </details>`;
+
+    html += `<details class="compare-preview-section" open>
+      <summary>📋 รายการที่ถูกลบ-ถูกหัก <span class="preview-count" data-preview-count="deducted">${deducted.length.toLocaleString()} รายการ</span></summary>
+      ${copyControlHtml('location', getCompareLocationOptions(compareResults.filter(item=>item.stockQty>0)), compareCopyLocationSelection)}
+      <div data-preview-table="deducted">${deductedTableHtml(deducted)}</div>
+    </details>`;
+  }else if(mode==='short'){
+    title.textContent='⚠️ รายการที่ขาด';
+    const rows=compareResults
+      .filter(item=>item.status.startsWith('⚠️'))
+      .map(item=>[
+        compareSkuLabel(item),
+        item.orderQty,
+        item.stockQty,
+        Math.max(item.orderQty-item.stockQty,0),
+        item.locations || '-',
+        item.status
+      ]);
+    html=`<details class="compare-preview-section" open>
+      <summary>⚠️ รายการที่ขาด <span class="preview-count">${rows.length.toLocaleString()} รายการ</span></summary>
+      ${previewCompareTable(['SKU Merchant','จำนวน ORDER','Stock รวม','จำนวนที่ขาด','ตำแหน่ง','สถานะ'],rows)}
+    </details>`;
+  }else{
+    title.textContent='❌ รายการไม่มี Stock';
+    const rows=compareResults
+      .filter(item=>item.status.startsWith('❌'))
+      .map(item=>[
+        item.sku,
+        item.orderQty,
+        item.stockQty,
+        Math.max(item.orderQty-item.stockQty,0),
+        item.locations || '-',
+        item.status
+      ]);
+    html=`<details class="compare-preview-section" open>
+      <summary>❌ ไม่มี Stock <span class="preview-count">${rows.length.toLocaleString()} รายการ</span></summary>
+      ${previewCompareTable(['SKU Merchant','จำนวน ORDER','Stock รวม','จำนวนที่ขาด','ตำแหน่ง','สถานะ'],rows)}
+    </details>`;
+  }
+
+  body.innerHTML=html;
+  bindCompareCopyControls();
+  box.style.display='block';
+  if(typeof syncCompareToggleButtons==='function') syncCompareToggleButtons();
+}
+
+function downloadStockCheckResult(){
+  if(!compareResults.length)return alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
+
+  // Sheet 1: ยอดคงเหลือสำหรับสั่งของ
+  const remainingData=[
+    ["SKU Merchant","จำนวน"],
+    ...getRemainingRows().map(r=>[r.item.sku,r.qty])
+  ];
+
+  // Sheet 2: รายละเอียดการตรวจ พร้อมตำแหน่งและสถานะว่าพอ/ขาด
+  const plan=buildMovePlan();
+  const deductedData=[
+    ["SKU Merchant","ORDER","STOCK","จำนวนเบิก","ตำแหน่ง","สถานะ"],
+    ...compareResults
+      .filter(deductedVisible)
+      .map(item=>[
+        compareSkuLabel(item),
+        item.orderShown ?? item.orderQty,
+        item.stockQty,
+        (plan.get(moveKeyOf(item))||{total:0}).total,
+        compareLocQtyLabel(item),
+        item.status
+      ])
+  ];
+
+  const wsRemaining=XLSX.utils.aoa_to_sheet(remainingData);
+  wsRemaining["!cols"]=[{wch:28},{wch:12}];
+
+  const wsDeducted=XLSX.utils.aoa_to_sheet(deductedData);
+  wsDeducted["!cols"]=[
+    {wch:28},{wch:10},{wch:10},{wch:12},{wch:24},{wch:18}
+  ];
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,wsRemaining,"ยอดคงเหลือ");
+  XLSX.utils.book_append_sheet(wb,wsDeducted,"รายการที่ถูกลบ-ถูกหัก");
+
+  XLSX.writeFile(wb,"ผลลัพธ์_เปรียบเทียบและยอดคงเหลือ.xlsx");
+}
+
+// ไฟล์ย้ายสินค้าแยกตำแหน่ง: 1 ไฟล์ต่อ 1 ตำแหน่ง (C.xlsx, KT.xlsx, H.xlsx ...) ในรูปแบบ "นำเข้าเพื่อสร้างใบย้ายสินค้า" ของ BigSeller
+// ใช้รายการชุดเดียวกับ "รายการที่ถูกลบ-ถูกหัก" จำนวนที่จะเบิกต่อ SKU = min(ORDER, Stock)
+// จำนวนที่ย้าย = max(จำนวนที่จะเบิก, ย้ายเผื่อของรหัสนั้นใน js/move-rules.js) แต่ไม่เกินสต็อกที่มี
+// เลือกตำแหน่งตามลำดับเบิก (ดู moveRank) ในกลุ่มเดียวกันเอาที่มีของน้อยสุดก่อน (ลัง H เอาที่มีมากสุดก่อน)
+// ถ้าตำแหน่งนั้นมีไม่พอจำนวนที่จะเบิก เพิ่มอีกแถวจากตำแหน่งถัดไปจนได้พอดีหรือเผื่อ
+// ตำแหน่ง H (ลัง) ย้ายทั้งลังเสมอ และเอาได้แค่ 1 ลังต่อ SKU
+// สร้างเฉพาะตำแหน่งที่ติ๊กไว้ใน "📍 เลือกตำแหน่ง"
+const MOVE_TO_LOCATION = 'FRONT';
+const MOVE_FULL_BOX_PREFIX = 'H';
+// ลำดับการเลือกตำแหน่ง: ตำแหน่งที่พิมพ์ในช่อง "ลำดับเบิก" มาก่อนตามลำดับที่พิมพ์ → ตำแหน่งอื่น → ลัง H ท้ายสุด
+// (ถ้าพิมพ์ H ไว้ในช่อง H จะอยู่ตามลำดับที่พิมพ์) ในกลุ่มเดียวกันเอาที่มีของน้อยสุดก่อน ยกเว้นลัง H
+const MOVE_PRIORITY_KEY='order_move_priority_v1';
+function getMovePriority(){
+  const el=document.getElementById('movePriority');
+  return String(el ? el.value : '').split(/[\s,]+/).map(v=>v.trim().toUpperCase()).filter(Boolean);
+}
+// ไฟล์ที่แถวนั้นจะไปอยู่: ตำแหน่งที่ลงท้ายด้วย " J" (FH-A1-04 J, GS-A2-10 J, H3-A1-03 J ...) รวมอยู่ไฟล์ J.xlsx ไฟล์เดียว
+// รวมกับตำแหน่งที่ขึ้นต้นด้วย J (J-W-01 ...) ซึ่งได้ไฟล์ J ตามกลุ่มอยู่แล้ว
+// ยกเว้นตำแหน่ง H (เช่น H-03-09-34 J) ยังอยู่ไฟล์ H ตามเดิม ที่เหลือแยกไฟล์ตามกลุ่มตำแหน่ง (ตัวหน้า "-")
+const MOVE_J_FILE = 'J';
+// ไฟล์ใบย้ายมีแค่ 4 ไฟล์: H, K, C, J — กลุ่มตำแหน่งอื่นรวมเข้าไฟล์เหล่านี้
+//   KT → K (คลังเปลี่ยนชื่อตำแหน่ง KT-… เป็น K-… แล้ว) · F, D, M → C · R, P, SD, EQ001–EQ007/EQB… → J
+// กลุ่มที่ไม่อยู่ในรายการนี้ ได้ไฟล์ตามชื่อกลุ่มของตัวเอง
+const MOVE_FILE_ALIAS = { KT: 'K', F: 'C', D: 'C', M: 'C', R: MOVE_J_FILE, P: MOVE_J_FILE, SD: MOVE_J_FILE };
+function moveFileKey(place){
+  const prefix=String(place.prefix||'').toUpperCase();
+  if(prefix!==MOVE_FULL_BOX_PREFIX && /\sJ$/i.test(String(place.loc||'').trim())) return MOVE_J_FILE;
+  if(/^EQ/.test(prefix)) return MOVE_J_FILE;
+  return MOVE_FILE_ALIAS[prefix] || prefix;
+}
+
+function moveRank(prefix, priority){
+  const i=priority.indexOf(String(prefix).toUpperCase());
+  if(i!==-1) return i;
+  return prefix===MOVE_FULL_BOX_PREFIX ? 2000 : 1000;
+}
+(function initMovePriority(){
+  const el=document.getElementById('movePriority');
+  if(!el) return;
+  try{ el.value=localStorage.getItem(MOVE_PRIORITY_KEY)||''; }catch(e){}
+  el.addEventListener('change',()=>{
+    try{ localStorage.setItem(MOVE_PRIORITY_KEY,el.value.trim()); }catch(e){}
+    // ลำดับเบิกเปลี่ยน จำนวนเบิกตามเงื่อนไขอาจเปลี่ยน (เช่น ไปเปิดลัง H) แสดงตัวเลขใหม่ในตาราง
+    if(compareResults.length) updateComparePreviewTables();
+  });
+})();
+
+let moveBufferIndex=null;
+function getMoveBufferIndex(){
+  if(moveBufferIndex) return moveBufferIndex;
+  const exact=[], numeric=new Map();
+  Object.values(window.MOVE_BUFFER_RULES||{}).forEach(codes=>{
+    Object.entries(codes).forEach(([code,qty])=>{
+      const parts=String(code).split('-');
+      // รหัสตัวเลขล้วน (GRAND) เทียบแบบไม่สนเลข 0 นำหน้า "001478-001520" = รหัสแทนกันได้ 2 ตัว
+      if(parts.every(p=>/^\d{4,}$/.test(p))) parts.forEach(p=>numeric.set(p.replace(/^0+/,''),qty));
+      else exact.push([normalizeOrderSku(code),qty]);
+    });
+  });
+  exact.sort((a,b)=>b[0].length-a[0].length); // รหัสยาวกว่าเจาะจงกว่า ให้เทียบก่อน
+  return moveBufferIndex={exact,numeric};
+}
+
+// รหัสตัวเลขที่แทนกันได้จาก js/move-rules.js (เช่น '004309-004318') → Map(รหัสไม่มี 0 นำหน้า → [รหัสคู่])
+let moveAltCodes=null;
+function getMoveAltCodes(){
+  if(moveAltCodes) return moveAltCodes;
+  const m=new Map();
+  Object.values(window.MOVE_BUFFER_RULES||{}).forEach(codes=>Object.keys(codes).forEach(code=>{
+    const parts=String(code).split('-');
+    if(parts.length<2 || !parts.every(p=>/^\d{4,}$/.test(p))) return;
+    const stripped=parts.map(p=>p.replace(/^0+/,''));
+    stripped.forEach(a=>m.set(a,stripped.filter(b=>b!==a)));
+  }));
+  return moveAltCodes=m;
+}
+
+// รหัสหน้า SKU สำหรับเทียบ: ตัวเลขไม่สน 0 นำหน้า (072083 = 72083)
+function skuCodeKey(code){
+  const c=String(code||'').trim().toUpperCase();
+  return /^\d+$/.test(c) ? c.replace(/^0+/,'') : c;
+}
+
+// หาสต็อกของรหัสที่ใช้แทนกันได้ ที่ส่วนท้าย (สี/ไซซ์) เหมือนกัน:
+//  - SKU ในสต็อกที่ตั้งชื่อรวมรหัสด้วย "/" เช่น สั่ง 012283-ดำ-2XL → สต็อก 012106/012283/012586-ดำ-2XL
+//  - รหัสคู่ใน js/move-rules.js เช่น สั่ง 004318-ดำ-L → สต็อก 004309-ดำ-L
+function findInterchangeableStock(sku, stockMap){
+  const s=normalizeOrderSku(sku);
+  const i=s.indexOf('-');
+  if(i<1) return null;
+  const codes=s.slice(0,i).split('/').map(skuCodeKey);
+  const wanted=new Set(codes);
+  codes.forEach(c=>(getMoveAltCodes().get(c)||[]).forEach(a=>wanted.add(a)));
+  const rest=s.slice(i);
+  for(const [key,item] of stockMap){
+    if(item.qty<=0 || key===s) continue;
+    const j=key.indexOf('-');
+    if(j<1 || key.slice(j)!==rest) continue;
+    if(key.slice(0,j).split('/').some(c=>wanted.has(skuCodeKey(c)))) return item;
+  }
+  return null;
+}
+
+// ตำแหน่งพร้อมจำนวนสต็อกรวมของแต่ละกลุ่ม เช่น "C=20, H=50, KT=10" (เรียงตามคอลัมน์ตำแหน่งเดิม)
+function compareLocQtyLabel(item){
+  const sum=new Map();
+  (item.places||[]).forEach(p=>{ if(p.prefix) sum.set(p.prefix,(sum.get(p.prefix)||0)+p.qty); });
+  const order=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
+  const label=order.map(loc=>sum.has(loc) ? `${loc}=${formatPivotNumber(sum.get(loc))}` : loc).join(', ');
+  return label || '-';
+}
+
+// SKU ที่แสดงในตาราง: แสดงตามที่สั่ง (ชื่อในสต็อกที่เบิกจริงไปอยู่ในไฟล์ใบย้าย)
+function compareSkuLabel(item){
+  return item.sku;
+}
+
+function moveBufferQty(sku){
+  const s=normalizeOrderSku(sku);
+  const {exact,numeric}=getMoveBufferIndex();
+  const hit=exact.find(([code])=>s===code || s.startsWith(code+'-'));
+  if(hit) return hit[1];
+  // ชื่อรวมรหัส (012106/012283/012586-ดำ-2XL) ใช้เผื่อของรหัสแรกที่ตั้งไว้
+  for(const code of s.split('-')[0].split('/')){
+    if(/^\d+$/.test(code) && numeric.has(skuCodeKey(code))) return numeric.get(skuCodeKey(code));
+  }
+  return 0;
+}
+const MOVE_HEADERS = [
+  '*เลข SKU（กรอกเลข SKU หรือ GTIN อย่างใดอย่างหนึ่ง）',
+  '*GTIN（กรอกเลข SKU หรือ GTIN อย่างใดอย่างหนึ่ง）',
+  '*ตำแหน่งที่ย้ายออก (จำเป็นต้องกรอก)',
+  '*จำนวนสินค้าที่ย้ายออก (จำเป็นต้องกรอก)',
+  '*ตำแหน่งที่ย้ายเข้า (จำเป็นต้องกรอก)',
+  '*จำนวนสินค้าที่ย้ายเข้า (จำเป็นต้องกรอก)'
+];
+
+// จำนวนเบิกที่ผู้ใช้แก้เองในตาราง "รายการที่ถูกลบ-ถูกหัก" (คีย์ = SKU ที่เบิกจริง) ล้างทุกครั้งที่ตรวจชุดใหม่
+const moveQtyOverrides=new Map();
+// SKU ที่กด ✕ ตัดออกจากตาราง "รายการที่ถูกลบ-ถูกหัก" (เบิกไปแล้ว) → ไม่อยู่ในตาราง ไม่อยู่ในไฟล์ใบย้าย (คีย์ = SKU ที่เบิกจริง) ล้างทุกครั้งที่ตรวจชุดใหม่
+const moveSkipped=new Set();
+
+// ===== ประวัติ SKU ที่ส่งออกใบย้ายไปแล้ว (จำข้ามการรีเฟรช เก็บใน localStorage ราย 14 วัน) =====
+// บันทึกตอนกด "ไฟล์ย้ายสินค้าแยกตำแหน่ง" / "นำเข้า BigSeller" · ตอนตรวจ ORDER ชุดใหม่ ถ้า SKU เดียวกันเคยส่งออกไปแล้ว "วันนี้" ทั้งแถวจะเปลี่ยนสี
+// ใช้ภาพถ่ายของประวัติ ณ ตอนโหลดผลตรวจชุดนั้น (comparePriorPicks) จึงไม่ย้อนทำให้แถวที่เพิ่งส่งออกในชุดเดียวกันเปลี่ยนสีทันที
+const PICK_HISTORY_KEY='order_pick_history_v1';
+const PICK_HISTORY_DAYS=0; // รีเซ็ตทุกเที่ยงคืน: เก็บเฉพาะของวันนี้ (วันก่อนๆ ลบทิ้งตอนบันทึกครั้งถัดไป)
+function pickDayKey(d){
+  d=d||new Date();
+  const p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+function loadPickHistory(){
+  try{ const h=JSON.parse(localStorage.getItem(PICK_HISTORY_KEY)||'{}'); return h&&typeof h==='object' ? h : {}; }catch(e){ return {}; }
+}
+let comparePriorPicks=new Map(); // คีย์ SKU (normalizeOrderSku) → { n: จำนวนครั้งที่ส่งออกวันนี้, qty, last }
+let comparePriorDay='';          // วันที่ของภาพถ่ายข้างบน: ถ้าเปิดหน้าค้างข้ามเที่ยงคืน ให้เริ่มใหม่เอง
+function snapshotPriorPicks(){
+  const h=loadPickHistory();
+  comparePriorDay=pickDayKey();
+  comparePriorPicks=new Map(Object.entries(h[comparePriorDay]||{}));
+  // ล้างข้อมูลของวันก่อนๆ ออกจากเบราว์เซอร์ทันที (รีเซ็ตทุกเที่ยงคืน)
+  const old=Object.keys(h).filter(d=>d<comparePriorDay);
+  if(old.length){ old.forEach(d=>delete h[d]); try{ localStorage.setItem(PICK_HISTORY_KEY,JSON.stringify(h)); }catch(e){} }
+  refreshPriorPicksFromServer();
+}
+// ดึงประวัติวันนี้จากฐานข้อมูลที่ใช้ร่วมกันทุกเครื่อง (ถ้าดึงได้ ใช้ค่านี้แทนของในเครื่อง) แล้ววาดตารางใหม่ให้สีตรงกัน
+// ดึงไม่ได้ (ออฟไลน์/ยังไม่ได้รัน supabase/op_pick_log.sql) → ใช้ของในเครื่องต่อไป ไม่แจ้ง error
+let pickServerSeq=0;
+async function refreshPriorPicksFromServer(){
+  if(!window.SunStock || !window.SunStock.pickToday) return;
+  const seq=++pickServerSeq;
+  try{
+    const rows=await window.SunStock.pickToday();
+    if(seq!==pickServerSeq) return;
+    comparePriorPicks=new Map(rows.map(r=>[r.sku_key,{sku:r.sku,n:Number(r.n)||0,qty:Number(r.qty)||0,last:r.last_at}]));
+    if(typeof compareResults!=='undefined' && compareResults.length && typeof updateComparePreviewTables==='function') updateComparePreviewTables();
+  }catch(e){ console.warn('ดึงประวัติการเบิกจากฐานข้อมูลไม่ได้ ใช้ของในเครื่องแทน:',e.message||e); }
+}
+// byPrefix = Map(ชื่อไฟล์ → แถวใบย้าย [sku,'',ตำแหน่ง,จำนวน,...]) จาก collectPickFiles — บันทึกทุก SKU ที่อยู่ในไฟล์จริง (นับ 1 ครั้งต่อ SKU ต่อการส่งออก)
+function recordPickExport(byPrefix){
+  if(!byPrefix) return;
+  const perSku=new Map();
+  byPrefix.forEach(rows=>rows.forEach(r=>{
+    const key=normalizeOrderSku(r[0]);
+    if(!key) return;
+    const cur=perSku.get(key)||{sku:String(r[0]),qty:0};
+    cur.qty+=Number(r[3])||0;
+    perSku.set(key,cur);
+  }));
+  const h=loadPickHistory();
+  const dayKey=pickDayKey();
+  const today=h[dayKey]||(h[dayKey]={});
+  const now=new Date().toISOString();
+  perSku.forEach((v,key)=>{
+    const cur=today[key]||{sku:v.sku,n:0,qty:0};
+    cur.n+=1; cur.qty+=v.qty; cur.last=now;
+    today[key]=cur;
+  });
+  const cutoff=pickDayKey(new Date(Date.now()-PICK_HISTORY_DAYS*86400000));
+  Object.keys(h).forEach(d=>{ if(d<cutoff) delete h[d]; });
+  try{ localStorage.setItem(PICK_HISTORY_KEY,JSON.stringify(h)); }catch(e){ /* เต็ม/ปิดการเก็บ: ข้าม ไม่ให้กระทบการส่งออก */ }
+  // บันทึกขึ้นฐานข้อมูลด้วย เพื่อให้เครื่องอื่นเห็น (ล้มเหลวก็ไม่กระทบการส่งออก)
+  if(window.SunStock && window.SunStock.recordPicks){
+    const rows=[...perSku].map(([key,v])=>({sku_key:key,sku:v.sku,qty:v.qty}));
+    window.SunStock.recordPicks(rows).catch(e=>console.warn('บันทึกประวัติการเบิกขึ้นฐานข้อมูลไม่ได้:',e.message||e));
+  }
+}
+// แถวที่ SKU เคยส่งออกวันนี้ → ใส่คลาสสี (เหลือง 1 ครั้ง · ส้ม 2 ครั้ง · แดง 3 ครั้งขึ้นไป) + ข้อความบอกตอนชี้เมาส์
+function decorateDeductedRow(row,item){
+  if(comparePriorDay!==pickDayKey()) snapshotPriorPicks(); // ข้ามเที่ยงคืนแล้ว → เริ่มนับใหม่
+  const e=comparePriorPicks.get(moveKeyOf(item));
+  if(e && e.n>0){
+    const t=e.last ? new Date(e.last).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : '';
+    row.rowClass='pick-dup pick-dup-'+Math.min(e.n,3);
+    row.rowTitle='SKU นี้เบิกไปแล้ว '+e.n+' ครั้งวันนี้ (รวม '+e.qty+' ชิ้น)'+(t?' · ล่าสุด '+t+' น.':'');
+  }
+  return row;
+}
+snapshotPriorPicks();
+
+const deductedVisible=item=>item.stockQty>0 && !moveSkipped.has(moveKeyOf(item));
+const DEDUCTED_HEADERS=['SKU Merchant','ORDER','STOCK','จำนวนเบิก','ตำแหน่ง','สถานะ',''];
+function moveSkipCell(item){
+  const key=moveKeyOf(item);
+  return {html:`<button type="button" class="move-skip-btn" data-move-key="${encodeURIComponent(key)}" title="ตัดรายการนี้ออก (เบิกไปแล้ว) จะไม่อยู่ในไฟล์ใบย้าย" aria-label="ตัดรายการนี้ออก">✕</button>`};
+}
+// ตารางรายการที่ถูกลบ-ถูกหัก + แถบคืนรายการที่ตัดออก (ถ้ามี)
+function deductedTableHtml(rows){
+  const restore=moveSkipped.size
+    ? `<div class="move-skip-bar">ตัดออกแล้ว ${moveSkipped.size.toLocaleString()} รายการ <button type="button" class="move-skip-restore">↩ คืนทั้งหมด</button></div>`
+    : '';
+  const dupCount=rows.filter(r=>r.rowClass).length;
+  const legend=dupCount
+    ? `<div class="move-skip-bar">แถวที่เปลี่ยนสี = SKU ที่เคยส่งออกใบย้ายไปแล้ววันนี้ ${dupCount.toLocaleString()} รายการ <span class="pick-dup-key pick-dup-key-1">เหลือง 1 ครั้ง</span> <span class="pick-dup-key pick-dup-key-2">ส้ม 2 ครั้ง</span> <span class="pick-dup-key pick-dup-key-3">แดง 3 ครั้งขึ้นไป</span></div>`
+    : '';
+  return previewCompareTable(DEDUCTED_HEADERS,rows)+legend+restore;
+}
+// ลัง H → Map(SKU → จำนวน) ของทุก SKU ในลังนั้น (สร้างใหม่ทุกครั้งที่ตรวจ ORDER กับ Stock)
+let compareHBoxContents=new Map();
+
+// ลัง H ที่ย้ายทั้งลัง: SKU อื่นที่อยู่ในลังเดียวกันต้องย้ายไปด้วย ใส่เฉพาะในไฟล์ใบย้าย ไม่แสดงในตารางหน้าเว็บ
+function moveBoxCompanions(plan){
+  const have=new Set();
+  plan.forEach(p=>p.rows.forEach(r=>have.add(normalizeOrderSku(p.sku)+'@'+String(r.place.loc).trim().toUpperCase())));
+  const extra=[];
+  plan.forEach(p=>p.rows.forEach(({place})=>{
+    if(place.prefix!==MOVE_FULL_BOX_PREFIX) return;
+    const boxKey=String(place.loc||'').trim().toUpperCase();
+    const box=compareHBoxContents.get(boxKey);
+    if(!box) return;
+    box.forEach((qty,sku)=>{
+      const k=normalizeOrderSku(sku)+'@'+boxKey;
+      if(have.has(k)) return;
+      have.add(k);
+      extra.push({sku,place,qty});
+    });
+  }));
+  return extra;
+}
+
+// รวมความต้องการตาม SKU ที่จะเบิกจริง: ORDER ที่เบิกรหัสแทน (004318 → 004309) กับ ORDER ของ 004309 เอง
+// ใช้สต็อกตัวเดียวกัน ต้องคิดรวมกันครั้งเดียว ไม่อย่างนั้นใบย้ายจะมีแถวซ้ำ
+function moveKeyOf(item){
+  return normalizeOrderSku(item.stockSku||item.sku);
+}
+function buildMovePlan(){
+  const priority=getMovePriority();
+  const demand=new Map();
+  compareResults.filter(deductedVisible).forEach(item=>{
+    const sku=item.stockSku||item.sku;
+    const key=moveKeyOf(item);
+    const pick=Math.min(item.orderQty,item.stockQty);
+    const cur=demand.get(key);
+    if(cur) cur.pick+=pick;
+    else demand.set(key,{sku,pick,places:item.places});
+  });
+
+  const plan=new Map(); // key → { sku, rows:[{place, qty}], total, auto }
+  demand.forEach((item,key)=>{
+    // สต็อกบางตัวมีตำแหน่งเดียวกันหลายแถว รวมเป็นแถวเดียวก่อน ไม่ให้ SKU เดียวถูกเบิกซ้ำที่ตำแหน่งเดิม
+    const merged=new Map();
+    (item.places||[]).forEach(p=>{
+      const k=String(p.loc||p.prefix).trim().toUpperCase();
+      const cur=merged.get(k);
+      if(cur) cur.qty+=p.qty; else merged.set(k,{...p});
+    });
+    // กดเลือกกลุ่มตำแหน่งในตาราง (moveLocPicks): เบิกเฉพาะกลุ่มที่เลือก ไม่ได้เลือก = ทุกกลุ่มตามเงื่อนไขปกติ
+    const picked=moveLocPicks.get(key);
+    const restricted=!!(picked && picked.size);
+    const places=[...merged.values()].filter(p=>p.qty>0 && (!restricted || picked.has(p.prefix)))
+      // กลุ่มเดียวกัน: ตำแหน่งที่มีของน้อยสุดเบิกก่อน (เคลียร์ตำแหน่งที่เหลือน้อย) ยกเว้นลัง H เอาลังที่มีมากสุดก่อน
+      .sort((a,b)=>moveRank(a.prefix,priority)-moveRank(b.prefix,priority) ||
+        (a.prefix===MOVE_FULL_BOX_PREFIX && b.prefix===MOVE_FULL_BOX_PREFIX ? b.qty-a.qty : a.qty-b.qty) ||
+        String(a.loc).localeCompare(String(b.loc),undefined,{numeric:true}));
+
+    const allocate=(target,boxRule)=>{
+      const rows=[];
+      let moved=0, usedBox=false;
+      for(const p of places){
+        if(moved>=target) break;
+        let qty;
+        if(boxRule && p.prefix===MOVE_FULL_BOX_PREFIX){
+          if(usedBox) continue;
+          usedBox=true;
+          qty=p.qty;
+        }else{
+          qty=Math.min(target-moved,p.qty);
+        }
+        if(qty<=0) continue;
+        moved+=qty;
+        rows.push({place:p,qty});
+      }
+      return rows;
+    };
+
+    // ตามเงื่อนไข: เบิกอย่างน้อยตามค่าเผื่อของรหัสนั้น (ไม่อยู่ในกฎ = ตามจำนวนที่จะเบิกจริง)
+    // ตำแหน่งเดียวมีไม่พอ ก็เพิ่มตำแหน่งถัดไปจนครบ หรือจนสต็อกหมด
+    const autoRows=allocate(Math.max(item.pick,moveBufferQty(item.sku)),true);
+    const auto=autoRows.reduce((s,r)=>s+r.qty,0);
+    // แก้ตัวเลขเอง: เบิกตามตัวเลขนั้นตามลำดับตำแหน่งเดิม ไม่เกินสต็อกที่มี
+    // แต่ลัง H ยังบังคับทั้งลังเสมอ ถ้าต้องเปิดลัง H ยอดรวมจึงอาจมากกว่าตัวเลขที่พิมพ์
+    const manual=moveQtyOverrides.has(key) ? moveQtyOverrides.get(key) : null;
+    const rows=manual===null ? autoRows : allocate(manual,true);
+    const stockTotal=places.reduce((s,p)=>s+p.qty,0);
+    plan.set(key,{sku:item.sku,rows,total:rows.reduce((s,r)=>s+r.qty,0),auto,manual,stockTotal,pick:item.pick,restricted});
+  });
+  return plan;
+}
+
+// กลุ่มตำแหน่งที่กดเลือกเองต่อ SKU (คีย์ = SKU ที่เบิกจริง → Set ของกลุ่ม เช่น K, H) ล้างทุกครั้งที่ตรวจชุดใหม่
+const moveLocPicks=new Map();
+
+// ช่องตำแหน่งในตาราง: แต่ละกลุ่มกดเลือก/ยกเลิกได้ ที่เลือกตัวหนังสือเปลี่ยนสี
+function moveLocCell(item){
+  const key=moveKeyOf(item);
+  const picked=moveLocPicks.get(key)||new Set();
+  const sum=new Map();
+  (item.places||[]).forEach(p=>{ if(p.prefix) sum.set(p.prefix,(sum.get(p.prefix)||0)+p.qty); });
+  const order=String(item.locations||'').split(',').map(v=>v.trim()).filter(Boolean);
+  if(!order.length) return '-';
+  const chips=order.map(loc=>{
+    const on=picked.has(loc) ? ' is-picked' : '';
+    const label=sum.has(loc) ? `${loc}=${formatPivotNumber(sum.get(loc))}` : loc;
+    return `<button type="button" class="move-loc-chip${on}" data-move-key="${encodeURIComponent(key)}" data-prefix="${esc(loc)}" title="กดเพื่อเบิกเฉพาะตำแหน่งนี้ (กดอีกครั้งเพื่อยกเลิก)">${esc(label)}</button>`;
+  });
+  return {html:chips.join('<span class="move-loc-sep">, </span>')};
+}
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest && e.target.closest('.move-loc-chip');
+  if(!el) return;
+  const key=decodeURIComponent(el.dataset.moveKey||'');
+  const prefix=el.dataset.prefix||'';
+  const set=moveLocPicks.get(key)||new Set();
+  if(set.has(prefix)) set.delete(prefix); else set.add(prefix);
+  if(set.size) moveLocPicks.set(key,set); else moveLocPicks.delete(key);
+  // จำนวนเบิก/ยอดคงเหลือ/ใบย้าย คิดใหม่ตามตำแหน่งที่เลือก
+  updateComparePreviewTables();
+});
+
+// ช่องจำนวนเบิกในตาราง: ค่าเริ่มต้นตามเงื่อนไข แก้เองได้
+function moveQtyCell(item, plan){
+  const key=moveKeyOf(item);
+  const p=plan.get(key);
+  // พิมพ์เกินสต็อกรวม: คงตัวเลขที่พิมพ์ไว้ (เบิกได้เท่าที่มี ส่วนเกินไปอยู่ "ยอดคงเหลือ") ไม่เกิน: แสดงยอดที่เบิกจริง
+  const over=p && p.manual!==null && p.manual>p.stockTotal;
+  const val=p ? (over ? p.manual : p.total) : 0;
+  const edited=moveQtyOverrides.has(key) ? ' is-edited' : '';
+  const tip=p ? `ตามเงื่อนไข ${p.auto} · สต็อกรวม ${p.stockTotal}`+(over ? ` · เบิกได้ ${p.total} ส่วนเกิน ${p.manual-p.stockTotal} ไปอยู่ยอดคงเหลือ` : '') : '';
+  return {html:`<input type="number" min="0" step="1" class="move-qty-input${edited}" data-move-key="${encodeURIComponent(key)}" value="${val}" title="${esc(tip)}" style="width:72px">`};
+}
+
+// ✕ ตัดรายการที่เบิกไปแล้วออก / คืนทั้งหมด
+document.addEventListener('click',e=>{
+  const t=e.target.closest && e.target.closest('.move-skip-btn, .move-skip-restore');
+  if(!t) return;
+  if(t.classList.contains('move-skip-restore')) moveSkipped.clear();
+  else moveSkipped.add(decodeURIComponent(t.dataset.moveKey||''));
+  // ตารางหน้าเว็บ ยอดคงเหลือ และใบย้าย คิดใหม่โดยไม่รวมรายการที่ตัดออก
+  updateComparePreviewTables();
+});
+
+document.addEventListener('change',e=>{
+  const el=e.target.closest && e.target.closest('.move-qty-input');
+  if(!el) return;
+  const key=decodeURIComponent(el.dataset.moveKey||'');
+  const raw=String(el.value).trim();
+  if(raw===''){ moveQtyOverrides.delete(key); }
+  else moveQtyOverrides.set(key,Math.max(0,Math.floor(Number(raw)||0)));
+  const p=buildMovePlan().get(key);
+  if(p && moveQtyOverrides.has(key) && moveQtyOverrides.get(key)===p.auto) moveQtyOverrides.delete(key);
+  // วาดตารางใหม่: ช่องจำนวนเบิกแสดงยอดที่เบิกได้ และส่วนที่เกินสต็อกไปโผล่ในตาราง "ยอดคงเหลือ" ทันที
+  updateComparePreviewTables();
+});
+
+function downloadPickListsByLocation(){
+  const byPrefix=collectPickFiles();
+  if(byPrefix){ recordPickExport(byPrefix); exportMoveFiles(byPrefix); }
+}
+
+// แถวใบย้ายแยกไฟล์ตามตำแหน่ง Map(ชื่อไฟล์ → แถว) · null = ไม่มีอะไรให้ทำ (แจ้งเตือนแล้ว)
+function collectPickFiles(){
+  if(!compareResults.length){ alert("ยังไม่มีผลตรวจ"); return null; }
+  const selected=compareCopyLocationSelection;
+  if(!selected.size){ alert("ยังไม่ได้เลือกตำแหน่ง (📍 เลือกตำแหน่ง)"); return null; }
+
+  const byPrefix=new Map();
+  const addRow=(sku,p,qty)=>{
+    if(!selected.has(p.prefix)) return;
+    const fileKey=moveFileKey(p);
+    if(!byPrefix.has(fileKey)) byPrefix.set(fileKey,[]);
+    byPrefix.get(fileKey).push([sku,'',p.loc||p.prefix,qty,MOVE_TO_LOCATION,qty]);
+  };
+  const plan=buildMovePlan();
+  plan.forEach(item=>item.rows.forEach(({place,qty})=>addRow(item.sku,place,qty)));
+  moveBoxCompanions(plan).forEach(({sku,place,qty})=>addRow(sku,place,qty));
+
+  if(!byPrefix.size){ alert("ไม่มีรายการที่ต้องเบิกในตำแหน่งที่เลือก"); return null; }
+  return byPrefix;
+}
+
+// ส่งใบย้ายให้ส่วนขยาย "ค้นหาสต็อก" นำเข้า BigSeller อัตโนมัติ (ส่วนขยายถามยืนยันเองก่อนเริ่ม แล้วไปทำในแท็บ BigSeller)
+function importPickListsToBigSeller(){
+  if(document.documentElement.getAttribute("data-order-stock-peek")!=="1"){
+    alert("ต้องติดตั้งส่วนขยาย \"ค้นหาสต็อก\" (โฟลเดอร์ extension) ใน Chrome/Edge ก่อน แล้วรีเฟรชหน้านี้ (F5)\n"+
+      "ถ้าเปิดจากแอปที่ติดตั้งในเครื่อง ต้องเปิด \"อนุญาตให้เข้าถึง URL ของไฟล์\" ของส่วนขยายด้วย");
+    return;
+  }
+  const byPrefix=collectPickFiles();
+  if(!byPrefix) return;
+  const files={};
+  uniqueSorted([...byPrefix.keys()]).forEach(k=>{ files[k]=byPrefix.get(k); });
+  recordPickExport(byPrefix);
+  window.postMessage({source:"order-workspace",type:"bigsellerImport",files},"*");
+}
+
+// สร้างไฟล์ใบย้าย (ฟอร์ม BigSeller) จาก Map(ชื่อไฟล์ → แถว) แล้วดาวน์โหลด: ไฟล์เดียว = .xlsx หลายไฟล์ = .zip
+// ใช้ร่วมกันระหว่างปุ่ม "ไฟล์ย้ายสินค้าแยกตำแหน่ง" และช่องค้นหาสต็อก (Tab)
+function exportMoveFiles(byPrefix){
+  const prefixes=uniqueSorted([...byPrefix.keys()]);
+  if(!prefixes.length) return;
+
+  // รวมทุกตำแหน่งเป็น ZIP ไฟล์เดียว (ข้างในเป็น C.xlsx, KT.xlsx ...) ดาวน์โหลดหลายไฟล์แยกกัน Chrome มักบล็อกตั้งแต่ไฟล์ที่ 2
+  const zip=new JSZip();
+  prefixes.forEach(prefix=>{
+    const rows=byPrefix.get(prefix)
+      .sort((a,b)=>a[2].localeCompare(b[2],undefined,{numeric:true})||a[0].localeCompare(b[0],undefined,{numeric:true}));
+    const ws=XLSX.utils.aoa_to_sheet([MOVE_HEADERS,...rows]);
+    // กว้างตามข้อความยาวสุด ตำแหน่งเต็มยาวๆ (เช่น C-LY1-002-WL026102) จะได้ไม่ถูกตัดตอนเปิดใน Excel
+    const width=(i,min)=>Math.max(min,...rows.map(r=>String(r[i]).length+2));
+    ws["!cols"]=[{wch:width(0,24)},{wch:10},{wch:width(2,20)},{wch:14},{wch:14},{wch:14}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"SKU");
+    zip.file(prefix.replace(/[\\/:*?"<>|]/g,"_")+".xlsx",XLSX.write(wb,{type:"array",bookType:"xlsx"}));
+  });
+
+  const saveBlob=(blob,name)=>{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    if(typeof window.fxToast==="function") window.fxToast(`ดาวน์โหลดใบย้าย ${prefixes.length} ไฟล์ (${prefixes.join(", ")})`,"success");
+  };
+
+  // มีไฟล์เดียว (เช่น เบิกแค่ C) ดาวน์โหลดเป็น Excel ตรงๆ ไม่ต้องแตก ZIP
+  if(prefixes.length===1){
+    const name=Object.keys(zip.files)[0];
+    zip.file(name).async("uint8array").then(bytes=>{
+      saveBlob(new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),name);
+    }).catch(e=>alert("สร้างไฟล์ Excel ไม่สำเร็จ\n\n"+e.message));
+    return;
+  }
+
+  const d=new Date(), pad=n=>String(n).padStart(2,"0");
+  const zipName=`ใบย้าย_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.zip`;
+  zip.generateAsync({type:"blob"}).then(blob=>saveBlob(blob,zipName))
+    .catch(e=>alert("สร้างไฟล์ ZIP ไม่สำเร็จ\n\n"+e.message));
+}
+
+function downloadCompareSubset(type){
+  if(!compareResults.length){
+    alert("ยังไม่มีผลตรวจสำหรับดาวน์โหลด");
+    return;
+  }
+
+  const isShort = type === "short";
+  const rows = compareResults.filter(item =>
+    isShort ? item.status.startsWith("⚠️") : item.status.startsWith("❌")
+  );
+
+  if(!rows.length){
+    alert(isShort ? "ไม่มีรายการที่ขาด" : "ไม่มีรายการที่เป็นไม่มี Stock");
+    return;
+  }
+
+  const data = [
+    ["SKU Merchant","จำนวน ORDER","Stock รวม","จำนวนที่ขาด","ตำแหน่ง","สถานะ"],
+    ...rows.map(item => [
+      compareSkuLabel(item),
+      item.orderQty,
+      item.stockQty,
+      isShort ? Math.max(item.orderQty - item.stockQty, 0) : Math.max(item.orderQty - item.stockQty, 0),
+      item.locations || "-",
+      item.status
+    ])
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws["!cols"] = [
+    {wch:28},{wch:16},{wch:14},{wch:16},{wch:22},{wch:20}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, isShort ? "รายการที่ขาด" : "ไม่มี Stock");
+  XLSX.writeFile(wb, isShort ? "รายการที่ขาด.xlsx" : "รายการไม่มี_Stock.xlsx");
+}
+
+// ปุ่มดูผลตรวจบนเว็บ: กดซ้ำที่ปุ่มเดิมขณะเปิดอยู่ = เก็บข้อมูล, กดปุ่มอื่น = สลับไปดูหมวดนั้น
+function isCompareWebPreviewOpen(){
+  const box=document.getElementById('compareWebPreview');
+  return !!box && box.style.display==='block';
+}
+
+function syncCompareToggleButtons(){
+  const open=isCompareWebPreviewOpen();
+  [['download2','all'],['downloadShort','short'],['downloadNone','none']].forEach(([id,mode])=>{
+    const btn=document.getElementById(id);
+    if(!btn) return;
+    const active=open && comparePreviewMode===mode;
+    btn.classList.toggle('is-open',active);
+    btn.setAttribute('aria-pressed',String(active));
+    if(id==='download2') btn.textContent=(active?'▾ ':'▸ ')+'ทั้งหมด';
+  });
+}
+
+function toggleCompareWebPreview(mode){
+  if(isCompareWebPreviewOpen() && comparePreviewMode===mode){
+    document.getElementById('compareWebPreview').style.display='none';
+    syncCompareToggleButtons();
+    return;
+  }
+  renderCompareWebPreview(mode);
+  syncCompareToggleButtons();
+}
+
+const downloadShortBtn=document.getElementById("downloadShort");
+if(downloadShortBtn) downloadShortBtn.onclick=()=>toggleCompareWebPreview("short");
+const downloadNoneBtn=document.getElementById("downloadNone");
+if(downloadNoneBtn) downloadNoneBtn.onclick=()=>toggleCompareWebPreview("none");
+const downloadAllPreviewBtn=document.getElementById("download2");
+if(downloadAllPreviewBtn) downloadAllPreviewBtn.onclick=()=>toggleCompareWebPreview("all");
+const downloadWebExcelBtn=document.getElementById("downloadWebExcel");
+if(downloadWebExcelBtn) downloadWebExcelBtn.onclick=downloadStockCheckResult;
+const downloadPickByLocBtn=document.getElementById("downloadPickByLoc");
+if(downloadPickByLocBtn) downloadPickByLocBtn.onclick=downloadPickListsByLocation;
+const importPickBigSellerBtn=document.getElementById("importPickBigSeller");
+if(importPickBigSellerBtn) importPickBigSellerBtn.onclick=importPickListsToBigSeller;
+
+let compareTextTimer=null;
+
+function parseCompareOrderText(text){
+  const raw=String(text??'').replace(/\r/g,'').trim();
+  if(!raw)return [];
+
+  const lines=raw.split('\n').map(x=>x.trimEnd()).filter(x=>x.trim()!=='');
+  if(!lines.length)return [];
+
+  // รองรับข้อความที่คัดลอกจาก Excel (Tab), CSV และรูปแบบพิมพ์ตรง ๆ เช่น
+  //   SK001 2
+  //   WA-203PLAC01-03-XS 2
+  // โดยให้ตัวเลขท้ายบรรทัดเป็นจำนวน ORDER
+  const hasTab=lines.some(x=>x.includes('\t'));
+  const hasComma=lines.some(x=>x.includes(','));
+  const delimiter=hasTab?'\t':(hasComma?',':null);
+
+  const splitLine=(line)=>{
+    const value=String(line??'').trim();
+
+    // รองรับการผสมข้อมูลในช่องเดียวกันได้ เช่น
+    // - บางบรรทัดพิมพ์เอง: "SK001 2"
+    // - บางบรรทัดคัดลอกจาก Excel: "SK002\t5"
+    // แต่ละบรรทัดจะตรวจรูปแบบของตัวเอง ไม่บังคับใช้ตัวคั่นเดียวกันทั้งกล่อง
+    if(delimiter && value.includes(delimiter)){
+      return value.split(delimiter).map(v=>String(v??'').trim());
+    }
+
+    // รองรับ "SKU จำนวน" โดยจำนวนอยู่ท้ายบรรทัด
+    const m=value.match(/^(.+?)\s+(-?\d+(?:[.,]\d+)?)\s*$/);
+    if(m) return [m[1].trim(), m[2].trim()];
+
+    // ถ้าเป็นบรรทัดเดี่ยว ให้ถือเป็น SKU และจำนวนว่าง
+    return [value];
+  };
+  const first=splitLine(lines[0]);
+  const normalized=first.map(cleanCompareHeader);
+  const hasHeader=normalized.some(v=>
+    /sku|รหัส|code|product|item/.test(v) || /จำนวน|qty|quantity|amount|count|ยอด/.test(v)
+  );
+
+  let headers;
+  let start=0;
+  if(hasHeader){
+    headers=first.map((h,i)=>h || `คอลัมน์ ${i+1}`);
+    start=1;
+  }else{
+    headers=['SKU','จำนวน'];
+  }
+
+  const rows=[];
+  for(let i=start;i<lines.length;i++){
+    const cells=splitLine(lines[i]);
+    if(!cells.length)continue;
+    const sku=String(cells[0]??'').trim();
+    const qty=String(cells[1]??'').trim();
+    if(!sku)continue;
+    const obj={};
+    headers.forEach((h,j)=>obj[h]=cells[j]??'');
+    // ถ้าไม่มีหัวตาราง ให้ใช้ชื่อมาตรฐานที่ระบบตรวจจับได้
+    if(!hasHeader){ obj.SKU=sku; obj['จำนวน']=qty; }
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function applyOrderTextAuto(){
+  const input=$("orderTextInput");
+  if(!input)return;
+  const text=input.value;
+
+  clearTimeout(compareTextTimer);
+  compareTextTimer=setTimeout(()=>{
+    const rows=parseCompareOrderText(text);
+
+    if(!String(text).trim()){
+      data2Text=null;
+      refreshCombinedOrderData();
+      if(!data2File?.length){
+        $("name1").textContent='คลิกเพื่อเลือกไฟล์ ORDER';
+        $("info1").textContent='รองรับ Excel / CSV';
+      }
+      updateCompareReady();
+      return;
+    }
+
+    if(!rows.length){
+      data2Text=null;
+      refreshCombinedOrderData();
+      $("compareStatus").textContent='❌ อ่านข้อความ ORDER ไม่พบข้อมูล';
+      return;
+    }
+
+    // เก็บข้อความแยกจากไฟล์ เพื่อให้รวมกันได้ ไม่ว่าจะใส่ไฟล์ก่อนหรือหลัง
+    data2Text=rows;
+    refreshCombinedOrderData();
+
+    // ถ้ามี Stock อยู่แล้ว จะเข้าสู่ compareFiles() อัตโนมัติผ่าน updateCompareReady()
+    updateCompareReady();
+  },180);
+}
+
+function clearAll(){
+  // ล้างเฉพาะ ORDER และผลตรวจ แต่ "ไฟล์ที่ 2 — Stock" จะคงอยู่
+  // จนกว่าจะรีเฟรชหน้าเว็บ หรือกดล้างข้อมูล Stock โดยตรง
+  data2=null;
+  data2File=null;
+  data2Text=null;
+  orderFileName='';
+  orderSkuCol='';
+  orderQtyCol='';
+  compareResults=[];
+  compareCopyBrandSelection.clear();
+  compareCopyLocationSelection.clear();
+  compareCopySelectionsInitialized = false;
+
+  $("file1").value="";
+  if($("orderTextInput")) $("orderTextInput").value="";
+  $("name1").textContent="คลิกเพื่อเลือกไฟล์ ORDER";
+  $("info1").textContent="รองรับ Excel / CSV";
+
+  if(data1 && stockSkuCol && stockQtyCol){
+    $("name2").textContent=stockFileName || "Stock จาก ZIP (อัตโนมัติ)";
+    $("info2").textContent=`${data1.length.toLocaleString()} แถว | ${Object.keys(data1[0]||{}).length} คอลัมน์`;
+    $("compareStatus").textContent="● Stock ยังคงอยู่ — กรุณาเลือกไฟล์ ORDER";
+  }else{
+    $("name2").textContent="คลิกเพื่อเลือกไฟล์ Stock";
+    $("info2").textContent="รองรับ Excel / CSV";
+    $("compareStatus").textContent="● กรุณาเลือกไฟล์ ORDER และ Stock";
+  }
+
+  setCompareResultVisible(false);
+  syncCompareVisibility();
+  $("downloadBox").style.display="none";
+  $("resultBox").style.display="none";
+  $("compareExtra").style.display="none";
+  $("resultPreview").innerHTML='<div class="empty">ยังไม่มีผลลัพธ์</div>';
+
+  // ล้างผลตารางบนเว็บด้วย ไม่ให้ผลเก่าค้างอยู่หลังจากกดปุ่ม "ล้างข้อมูล"
+  const webPreview=document.getElementById('compareWebPreview');
+  const webPreviewBody=document.getElementById('compareWebPreviewBody');
+  if(webPreview) webPreview.style.display='none';
+  syncCompareToggleButtons();
+  if(webPreviewBody) webPreviewBody.innerHTML='<div class="empty">ยังไม่มีผลตรวจ</div>';
+  const webPreviewTitle=document.getElementById('compareWebPreviewTitle');
+  if(webPreviewTitle) webPreviewTitle.textContent='📋 ผลลัพธ์บนเว็บ';
+
+  $("compareSearch").value="";
+  $("compareStatusFilter").value="all";
+
+  $("total").textContent="0";
+  $("affected").textContent="0";
+  $("remaining").textContent="0";
+  ["compareQuickTotal","compareQuickOk","compareQuickShort","compareQuickNone"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent="0";
+  });
+  $("remainingSku").textContent="0";
+  $("partialSku").textContent="0";
+  $("deletedSku").textContent="0";
+  $("remainingQty").textContent="0";
+
+  setProgress(0);
+}
+
+function setProgress(v){
+  $("progress").style.display=v?"block":"none";
+  $("progress").classList.toggle("is-active",!!v);
+  $("compareBar").style.width=v+"%";
+}
+
+function esc(v){
+  return String(v??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
+/* ===== Original inline script 5 ===== */
+/* ===== ORDER TOOL : Excel upload + per-column filters ===== */
+let orderWorkbook = null;
+let orderRows = [];
+let orderHeaders = [];
+let orderFilteredRows = [];
+let orderFiltersState = [];
+let orderPivotRows = [];
+const orderBrandDeselected = new Set();
+const orderTrackingBrandDeselected = new Set();
+
+const orderDrop = document.getElementById("orderDrop");
+const orderInput = document.getElementById("orderFile");
+const orderDownloadBtn = document.getElementById("orderDownload");
+const orderPivotExcelDownloadBtn = document.getElementById("orderPivotExcelDownload");
+const orderClearBtn = document.getElementById("orderClear");
+// หา index จากชื่อหัวคอลัมน์จริง เพื่อไม่ผูกกับตำแหน่งคอลัมน์
+function getOrderColumnIndex(headerName) {
+  const target = String(headerName ?? '').trim().toLowerCase();
+  return orderHeaders.findIndex(h => String(h ?? '').trim().toLowerCase() === target);
+}
+
+function getOrderSkuIndex() {
+  // คอลัมน์ที่นำมาแสดงผลจริง
+  return getOrderColumnIndex('SKU Merchant');
+}
+
+function getOrderGroupIndex() {
+  // คอลัมน์ที่ใช้แบ่งกลุ่ม: "ชื่อ SKU Merchant"
+  return getOrderColumnIndex('ชื่อ SKU Merchant');
+}
+
+function getOrderQtyIndex() {
+  return getOrderColumnIndex('จำนวน');
+}
+
+// ค่าคงที่เดิมเก็บไว้เป็น fallback สำหรับไฟล์รูปแบบเก่า
+const ORDER_PIVOT_SKU_INDEX = 3;
+const ORDER_PIVOT_QTY_INDEX = 4;
+const orderFiltersBox = document.getElementById("orderFilters");
+const orderFilterSummary = document.getElementById("orderFilterSummary");
+
+orderDrop.onclick = () => orderInput.click();
+orderInput.onclick = e => e.stopPropagation();
+
+orderInput.onchange = e => {
+  const file = e.target.files[0];
+  if (file) loadOrderFile(file);
+};
+
+orderDrop.ondragover = e => {
+  e.preventDefault();
+  orderDrop.classList.add("drag-ready");
+  orderDrop.style.background = "#eaf9fa";
+};
+
+orderDrop.ondragleave = () => {
+  orderDrop.classList.remove("drag-ready");
+  orderDrop.style.background = "";
+};
+
+orderDrop.ondrop = e => {
+  e.preventDefault();
+  orderDrop.classList.remove("drag-ready");
+  orderDrop.style.background = "";
+  const file = e.dataTransfer.files[0];
+  if (file) loadOrderFile(file);
+};
+
+async function loadOrderFile(file) {
+  orderBrandDeselected.clear();
+  orderTrackingBrandDeselected.clear();
+  orderDupTracking = new Map(); // ผลเช็กซ้ำของไฟล์ก่อนห้ามติดมากับไฟล์ใหม่
+  orderDupSeq++;
+  renderOrderDup('');
+  try {
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+      throw new Error("รองรับเฉพาะไฟล์ Excel (.xlsx/.xls) หรือ CSV");
+    }
+
+    document.getElementById("orderStatus").textContent = "กำลังอ่านไฟล์ ORDER...";
+    document.getElementById("orderBar").style.width = "25%";
+
+    let wb;
+    if (/\.csv$/i.test(file.name)) {
+      const text = await file.text();
+      wb = XLSX.read(text, {type:"string", cellDates:true});
+    } else {
+      wb = XLSX.read(await file.arrayBuffer(), {type:"array", cellDates:true});
+    }
+
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {
+      header:1,
+      defval:"",
+      raw:false
+    });
+
+    if (!rows.length || !rows[0].length) {
+      throw new Error("ไม่พบข้อมูลหรือหัวตารางในไฟล์");
+    }
+
+    orderWorkbook = wb;
+    orderRows = rows;
+    orderHeaders = rows[0].map((x, i) => {
+      const h = String(x ?? "").trim();
+      return h || `คอลัมน์ ${i + 1}`;
+    });
+
+    document.getElementById("orderFileName").textContent = file.name;
+    document.getElementById("orderFileCount").textContent = "1";
+    document.getElementById("orderTool").classList.add("has-file");
+    document.getElementById("orderRowCount").textContent =
+      Math.max(0, rows.length - 1).toLocaleString();
+
+    buildOrderFilters();
+    applyOrderFilters();
+
+    orderDownloadBtn.disabled = false;
+  orderPivotExcelDownloadBtn.disabled = false;
+
+    document.getElementById("orderBar").style.width = "100%";
+    document.getElementById("orderStatus").textContent =
+      `✅ เตรียมข้อมูล ORDER อัตโนมัติแล้ว | ${Math.max(0, rows.length - 1).toLocaleString()} รายการ | ${orderHeaders.length} คอลัมน์`;
+
+    setTimeout(() => {
+      document.getElementById("orderBar").style.width = "0%";
+    }, 400);
+
+    checkOrderDuplicates(file.name); // ไม่ต้องรอ: ผลมาแล้วจะซ่อนแถวที่ซ้ำให้เอง
+
+  } catch (err) {
+    document.getElementById("orderBar").style.width = "0%";
+    document.getElementById("orderStatus").textContent = "❌ อ่านไฟล์ไม่สำเร็จ";
+    alert("ไม่สามารถอ่านไฟล์ ORDER ได้\n\n" + err.message);
+  }
+}
+
+/* ===== กันออเดอร์ซ้ำ: Tracking + SKU + จำนวน ในฐานข้อมูลกลาง (supabase/op_order_track.sql) =====
+   โหลดไฟล์ = เช็กซ้ำอย่างเดียว · กด "ปริ้น ORDER (Pivot)" = บันทึกเฉพาะแถวที่ปริ้นจริง */
+// เลข Tracking ที่เคยปริ้นแล้วจากไฟล์อื่น → { file_name, seen_at, items } · orderDupHide = ซ่อนแถวที่ซ้ำออกจากตาราง/Pivot/ปริ้น
+let orderDupTracking = new Map();
+let orderDupHide = true;
+let orderDupSeq = 0;
+let orderDupBatch = '';   // รหัสเนื้อหาไฟล์ที่โหลดอยู่ (คิดจากทุกแถว ไม่ขึ้นกับตัวกรอง)
+let orderDupFile = '';
+
+// 1 แถวต่อ SKU ต่อพัสดุ (รวมจำนวนถ้ามีหลายแถว) จากแถวข้อมูลที่ส่งมา (ไม่รวมหัวตาราง)
+function buildOrderTrackRows(dataRows) {
+  const trackingIndex = getOrderTrackingIndex();
+  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
+  if (trackingIndex < 0 || skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length) return [];
+  const map = new Map();
+  dataRows.forEach(row => {
+    const tracking = String(row?.[trackingIndex] ?? '').trim();
+    const sku_key = normalizeOrderSku(row?.[skuIndex]);
+    if (!tracking || !sku_key) return;
+    const qty = Number(String(row?.[qtyIndex] ?? '').replace(/,/g, '').trim()) || 0;
+    const key = tracking + '\u0001' + sku_key;
+    const cur = map.get(key) || { tracking, sku_key, sku: String(row[skuIndex]).trim(), qty: 0 };
+    cur.qty += qty;
+    map.set(key, cur);
+  });
+  return [...map.values()];
+}
+
+// รหัสเนื้อหาไฟล์: โหลดไฟล์เดิมซ้ำ (เช่น เปิดจาก "ไฟล์ที่เคยใช้") ได้รหัสเดิม ฐานข้อมูลจึงไม่นับว่าซ้ำ
+function orderTrackBatch(rows) {
+  const text = rows.map(r => r.tracking + '|' + r.sku_key + '|' + r.qty).sort().join('\n');
+  let a = 0x811c9dc5, b = 0x01000193 ^ text.length;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193);
+    b = Math.imul(b ^ c, 0x5bd1e995);
+  }
+  return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0') + '-' + rows.length;
+}
+
+async function checkOrderDuplicates(fileName) {
+  const seq = ++orderDupSeq;
+  orderDupTracking = new Map();
+  const rows = buildOrderTrackRows(orderRows.slice(1));
+  orderDupBatch = rows.length ? orderTrackBatch(rows) : '';
+  orderDupFile = fileName || '';
+  if (!rows.length) { renderOrderDup(getOrderTrackingIndex() < 0 ? 'ไฟล์นี้ไม่มีคอลัมน์ Tracking จึงเช็กออเดอร์ซ้ำไม่ได้' : ''); return; }
+  if (!window.SunStock || !window.SunStock.trackCheck) { renderOrderDup('เช็กออเดอร์ซ้ำไม่ได้: ยังโหลดระบบฐานข้อมูลไม่เสร็จ'); return; }
+  renderOrderDup('⏳ กำลังเช็กออเดอร์ซ้ำกับฐานข้อมูล...');
+  try {
+    const dups = await window.SunStock.trackCheck([...new Set(rows.map(r => r.tracking))], orderDupBatch);
+    if (seq !== orderDupSeq) return;
+    orderDupTracking = new Map(dups.map(d => [String(d.tracking), d]));
+    renderOrderDup();
+    if (orderDupTracking.size && orderDupHide) applyOrderFilters();
+  } catch (e) {
+    if (seq !== orderDupSeq) return;
+    const msg = String(e.message || e);
+    renderOrderDup(/op_track_|schema cache|function/i.test(msg)
+      ? 'เช็กออเดอร์ซ้ำไม่ได้: ยังไม่ได้รัน supabase/op_order_track.sql ใน Supabase'
+      : 'เช็กออเดอร์ซ้ำไม่ได้ (ตรวจการเชื่อมต่ออินเทอร์เน็ต): ' + msg);
+  }
+}
+
+function isOrderRowDuplicate(row, trackingIndex) {
+  return trackingIndex >= 0 && orderDupTracking.has(String(row?.[trackingIndex] ?? '').trim());
+}
+
+function renderOrderDup(note) {
+  const box = document.getElementById('orderDup');
+  if (!box) return;
+  if (note !== undefined) {
+    box.hidden = !note;
+    box.className = 'order-dup is-note';
+    box.textContent = note || '';
+    return;
+  }
+  if (!orderDupTracking.size) {
+    box.hidden = false;
+    box.className = 'order-dup is-ok';
+    box.textContent = '✅ ไม่มีออเดอร์ซ้ำ (เลข Tracking จะบันทึกลงฐานข้อมูลตอนกดปริ้น ORDER)';
+    return;
+  }
+  const trackingIndex = getOrderTrackingIndex();
+  const dupRows = orderRows.slice(1).filter(r => isOrderRowDuplicate(r, trackingIndex)).length;
+  const fmt = v => { try { return new Date(v).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } };
+  const list = [...orderDupTracking.values()].map(d =>
+    `<tr><td>${esc(d.tracking)}</td><td>${esc(d.items || '')}</td><td>${esc(fmt(d.seen_at))}</td><td>${esc(d.file_name || '')}</td></tr>`
+  ).join('');
+  box.hidden = false;
+  box.className = 'order-dup is-warn';
+  box.innerHTML =
+    `<div class="order-dup-head">` +
+      `<strong>⚠️ ออเดอร์ซ้ำ ${orderDupTracking.size.toLocaleString()} พัสดุ (${dupRows.toLocaleString()} แถว) เคยปริ้นไปแล้วจากไฟล์ก่อนหน้า</strong>` +
+      `<label><input type="checkbox" id="orderDupHide"${orderDupHide ? ' checked' : ''}> ซ่อนแถวที่ซ้ำ (ไม่นับใน Pivot/ปริ้น)</label>` +
+      `<button type="button" id="orderDupCopy">📋 คัดลอกเลขที่ซ้ำ</button>` +
+    `</div>` +
+    `<details><summary>ดูรายการ</summary><div class="order-dup-list"><table>` +
+      `<thead><tr><th>Tracking</th><th>SKU ที่ปริ้นไปแล้ว</th><th>ปริ้นเมื่อ</th><th>ไฟล์</th></tr></thead><tbody>${list}</tbody>` +
+    `</table></div></details>`;
+  box.querySelector('#orderDupHide').onchange = e => { orderDupHide = e.target.checked; applyOrderFilters(); };
+  box.querySelector('#orderDupCopy').onclick = async e => {
+    const text = [...orderDupTracking.keys()].join('\n');
+    try { await navigator.clipboard.writeText(text); e.target.textContent = '✅ คัดลอกแล้ว'; }
+    catch (err) { prompt('คัดลอกเลข Tracking ที่ซ้ำ:', text.replace(/\n/g, ' ')); }
+  };
+}
+
+// กดปริ้น ORDER: บันทึกเฉพาะแถวที่ปริ้นจริง (ผ่านตัวกรอง + ไม่รวมแถวที่ซ่อนเพราะซ้ำ) ไม่ต้องรอ ไม่ขวางหน้าต่างปริ้น
+async function recordOrderPrint() {
+  const rows = buildOrderTrackRows(orderFilteredRows);
+  if (!rows.length || !orderDupBatch) return;
+  const status = document.getElementById('orderStatus');
+  try {
+    if (!window.SunStock || !window.SunStock.trackRecord) throw new Error('ยังโหลดระบบฐานข้อมูลไม่เสร็จ');
+    await window.SunStock.trackRecord(rows, orderDupBatch, orderDupFile);
+    const n = new Set(rows.map(r => r.tracking)).size;
+    status.textContent = `✅ บันทึกเลข Tracking ที่ปริ้น ${n.toLocaleString()} พัสดุลงฐานข้อมูลแล้ว (ใช้กันออเดอร์ซ้ำ)`;
+  } catch (e) {
+    const msg = String(e.message || e);
+    console.warn('บันทึก Tracking ที่ปริ้นไม่สำเร็จ:', msg);
+    status.textContent = /op_track_|schema cache|function/i.test(msg)
+      ? '❌ บันทึก Tracking ไม่ได้: ยังไม่ได้รัน supabase/op_order_track.sql ใน Supabase'
+      : '❌ บันทึก Tracking ที่ปริ้นไม่สำเร็จ (ตรวจอินเทอร์เน็ตแล้วกดปริ้นใหม่): ' + msg;
+  }
+}
+
+function setupOrderColumns() {
+  // ไม่ต้องตั้งค่าคอลัมน์จากหน้าเว็บอีกต่อไป
+  // Pivot ใช้คอลัมน์ 4 (SKU Merchant) และคอลัมน์ 5 (จำนวน) อัตโนมัติ
+}
+
+function getOrderUniqueValues(colIndex) {
+  const set = new Set();
+  for (let i = 1; i < orderRows.length; i++) {
+    set.add(String(orderRows[i]?.[colIndex] ?? ""));
+  }
+  return [...set].sort((a,b) =>
+    a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"})
+  );
+}
+
+function buildOrderFilters() {
+  // แสดงตัวกรองเฉพาะคอลัมน์ที่ 2, 4, 5, 6, 7 ของไฟล์ Excel
+  // ตารางตัวอย่างยังคงแสดงข้อมูลทุกคอลัมน์เหมือนเดิม
+  const filterColumnIndexes = [1, 3, 4, 5, 6].filter(i => i < orderHeaders.length);
+
+  orderFiltersState = filterColumnIndexes.map(colIndex => {
+    const values = getOrderUniqueValues(colIndex);
+    return {
+      colIndex,
+      values,
+      selected: new Set(values),
+      renderValues: null,
+      searchEl: null,
+      countEl: null
+    };
+  });
+
+  orderFiltersBox.innerHTML = "";
+
+  // ค่าที่ควรแสดงในแต่ละคอลัมน์จะคำนวณจากตัวกรองของ "คอลัมน์อื่น"
+  // ทำให้เมื่อเลือกคอลัมน์ 2 แล้ว คอลัมน์ 4/5/6/7 จะเปลี่ยนตามทันที
+  const getAvailableValues = (targetState) => {
+    const rows = orderRows.slice(1);
+    const otherStates = orderFiltersState.filter(s => s !== targetState);
+
+    const available = new Set();
+    rows.forEach(row => {
+      const matchesOtherFilters = otherStates.every(state => {
+        const value = String(row?.[state.colIndex] ?? "");
+        return state.selected.has(value);
+      });
+      if (matchesOtherFilters) {
+        available.add(String(row?.[targetState.colIndex] ?? ""));
+      }
+    });
+    return available;
+  };
+
+  const renderAllFilterLists = () => {
+    orderFiltersState.forEach(state => {
+      if (typeof state.renderValues === "function") state.renderValues();
+    });
+  };
+
+  orderFiltersState.forEach((state) => {
+    const card = document.createElement("div");
+    card.className = "order-filter-card";
+
+    const title = document.createElement("label");
+    title.textContent = `คอลัมน์ ${state.colIndex + 1}: ${orderHeaders[state.colIndex]}`;
+
+    const search = document.createElement("input");
+    search.className = "filter-search";
+    search.type = "text";
+    search.placeholder = "🔍 ค้นหาค่า...";
+    state.searchEl = search;
+
+    const actions = document.createElement("div");
+    actions.className = "value-actions";
+
+    const allBtn = document.createElement("button");
+    allBtn.type = "button";
+    allBtn.textContent = "ทั้งหมด";
+
+    const noneBtn = document.createElement("button");
+    noneBtn.type = "button";
+    noneBtn.textContent = "ยกเลิกทั้งหมด";
+
+    actions.append(allBtn, noneBtn);
+
+    const list = document.createElement("div");
+    list.className = "value-list";
+
+    const count = document.createElement("div");
+    count.className = "filter-count";
+    state.countEl = count;
+
+    const updateFilterCount = () => {
+      count.textContent =
+        `เลือก ${state.selected.size.toLocaleString()} / ${state.values.length.toLocaleString()} ค่า`;
+    };
+
+    const renderValues = () => {
+      const q = search.value.trim().toLowerCase();
+      list.innerHTML = "";
+
+      const availableSet = getAvailableValues(state);
+      const visibleValues = state.values.filter(v =>
+        availableSet.has(String(v)) && String(v).toLowerCase().includes(q)
+      );
+
+      if (!visibleValues.length) {
+        list.innerHTML = '<div style="padding:10px;text-align:center;color:#71848a;font-size:12px">ไม่พบค่าที่ตรงกับตัวกรองปัจจุบัน</div>';
+      } else {
+        visibleValues.forEach(value => {
+          const item = document.createElement("label");
+          item.className = "value-item";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = state.selected.has(value);
+
+          cb.onchange = () => {
+            if (cb.checked) state.selected.add(value);
+            else state.selected.delete(value);
+            applyOrderFilters();
+            renderAllFilterLists();
+          };
+
+          const span = document.createElement("span");
+          span.textContent = value === "" ? "(ว่าง)" : value;
+          span.title = value;
+
+          item.append(cb, span);
+          list.append(item);
+        });
+      }
+      updateFilterCount();
+    };
+
+    state.renderValues = renderValues;
+
+    allBtn.onclick = () => {
+      // เลือกเฉพาะค่าที่กำลังแสดง และตรงกับคำค้นหา
+      const q = search.value.trim().toLowerCase();
+      const availableSet = getAvailableValues(state);
+      const visibleValues = state.values.filter(v =>
+        availableSet.has(String(v)) && String(v).toLowerCase().includes(q)
+      );
+      visibleValues.forEach(v => state.selected.add(v));
+      applyOrderFilters();
+      renderAllFilterLists();
+    };
+
+    noneBtn.onclick = () => {
+      // ยกเลิกเฉพาะค่าที่กำลังแสดง ไม่กระทบค่าที่อยู่นอกบริบทปัจจุบัน
+      const q = search.value.trim().toLowerCase();
+      const availableSet = getAvailableValues(state);
+      const visibleValues = state.values.filter(v =>
+        availableSet.has(String(v)) && String(v).toLowerCase().includes(q)
+      );
+      visibleValues.forEach(v => state.selected.delete(v));
+      applyOrderFilters();
+      renderAllFilterLists();
+    };
+
+    search.oninput = () => {
+      const q = search.value.trim().toLowerCase();
+      const availableSet = getAvailableValues(state);
+
+      if (!q) {
+        // ล้างคำค้นหา = เลือกทุกค่าที่มีอยู่ในบริบทปัจจุบัน
+        state.values.forEach(v => {
+          if (availableSet.has(String(v))) state.selected.add(v);
+        });
+      } else {
+        // มีคำค้นหา = เลือกเฉพาะค่าที่ตรงกับคำค้นหาและมีอยู่ในบริบทปัจจุบัน
+        state.values.forEach(v => state.selected.delete(v));
+        state.values.forEach(v => {
+          if (availableSet.has(String(v)) && String(v).toLowerCase().includes(q)) {
+            state.selected.add(v);
+          }
+        });
+      }
+
+      applyOrderFilters();
+      renderAllFilterLists();
+    };
+
+    card.append(title, search, actions, list, count);
+    orderFiltersBox.append(card);
+    renderValues();
+  });
+}
+
+function applyOrderFilters() {
+  if (!orderRows.length) return;
+
+  const dupTrackingIndex = orderDupHide && orderDupTracking.size ? getOrderTrackingIndex() : -1;
+  orderFilteredRows = orderRows.slice(1).filter(row => {
+    if (isOrderRowDuplicate(row, dupTrackingIndex)) return false;
+    return orderFiltersState.every(state => {
+      const value = String(row?.[state.colIndex] ?? "");
+      return state.selected.has(value);
+    });
+  });
+
+  renderOrderPreview([orderHeaders, ...orderFilteredRows.slice(0, 1000)]);
+
+  orderFilterSummary.textContent =
+    `แสดง ${orderFilteredRows.length.toLocaleString()} / ${Math.max(0, orderRows.length - 1).toLocaleString()} รายการ` +
+    (orderFilteredRows.length > 1000 ? " | ตารางตัวอย่างแสดง 1,000 รายการแรก" : "") +
+    (dupTrackingIndex >= 0 ? " | ซ่อนออเดอร์ซ้ำแล้ว" : "");
+
+  buildOrderPivot();
+  buildOrderSummary();
+
+  if (orderRows.length) {
+    document.getElementById("orderStatus").textContent =
+      `● กรองข้อมูลแล้ว ${orderFilteredRows.length.toLocaleString()} รายการ จากทั้งหมด ${Math.max(0, orderRows.length - 1).toLocaleString()} รายการ`;
+  }
+
+  orderDownloadBtn.disabled = false;
+  orderPivotExcelDownloadBtn.disabled = false;
+  renderSelectedTrackingCopy();
+  if (typeof renderBeforeOrderTable === 'function') renderBeforeOrderTable();
+}
+
+/* ===== COPY TRACKING BY SELECTED SKU MERCHANT ===== */
+function getOrderTrackingIndex() {
+  if (!orderHeaders.length) return -1;
+
+  // รองรับชื่อหัวคอลัมน์ Tracking/เลขพัสดุที่พบได้หลายแบบในไฟล์ ORDER
+  const normalized = s => String(s ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[._\-/]+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  const exact = new Set([
+    'tracking',
+    'tracking no',
+    'tracking number',
+    'tracking no.',
+    'เลข tracking',
+    'เลขแท็กกิ้ง',
+    'เลขแทกกิ้ง',
+    'เลขแท็กกิง',
+    'เลขแทกกิง',
+    'เลขแท็คกิ้ง',
+    'เลขแท็คกิง',
+    'เลขแทร็กกิ้ง',
+    'เลขแทรกกิ้ง',
+    'เลขแทร็คกิ้ง',
+    'เลขแทร็คกิง',
+    'เลขแท็ก',
+    'เลขแทก',
+    'เลขพัสดุ',
+    'หมายเลขพัสดุ',
+    'เลขติดตาม',
+    'หมายเลขติดตาม',
+    'หมายเลข tracking',
+    'หมายเลขแทกกิ้ง',
+    'หมายเลขแทกกิง',
+    'หมายเลขแท็กกิ้ง',
+    'หมายเลขแท็กกิง',
+    'หมายเลขแท็คกิ้ง',
+    'หมายเลขแท็คกิง',
+    'หมายเลขแทรกกิ้ง',
+    'หมายเลขแทรกกิง',
+    'หมายเลขแทรคกิ้ง',
+    'หมายเลขแทรคกิง',
+    'หมายเลขแทร็คกิ้ง',
+    'หมายเลขแทร็คกิง'
+  ]);
+
+  const normalizedHeaders = orderHeaders.map(normalized);
+  const exactIndex = normalizedHeaders.findIndex(h => exact.has(h));
+  if (exactIndex >= 0) return exactIndex;
+
+  // ถ้าเป็นหัวคอลัมน์ภาษาไทย ให้ตรวจจากคำสำคัญด้วย เช่น
+  // "หมายเลขแทกกิ้ง", "เลขพัสดุ", "เลขติดตามพัสดุ"
+  const thaiIndex = normalizedHeaders.findIndex(s =>
+    !/(status|สถานะ|สถานะการจัดส่ง|status tracking)/i.test(s) &&
+    (/tracking/.test(s) || /(?:หมายเลข|เลข).*(?:พัสดุ|ติดตาม|แท็กกิ้ง|แทกกิ้ง|แท็กกิง|แทกกิง|แท็คกิ้ง|แท็คกิง|แทร็กกิ้ง|แทรกกิ้ง|แทร็คกิ้ง)/i.test(s))
+  );
+  if (thaiIndex >= 0) return thaiIndex;
+
+  return -1;
+}
+
+function getOrderSkuMerchantFilterState() {
+  const groupIndex = getOrderGroupIndex();
+  if (groupIndex < 0) return null;
+  return orderFiltersState.find(state => state.colIndex === groupIndex) || null;
+}
+
+function buildSelectedTrackingGroups() {
+  const groupIndex = getOrderGroupIndex();
+  const trackingIndex = getOrderTrackingIndex();
+  const skuState = getOrderSkuMerchantFilterState();
+
+  if (groupIndex < 0 || trackingIndex < 0 || !skuState || !skuState.selected.size) {
+    return { groups: [], trackingIndex, groupIndex };
+  }
+
+  const selected = skuState.selected;
+  const map = new Map();
+  // Tracking เดียวกันต้องคัดลอกเพียง 1 ครั้ง แม้จะพบซ้ำหลายแถวหรือหลายกลุ่ม SKU
+  const seenTracking = new Set();
+
+  // ใช้เฉพาะแถวที่ผ่านตัวกรองปัจจุบัน และต้องเป็นชื่อ SKU Merchant ที่เลือกไว้เท่านั้น
+  orderFilteredRows.forEach(row => {
+    const merchantName = String(row?.[groupIndex] ?? '');
+    if (!selected.has(merchantName)) return;
+
+    const tracking = String(row?.[trackingIndex] ?? '').trim();
+    if (!tracking) return;
+
+    // เลข Tracking ซ้ำกันให้เอาเพียง 1 เลข โดยคงลำดับที่พบครั้งแรก
+    if (seenTracking.has(tracking)) return;
+    seenTracking.add(tracking);
+
+    const groupKey = normalizeOrderGroupName(merchantName) || '(ว่าง)';
+    if (!map.has(groupKey)) {
+      map.set(groupKey, {
+        key: groupKey,
+        label: merchantName.trim() || '(ว่าง)',
+        // เก็บเฉพาะเลข Tracking ที่ไม่ซ้ำกัน
+        values: []
+      });
+    }
+    // เพิ่มเฉพาะเลข Tracking ที่พบครั้งแรก
+    map.get(groupKey).values.push(tracking);
+  });
+
+  const groups = [...map.values()]
+    .map(group => ({
+      ...group,
+      values: [...group.values]
+    }))
+    .sort((a,b) => a.key.localeCompare(b.key, undefined, {numeric:true, sensitivity:'base'}));
+
+  return { groups, trackingIndex, groupIndex };
+}
+
+// ===== เลือกยี่ห้อสำหรับแสดง/คัดลอกเลข Tracking =====
+function renderTrackingBrandPicker(groups) {
+  const optionsBox = document.getElementById('trackingBrandOptions');
+  if (!optionsBox) return;
+
+  // ไม่มีข้อมูลให้เลือก = ซ่อนปุ่มเลือกยี่ห้อทั้งปุ่ม
+  const picker = document.getElementById('trackingBrandPicker');
+  if (picker) {
+    picker.style.display = groups.length ? '' : 'none';
+    if (!groups.length) picker.open = false;
+  }
+
+  optionsBox.textContent = '';
+  groups.forEach(g => {
+    const label = document.createElement('label');
+    label.className = 'order-brand-option';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !orderTrackingBrandDeselected.has(g.key);
+    cb.onchange = () => {
+      if (cb.checked) orderTrackingBrandDeselected.delete(g.key);
+      else orderTrackingBrandDeselected.add(g.key);
+      updateTrackingBrandSummary(groups);
+      renderSelectedTrackingCopy(true);
+    };
+    const name = document.createElement('span');
+    name.textContent = g.label || g.key;
+    name.title = g.label || g.key;
+    const n = document.createElement('small');
+    n.textContent = g.values.length.toLocaleString();
+    label.append(cb, name, n);
+    optionsBox.append(label);
+  });
+  updateTrackingBrandSummary(groups);
+}
+
+function updateTrackingBrandSummary(groups) {
+  const countEl = document.getElementById('trackingBrandCount');
+  if (!countEl) return;
+  const selected = groups.filter(g => !orderTrackingBrandDeselected.has(g.key)).length;
+  countEl.textContent = selected === groups.length ? 'ทั้งหมด' : `เลือก ${selected}/${groups.length}`;
+}
+
+(function wireTrackingBrandPicker() {
+  const setAll = (selected) => {
+    orderTrackingBrandDeselected.clear();
+    if (!selected) buildSelectedTrackingGroups().groups.forEach(g => orderTrackingBrandDeselected.add(g.key));
+    renderSelectedTrackingCopy();
+  };
+  const allBtn = document.getElementById('trackingBrandAll');
+  const noneBtn = document.getElementById('trackingBrandNone');
+  if (allBtn) allBtn.onclick = () => setAll(true);
+  if (noneBtn) noneBtn.onclick = () => setAll(false);
+})();
+
+function renderSelectedTrackingCopy(skipPicker = false) {
+  const panel = document.getElementById('orderTrackingCopy');
+  const preview = document.getElementById('orderTrackingPreview');
+  const note = document.getElementById('trackingCopyNote');
+  if (!panel || !preview || !note) return;
+
+  const skuState = getOrderSkuMerchantFilterState();
+  const trackingIndex = getOrderTrackingIndex();
+
+  // ยังไม่เลือกชื่อ SKU Merchant = ไม่แสดงเลข Tracking
+  if (!skuState || !skuState.selected.size) {
+    panel.style.display = 'none';
+    note.textContent = 'เลือกชื่อในคอลัมน์ “ชื่อ SKU Merchant” เพื่อแสดงเลข Tracking';
+    renderTrackingBrandPicker([]);
+    preview.innerHTML = '<span class="tracking-empty">ยังไม่ได้เลือก SKU Merchant</span>';
+    return;
+  }
+
+  panel.style.display = 'block';
+
+  if (trackingIndex < 0) {
+    renderTrackingBrandPicker([]);
+    note.textContent = 'ไม่พบคอลัมน์ Tracking ในไฟล์ ORDER';
+    preview.innerHTML = '<span class="tracking-empty">ไม่พบหัวคอลัมน์เลข Tracking / เลขพัสดุ</span>';
+    return;
+  }
+
+  const result = buildSelectedTrackingGroups();
+  if (!skipPicker) renderTrackingBrandPicker(result.groups);
+
+  // แสดง/คัดลอกเฉพาะยี่ห้อที่เลือกไว้ (ค่าเริ่มต้น = ทุกยี่ห้อ)
+  const groups = result.groups.filter(g => !orderTrackingBrandDeselected.has(g.key));
+  const allTotal = result.groups.reduce((sum, g) => sum + g.values.length, 0);
+  const total = groups.reduce((sum, g) => sum + g.values.length, 0);
+  const groupCount = groups.length;
+
+  if (!allTotal) {
+    note.textContent = `เลือก ${skuState.selected.size.toLocaleString()} ชื่อ แต่ไม่พบเลข Tracking`;
+    preview.innerHTML = '<span class="tracking-empty">ไม่มีเลข Tracking จากรายการที่เลือก</span>';
+    return;
+  }
+  if (!total) {
+    note.textContent = 'ยังไม่ได้เลือกยี่ห้อ';
+    preview.innerHTML = '<span class="tracking-empty">ยังไม่ได้เลือกยี่ห้อ</span>';
+    return;
+  }
+
+  // แบ่งเป็นกล่องละไม่เกิน 100 เลข Tracking
+  // เลขซ้ำถูกตัดออกตั้งแต่ buildSelectedTrackingGroups() แล้ว
+  const BOX_SIZE = 100;
+  const boxes = [];
+  let currentBox = [];
+  let currentCount = 0;
+
+  groups.forEach(group => {
+    group.values.forEach(tracking => {
+      if (currentCount >= BOX_SIZE) {
+        boxes.push(currentBox);
+        currentBox = [];
+        currentCount = 0;
+      }
+      currentBox.push({
+        type: 'tracking',
+        value: tracking
+      });
+      currentCount++;
+    });
+  });
+  if (currentBox.length) boxes.push(currentBox);
+
+  note.textContent =
+    `พบ ${total.toLocaleString()} เลข Tracking | ${groupCount.toLocaleString()} กลุ่ม SKU | ${boxes.length.toLocaleString()} ช่อง (ช่องละไม่เกิน 100 เลข) | เลขซ้ำเอาเพียง 1 เลข`;
+
+  // สร้างข้อมูลสำหรับแต่ละกล่องใหม่ โดยยังแสดงชื่อกลุ่มตามลำดับเดิม
+  // เพื่อให้แต่ละกล่องอ่านง่าย แต่ตอนคัดลอกจะคัดลอกเฉพาะเลข Tracking เท่านั้น
+  let globalIndex = 0;
+  const boxHtml = boxes.map((box, boxIndex) => {
+    const boxStart = globalIndex;
+    const boxEnd = globalIndex + box.length;
+    globalIndex = boxEnd;
+
+    const items = [];
+    let cursor = 0;
+    groups.forEach(group => {
+      const groupStart = cursor;
+      const groupEnd = cursor + group.values.length;
+      const overlapStart = Math.max(groupStart, boxStart);
+      const overlapEnd = Math.min(groupEnd, boxEnd);
+      if (overlapStart < overlapEnd) {
+        items.push(`<div class="tracking-group">${escapeHtml(group.label || group.key)}</div>`);
+        for (let i = overlapStart; i < overlapEnd; i++) {
+          items.push(`<div class="tracking-item">${escapeHtml(group.values[i - groupStart])}</div>`);
+        }
+      }
+      cursor = groupEnd;
+    });
+
+    const values = box.map(item => escapeHtml(item.value)).join('\\n');
+    return `<div class="tracking-box" data-box-index="${boxIndex}" data-tracking-count="${box.length}" data-tracking-values="${escapeHtml(values)}">${items.join('')}</div>`;
+  }).join('');
+
+  preview.innerHTML = boxHtml;
+}
+
+async function copyAllDisplayedTracking() {
+  const boxes = [...document.querySelectorAll('#orderTrackingPreview .tracking-box')];
+  if (!boxes.length) {
+    if (typeof window.fxToast === 'function') window.fxToast('ยังไม่มีเลข Tracking ให้คัดลอก', '');
+    return false;
+  }
+
+  // ปุ่ม/การคลิกพื้นที่รวมแบบเดิม ให้คัดลอกทั้งหมดทุกกล่องตามลำดับ
+  const values = boxes.flatMap(box =>
+    [...box.querySelectorAll('.tracking-item')]
+      .map(el => String(el.textContent || '').trim())
+      .filter(Boolean)
+  );
+  return await copyTrackingList(values, document.getElementById('orderTrackingPreview'), 'ทั้งหมด');
+}
+
+async function copyTrackingBox(box) {
+  if (!box) return false;
+  const values = [...box.querySelectorAll('.tracking-item')]
+    .map(el => String(el.textContent || '').trim())
+    .filter(Boolean);
+  if (!values.length) return false;
+
+  const boxIndex = Number(box.dataset.boxIndex || 0) + 1;
+  return await copyTrackingList(values, box, `ช่องที่ ${boxIndex}`);
+}
+
+async function copyTrackingList(values, box, label) {
+  const text = values.join('\n');
+  if (!text) {
+    if (typeof window.fxToast === 'function') window.fxToast('ยังไม่มีเลข Tracking ให้คัดลอก', '');
+    return false;
+  }
+
+  let copied = false;
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    }
+  } catch (err) {
+    copied = false;
+  }
+
+  if (!copied) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '-9999px';
+      ta.style.width = '1px';
+      ta.style.height = '1px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      copied = document.execCommand('copy');
+      ta.remove();
+    } catch (err) {
+      copied = false;
+    }
+  }
+
+  if (!copied) {
+    if (box) {
+      const range = document.createRange();
+      range.selectNodeContents(box);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    alert('เบราว์เซอร์ไม่อนุญาตให้คัดลอกอัตโนมัติ\nระบบเลือกเลข Tracking ในช่องนี้ให้แล้ว กด Ctrl+C เพื่อคัดลอก');
+    return false;
+  }
+
+  if (box) {
+    box.classList.add('tracking-all-copied');
+    setTimeout(() => box.classList.remove('tracking-all-copied'), 700);
+  }
+
+  const count = values.length;
+  if (typeof window.fxToast === 'function') {
+    window.fxToast(`คัดลอก Tracking ${label} ${count.toLocaleString()} เลขแล้ว`, 'success');
+  }
+  if (typeof window.workHistoryLog === 'function') {
+    window.workHistoryLog('filter', 'orderTool', `คัดลอก Tracking ${label} ${count.toLocaleString()} เลข`);
+  }
+  return true;
+}
+
+async function copyTrackingValue(el) {
+  if (!el) return;
+  const text = String(el.textContent || '').trim();
+  if (!text) return;
+
+  let copied = false;
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    }
+  } catch (err) {
+    copied = false;
+  }
+
+  if (!copied) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '-9999px';
+      ta.style.width = '1px';
+      ta.style.height = '1px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      copied = document.execCommand('copy');
+      ta.remove();
+    } catch (err) {
+      copied = false;
+    }
+  }
+
+  if (!copied) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    alert('เบราว์เซอร์ไม่อนุญาตให้คัดลอกอัตโนมัติ\nกด Ctrl+C เพื่อคัดลอกเลข Tracking นี้');
+    return;
+  }
+
+  const old = el.textContent;
+  el.classList.add('tracking-copied');
+  el.textContent = '✓ ' + text;
+  setTimeout(() => {
+    el.textContent = old;
+    el.classList.remove('tracking-copied');
+  }, 900);
+
+  if (typeof window.workHistoryLog === 'function') {
+    window.workHistoryLog('filter', 'orderTool', `คัดลอก Tracking ${text}`);
+  }
+}
+
+function getSelectedTrackingClipboardText() {
+  const result = buildSelectedTrackingGroups();
+  // คัดลอกเลข Tracking ทุกตัวที่แสดง โดยเลขซ้ำจะถูกตัดออกตั้งแต่ตอนสร้างกลุ่ม
+  return result.groups
+    .map(group => group.values.filter(v => String(v ?? '').trim() !== '').join('\n'))
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+const trackingPreviewBox = document.getElementById('orderTrackingPreview');
+if (trackingPreviewBox) {
+  trackingPreviewBox.title = 'คลิกที่ช่องใดช่องหนึ่งเพื่อคัดลอกเลข Tracking เฉพาะช่องนั้น';
+  trackingPreviewBox.addEventListener('click', async (event) => {
+    const box = event.target.closest('.tracking-box');
+    if (!box || event.target.closest('.tracking-empty')) return;
+    await copyTrackingBox(box);
+  });
+}
+
+document.getElementById("orderSelectAll").onclick = () => {
+  // เลือกทั้งหมดเฉพาะค่าที่ตรงกับคำค้นของแต่ละคอลัมน์
+  orderFiltersState.forEach((state, index) => {
+    const card = orderFiltersBox.children[index];
+    const search = card?.querySelector(".filter-search");
+    const q = search ? search.value.trim().toLowerCase() : "";
+    const visibleValues = state.values.filter(v =>
+      String(v).toLowerCase().includes(q)
+    );
+    visibleValues.forEach(v => state.selected.add(v));
+  });
+  buildOrderFilters();
+  applyOrderFilters();
+};
+
+document.getElementById("orderClearFilters").onclick = () => {
+  orderFiltersState.forEach(state => state.values.forEach(v => state.selected.add(v)));
+  buildOrderFilters();
+  applyOrderFilters();
+};
+
+function buildOrderSummary() {
+  const summaryExtra = document.getElementById("orderSummaryExtra");
+  const rowsEl = document.getElementById("orderSummaryRows");
+  const skuEl = document.getElementById("orderSummarySku");
+  const qtyEl = document.getElementById("orderSummaryQty");
+
+  if (!summaryExtra || !rowsEl || !skuEl || !qtyEl) return;
+
+  const filtered = Array.isArray(orderFilteredRows) ? orderFilteredRows : [];
+  const pivot = Array.isArray(orderPivotRows) ? orderPivotRows : [];
+
+  const totalQty = pivot.reduce((sum, item) => {
+    const n = Number(item?.qty);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  rowsEl.textContent = filtered.length.toLocaleString();
+  skuEl.textContent = pivot.length.toLocaleString();
+  qtyEl.textContent = formatPivotNumber(totalQty);
+
+  summaryExtra.style.display = "block";
+}
+
+
+// ใช้ "ชื่อ SKU Merchant" เป็นตัวกำหนดกลุ่ม
+// และใช้ "SKU Merchant" เป็นข้อมูลที่นำมาแสดงผล
+// ถ้าชื่อกลุ่มลงท้ายด้วย FRONT จะยังถือเป็นกลุ่มเดิม
+function normalizeOrderGroupName(value) {
+  // กติกาการแบ่งกลุ่ม: ยึดเฉพาะ "คำแรก" ของคอลัมน์ ชื่อ SKU Merchant
+  // ไม่สนใจตัวพิมพ์เล็ก/ใหญ่ และข้อความคำอื่นที่ตามหลังคำแรก (รวมถึง FRONT)
+  // เช่น IMANE / Imane / IMANE FRONT / Imane Front = กลุ่มเดียวกัน
+  const firstWord = String(value ?? '').trim().split(/\s+/)[0] || '';
+  return firstWord.toLowerCase();
+}
+
+function compareOrderGroup(a, b) {
+  const aa = normalizeOrderGroupName(a);
+  const bb = normalizeOrderGroupName(b);
+  return aa.localeCompare(bb, undefined, {numeric:true, sensitivity:'base'});
+}
+
+function compareOrderExportRows(a, b, groupIndex, skuIndex) {
+  const groupCmp = compareOrderGroup(a?.[groupIndex], b?.[groupIndex]);
+  if (groupCmp !== 0) return groupCmp;
+  return String(a?.[skuIndex] ?? '').localeCompare(
+    String(b?.[skuIndex] ?? ''),
+    undefined,
+    {numeric:true, sensitivity:'base'}
+  );
+}
+
+function addOrderSkuSpacingRows(rows, groupIndex, skuIndex) {
+  // 1) แบ่งกลุ่มจาก "ชื่อ SKU Merchant" เท่านั้น
+  // 2) "ชื่อ SKU Merchant" ที่ลงท้าย FRONT ไม่นับเป็นกลุ่มใหม่
+  // 3) ข้อมูลที่แสดงยังใช้ค่า "SKU Merchant" เต็ม ๆ
+  // 4) ภายในกลุ่มไม่เว้นบรรทัด
+  // 5) เมื่อเปลี่ยนกลุ่ม เว้น 3 บรรทัด
+  if (!rows.length) return [];
+
+  const sorted = [...rows].sort((a, b) =>
+    compareOrderExportRows(a, b, groupIndex, skuIndex)
+  );
+
+  const out = [];
+  let previousGroup = null;
+
+  sorted.forEach((row) => {
+    const group = normalizeOrderGroupName(row?.[groupIndex]);
+    if (previousGroup !== null && group !== previousGroup) {
+      for (let i = 0; i < 3; i++) out.push([]);
+    }
+    out.push(row);
+    previousGroup = group;
+  });
+
+  return out;
+}
+
+function compareOrderPivotRows(a, b) {
+  const groupCmp = compareOrderGroup(a?.groupName, b?.groupName);
+  if (groupCmp !== 0) return groupCmp;
+  return String(a?.sku ?? '').localeCompare(
+    String(b?.sku ?? ''),
+    undefined,
+    {numeric:true, sensitivity:'base'}
+  );
+}
+
+function downloadOrderPivotExcel() {
+  // ดาวน์โหลด Excel ให้ตรงกับ "ตัวอย่างข้อมูล" ด้านล่างของหน้ารับORDER
+  // ใช้หัวคอลัมน์และลำดับแถวเดียวกับตาราง Preview หลังกรอง
+  if (!orderRows.length || !orderHeaders.length) {
+    return alert('ยังไม่มีข้อมูล ORDER สำหรับดาวน์โหลด');
+  }
+  if (!window.XLSX) return alert('ไม่พบไลบรารี Excel (XLSX)');
+
+  const dataRows = orderFilteredRows.length
+    ? orderFilteredRows
+    : orderRows.slice(1);
+  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const groupIndex = getOrderGroupIndex() >= 0 ? getOrderGroupIndex() : skuIndex;
+  const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
+
+  // Excel ไม่เว้นบรรทัดระหว่างกลุ่ม
+  // ยังคงเรียงตาม "ชื่อ SKU Merchant" และแสดงข้อมูลทุกคอลัมน์ตามเดิม
+  const sortedDataRows = [...dataRows].sort((a, b) =>
+    compareOrderExportRows(a, b, groupIndex, skuIndex)
+  );
+
+  const data = [
+    [...orderHeaders],
+    ...sortedDataRows.map(row => orderHeaders.map((_, i) => row?.[i] ?? ''))
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+
+  // ปรับความกว้างคอลัมน์ให้อ่านง่าย โดยยึดข้อมูลจริงในตัวอย่าง
+  ws['!cols'] = orderHeaders.map((header, colIndex) => {
+    let maxLen = String(header ?? '').length;
+    dataRows.slice(0, 1000).forEach(row => {
+      const len = String(row?.[colIndex] ?? '').length;
+      if (len > maxLen) maxLen = len;
+    });
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+
+  const wb = XLSX.utils.book_new();
+
+  // ส่งออกเฉพาะ Sheet Pivot เท่านั้น
+  // ไม่ใส่ Sheet ORDER เพื่อให้ไฟล์ที่ดาวน์โหลดเหลือแค่ Pivot
+  const pivotHeader = [
+    orderHeaders[skuIndex] || 'SKU Merchant',
+    orderHeaders[qtyIndex] || 'จำนวน'
+  ];
+  // Pivot ใน Excel ไม่เว้นบรรทัดระหว่างกลุ่ม
+  const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
+  const pivotRowsForExcel = sortedPivotRows.map(item => [item.sku, item.qty]);
+  const pivotData = [
+    pivotHeader,
+    ...pivotRowsForExcel
+  ];
+  const pivotWs = XLSX.utils.aoa_to_sheet(pivotData);
+  pivotWs['!cols'] = [
+    { wch: Math.min(Math.max(String(pivotHeader[0]).length + 2, 14), 40) },
+    { wch: Math.min(Math.max(String(pivotHeader[1]).length + 2, 12), 20) }
+  ];
+  XLSX.utils.book_append_sheet(wb, pivotWs, 'Pivot');
+
+  XLSX.writeFile(wb, 'ORDER_Pivot.xlsx');
+}
+
+orderPivotExcelDownloadBtn.onclick = downloadOrderPivotExcel;
+
+const orderPivotCopyAllBtn = document.getElementById('orderPivotCopyAllBtn');
+if (orderPivotCopyAllBtn) {
+  orderPivotCopyAllBtn.onclick = copyAllOrderPivot;
+}
+
+orderDownloadBtn.onclick = printOrderSheet;
+
+
+// ===== คัดลอกข้อมูล Pivot ทั้งหมด =====
+// คัดลอกทุกแถวของ Pivot ที่สร้างจริง ไม่จำกัดเฉพาะ 1,000 แถวที่แสดงบนหน้าจอ
+async function copyAllOrderPivot() {
+  const allRows = Array.isArray(orderPivotRows) ? orderPivotRows : [];
+  if (!allRows.length) {
+    if (typeof window.fxToast === 'function') window.fxToast('ยังไม่มีข้อมูล Pivot ให้คัดลอก', '');
+    else alert('ยังไม่มีข้อมูล Pivot ให้คัดลอก');
+    return;
+  }
+
+  // คัดลอกเฉพาะยี่ห้อที่เลือกไว้ (ค่าเริ่มต้น = เลือกทุกยี่ห้อ)
+  const rows = allRows.filter(r => !orderBrandDeselected.has(r?.groupName));
+  if (!rows.length) {
+    const emptyMsg = 'กรุณาเลือกยี่ห้ออย่างน้อย 1 ยี่ห้อ';
+    if (typeof window.fxToast === 'function') window.fxToast(emptyMsg, '');
+    else alert(emptyMsg);
+    return;
+  }
+
+  // คัดลอกเฉพาะข้อมูล ไม่เอาหัวตาราง
+  // ใช้ Clipboard แบบ HTML ตาราง เพื่อบังคับให้ Excel มอง SKU Merchant
+  // เป็น "1 ช่อง" เสมอ แม้ภายใน SKU จะมีช่องว่างกี่ตำแหน่งก็ตาม
+  // ช่องว่างภายใน SKU จะถูกเก็บไว้ทั้งหมด ส่วนช่องว่างหัว/ท้ายจะตัดออก
+  const copyRows = rows.map(r => {
+    const sku = String(r?.sku ?? '')
+      .replace(/[\t\r\n]+/g, ' ')
+      .trim();
+    const qty = formatPivotNumber(r?.qty ?? 0);
+    return { sku, qty };
+  });
+
+  const escapeClipboardHtml = value => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  // HTML จะทำให้ Excel แยกคอลัมน์ตาม <td> เท่านั้น
+  // ดังนั้น "SKU Merchant" ที่มีช่องว่างภายในจะไม่ถูกแยกไปคอลัมน์จำนวน
+  const html = [
+    '<table><tbody>',
+    ...copyRows.map(r =>
+      `<tr><td>${escapeClipboardHtml(r.sku)}</td><td>${escapeClipboardHtml(r.qty)}</td></tr>`
+    ),
+    '</tbody></table>'
+  ].join('');
+
+  // text/plain ใช้เป็น fallback สำหรับโปรแกรมที่ไม่รองรับ HTML clipboard
+  const text = copyRows.map(r => `${r.sku}\t${r.qty}`).join('\n');
+
+  let copied = false;
+
+  // วิธีหลัก: คัดลอกทั้ง HTML + plain text
+  // Excel จะใช้ HTML table ทำให้ช่องว่างใน SKU ไม่กลายเป็นตัวแบ่งคอลัมน์
+  try {
+    if (
+      navigator.clipboard &&
+      window.isSecureContext &&
+      typeof ClipboardItem !== 'undefined' &&
+      typeof navigator.clipboard.write === 'function'
+    ) {
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' })
+      });
+      await navigator.clipboard.write([item]);
+      copied = true;
+    }
+  } catch (e) {
+    copied = false;
+  }
+
+  // Fallback: text/plain
+  if (!copied) {
+    try {
+      if (navigator.clipboard && window.isSecureContext &&
+          typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch (e) {
+      copied = false;
+    }
+  }
+
+  // Fallback สุดท้ายสำหรับเบราว์เซอร์เก่า
+  if (!copied) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      copied = document.execCommand('copy');
+      ta.remove();
+    } catch (e) {
+      copied = false;
+    }
+  }
+
+  if (copied) {
+    const msg = rows.length === allRows.length
+      ? `คัดลอก Pivot ทั้งหมด ${rows.length.toLocaleString()} รายการแล้ว (ไม่รวมหัวตาราง)`
+      : `คัดลอก Pivot ที่เลือก ${rows.length.toLocaleString()} จาก ${allRows.length.toLocaleString()} รายการแล้ว (ไม่รวมหัวตาราง)`;
+    if (typeof window.fxToast === 'function') window.fxToast(msg, 'success');
+    else alert(msg);
+    if (typeof window.workHistoryLog === 'function') {
+      window.workHistoryLog('filter', 'orderTool', msg);
+    }
+  } else {
+    alert('ไม่สามารถคัดลอกอัตโนมัติได้ กรุณาเลือกข้อมูลแล้วกด Ctrl+C');
+  }
+}
+
+function buildOrderPivot() {
+  if (!orderRows.length) {
+    orderPivotRows = [];
+    document.getElementById("orderPivotWrap").style.display = "none";
+    return;
+  }
+
+  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const qtyIndex = getOrderQtyIndex() >= 0 ? getOrderQtyIndex() : ORDER_PIVOT_QTY_INDEX;
+  if (skuIndex >= orderHeaders.length || qtyIndex >= orderHeaders.length || skuIndex === qtyIndex || skuIndex < 0 || qtyIndex < 0) {
+    orderPivotRows = [];
+    document.getElementById("orderPivotWrap").style.display = "none";
+    return;
+  }
+
+  const groupIndex = getOrderGroupIndex() >= 0 ? getOrderGroupIndex() : skuIndex;
+
+  // Pivot แสดงเฉพาะค่าในคอลัมน์ "SKU Merchant"
+  // แต่ลำดับและการเว้นบรรทัดยึดจากคอลัมน์ "ชื่อ SKU Merchant"
+  const map = new Map();
+  skuBrandLearn(orderRows.slice(1), skuIndex, groupIndex);
+  orderFilteredRows.forEach(row => {
+    const sku = String(row?.[skuIndex] ?? "").trim() || "(ว่าง)";
+    const groupName = normalizeOrderGroupName(row?.[groupIndex]) || "(ว่าง)";
+    const qtyRaw = String(row?.[qtyIndex] ?? "").replace(/,/g, "").trim();
+    const qty = Number(qtyRaw);
+    const amount = Number.isFinite(qty) ? qty : 0;
+    const key = sku;
+    const existing = map.get(key);
+    if (existing) {
+      existing.qty += amount;
+      const exactMerchant = String(row?.[groupIndex] ?? '').trim();
+      if (exactMerchant && !existing.merchantNames.includes(exactMerchant)) existing.merchantNames.push(exactMerchant);
+    } else {
+      const exactMerchant = String(row?.[groupIndex] ?? '').trim();
+      map.set(key, { sku, qty: amount, groupName, merchantNames: exactMerchant ? [exactMerchant] : [] });
+    }
+  });
+
+  orderPivotRows = [...map.values()].sort(compareOrderPivotRows);
+
+  const skuHeader = "SKU Merchant";
+  const qtyHeader = "จำนวน";
+  const wrap = document.getElementById("orderPivotWrap");
+  const box = document.getElementById("orderPivotPreview");
+  const note = document.getElementById("orderPivotNote");
+
+  wrap.style.display = "block";
+  note.textContent = `รวม ${orderPivotRows.length.toLocaleString()} รายการ จาก ${orderFilteredRows.length.toLocaleString()} แถว | ${skuHeader} + รวม ${qtyHeader}`;
+  renderOrderBrandPicker();
+
+  if (!orderPivotRows.length) {
+    box.innerHTML = '<div class="empty">ไม่มีข้อมูลหลังกรอง</div>';
+    return;
+  }
+
+  renderOrderPivotTable();
+}
+
+// ตารางตัวอย่าง Pivot แสดงเฉพาะยี่ห้อที่เลือกไว้ (ค่าเริ่มต้น = ทุกยี่ห้อ)
+function renderOrderPivotTable() {
+  const box = document.getElementById("orderPivotPreview");
+  if (!box) return;
+  const skuHeader = "SKU Merchant";
+  const qtyHeader = "จำนวน";
+  const visibleRows = orderPivotRows.filter(r => !orderBrandDeselected.has(r?.groupName));
+
+  if (!orderPivotRows.length) {
+    box.innerHTML = '<div class="empty">ไม่มีข้อมูลหลังกรอง</div>';
+    return;
+  }
+  if (!visibleRows.length) {
+    box.innerHTML = '<div class="empty">ยังไม่ได้เลือกยี่ห้อ</div>';
+    return;
+  }
+
+  let html = `<table><thead><tr><th>${escapeHtml(skuHeader)}</th><th>${escapeHtml(qtyHeader)}</th></tr></thead><tbody>`;
+  visibleRows.slice(0,1000).forEach(r => {
+    html += `<tr><td>${escapeHtml(r.sku)}</td><td>${escapeHtml(formatPivotNumber(r.qty))}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  if (visibleRows.length > 1000) {
+    html += `<div style="padding:8px;text-align:center;color:#687d83;font-size:11px">แสดง 1,000 รายการแรก จาก ${visibleRows.length.toLocaleString()} รายการ</div>`;
+  }
+  box.innerHTML = html;
+}
+
+// ===== เลือกยี่ห้อสำหรับคัดลอก Pivot =====
+// ยี่ห้อ = กลุ่มเดียวกับที่ Pivot ใช้แบ่ง (คำแรกของ "ชื่อ SKU Merchant")
+// เก็บเฉพาะยี่ห้อที่ "ไม่ได้เลือก" ไว้ ยี่ห้อใหม่จึงถูกเลือกโดยอัตโนมัติ
+function renderOrderBrandPicker() {
+  const optionsBox = document.getElementById('orderBrandOptions');
+  const countEl = document.getElementById('orderBrandCount');
+  const copyBtn = document.getElementById('orderPivotCopyAllBtn');
+  if (!optionsBox || !countEl || !copyBtn) return;
+
+  const brands = new Map();
+  (Array.isArray(orderPivotRows) ? orderPivotRows : []).forEach(r => {
+    const key = r?.groupName;
+    let b = brands.get(key);
+    if (!b) {
+      const original = String(r?.merchantNames?.[0] ?? '').trim().split(/\s+/)[0];
+      b = { key, label: original || key, rows: 0 };
+      brands.set(key, b);
+    }
+    b.rows += 1;
+  });
+
+  const picker = document.getElementById('orderBrandPicker');
+  if (picker) {
+    picker.style.display = brands.size ? '' : 'none';
+    if (!brands.size) picker.open = false;
+  }
+
+  optionsBox.textContent = '';
+  brands.forEach(b => {
+    const label = document.createElement('label');
+    label.className = 'order-brand-option';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !orderBrandDeselected.has(b.key);
+    cb.onchange = () => {
+      if (cb.checked) orderBrandDeselected.delete(b.key);
+      else orderBrandDeselected.add(b.key);
+      updateOrderBrandSummary();
+      renderOrderPivotTable();
+    };
+    const name = document.createElement('span');
+    name.textContent = b.label;
+    name.title = b.label;
+    const n = document.createElement('small');
+    n.textContent = b.rows.toLocaleString();
+    label.append(cb, name, n);
+    optionsBox.append(label);
+  });
+  updateOrderBrandSummary();
+}
+
+function updateOrderBrandSummary() {
+  const countEl = document.getElementById('orderBrandCount');
+  const copyBtn = document.getElementById('orderPivotCopyAllBtn');
+  if (!countEl || !copyBtn) return;
+  const rows = Array.isArray(orderPivotRows) ? orderPivotRows : [];
+  const keys = new Set(rows.map(r => r?.groupName));
+  const selectedKeys = [...keys].filter(k => !orderBrandDeselected.has(k));
+  const selectedRows = rows.filter(r => !orderBrandDeselected.has(r?.groupName)).length;
+
+  if (selectedKeys.length === keys.size) {
+    countEl.textContent = 'ทั้งหมด';
+    copyBtn.textContent = '📋 คัดลอกทั้งหมด';
+  } else {
+    countEl.textContent = `เลือก ${selectedKeys.length}/${keys.size}`;
+    copyBtn.textContent = `📋 คัดลอกที่เลือก (${selectedRows.toLocaleString()})`;
+  }
+}
+
+(function wireOrderBrandPicker() {
+  const setAll = (selected) => {
+    orderBrandDeselected.clear();
+    if (!selected) (orderPivotRows || []).forEach(r => orderBrandDeselected.add(r?.groupName));
+    renderOrderBrandPicker();
+    renderOrderPivotTable();
+  };
+  const allBtn = document.getElementById('orderBrandAll');
+  const noneBtn = document.getElementById('orderBrandNone');
+  if (allBtn) allBtn.onclick = () => setAll(true);
+  if (noneBtn) noneBtn.onclick = () => setAll(false);
+})();
+
+function formatPivotNumber(n) {
+  return Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, {maximumFractionDigits: 2});
+}
+
+function xmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function wordRun(text, {bold=false, size=22, align=null} = {}) {
+  const alignXml = align ? `<w:jc w:val="${align}"/>` : '';
+  return `<w:r><w:rPr><w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${bold ? '<w:b/><w:bCs/>' : ''}</w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
+}
+
+function wordParagraph(text, opts={}) {
+  const align = opts.align || 'left';
+  const size = opts.size || 22;
+  const bold = !!opts.bold;
+  return `<w:p><w:pPr><w:jc w:val="${align}"/><w:spacing w:before="0" w:after="${opts.after ?? 0}" w:line="${opts.line || 240}"/></w:pPr>${wordRun(text,{bold,size})}</w:p>`;
+}
+
+function wordCell(text, opts={}) {
+  const size = opts.size || 20;
+  const bold = !!opts.bold;
+  const align = opts.align || 'left';
+  const shade = opts.shade ? `<w:shd w:fill="${opts.shade}"/>` : '';
+  return `<w:tc><w:tcPr>${shade}<w:tcMar><w:top w:w="45" w:type="dxa"/><w:left w:w="70" w:type="dxa"/><w:bottom w:w="45" w:type="dxa"/><w:right w:w="70" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:pPr><w:jc w:val="${align}"/><w:spacing w:before="0" w:after="0" w:line="280"/></w:pPr>${wordRun(text,{bold,size})}</w:p></w:tc>`;
+}
+
+function wordTableRow(cells, header=false) {
+  return `<w:tr>${header ? '<w:trPr><w:tblHeader/></w:trPr>' : ''}${cells.join('')}</w:tr>`;
+}
+
+function downloadOrderWord() {
+  if (!orderRows.length) {
+    alert('ยังไม่มีรายการ ORDER');
+    return;
+  }
+
+  // ถ้ายังไม่มี Pivot ให้สร้างอัตโนมัติก่อนดาวน์โหลด
+  if (!orderPivotRows.length) {
+    try { buildOrderPivot(); } catch (e) {
+      console.error('ORDER Pivot error:', e);
+    }
+  }
+
+  if (!orderPivotRows.length) {
+    alert('ยังไม่มีข้อมูลสำหรับสร้าง Word');
+    return;
+  }
+
+  if (!window.JSZip) {
+    alert('ไม่พบไลบรารีสร้าง Word (JSZip) กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
+    return;
+  }
+
+  const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
+  let bodyXml = '';
+  let previousGroup = null;
+
+  // ตั้งตำแหน่งจำนวนให้ชิด SKU มากขึ้น และเว้นหลังแต่ละบรรทัด 2pt
+  const tabXml = '<w:tabs><w:tab w:val="right" w:pos="3900"/></w:tabs>';
+
+  sortedPivotRows.forEach((r) => {
+    const group = normalizeOrderGroupName(r?.groupName);
+
+    // เว้น 3 บรรทัดเมื่อเปลี่ยนกลุ่ม เหมือนรูปแบบเดิม
+    if (previousGroup !== null && group !== previousGroup) {
+      bodyXml += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240"/></w:pPr></w:p>';
+      bodyXml += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240"/></w:pPr></w:p>';
+      bodyXml += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240"/></w:pPr></w:p>';
+    }
+
+    const sku = xmlEscape(r?.sku ?? '');
+    const qty = xmlEscape(formatPivotNumber(r?.qty ?? 0));
+
+    bodyXml += `<w:p>
+      <w:pPr>
+        ${tabXml}
+        <w:spacing w:before="0" w:after="40" w:line="260"/>
+      </w:pPr>
+      <w:r>
+        <w:rPr>
+          <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
+          <w:sz w:val="20"/><w:szCs w:val="20"/>
+        </w:rPr>
+        <w:t xml:space="preserve">${sku}</w:t>
+      </w:r>
+      <w:r><w:tab/></w:r>
+      <w:r>
+        <w:rPr>
+          <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
+          <w:sz w:val="20"/><w:szCs w:val="20"/>
+        </w:rPr>
+        <w:t xml:space="preserve">${qty}</w:t>
+      </w:r>
+    </w:p>`;
+
+    previousGroup = group;
+  });
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${bodyXml}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1080" w:bottom="1440" w:left="1080" w:header="360" w:footer="360" w:gutter="0"/>
+      <w:cols w:num="2" w:space="720"/>
+      <w:docGrid w:linePitch="260"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults>
+    <w:rPrDefault><w:rPr>
+      <w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/>
+      <w:sz w:val="20"/><w:szCs w:val="20"/>
+    </w:rPr></w:rPrDefault>
+    <w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="260"/></w:pPr></w:pPrDefault>
+  </w:docDefaults>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
+    <w:name w:val="Normal"/>
+    <w:qFormat/>
+    <w:rPr><w:rFonts w:ascii="Tahoma" w:hAnsi="Tahoma" w:cs="Tahoma"/></w:rPr>
+  </w:style>
+</w:styles>`;
+
+  const settingsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:zoom w:percent="100"/>
+  <w:compat/>
+</w:settings>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>
+</Types>`;
+
+  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const documentRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>
+</Relationships>`;
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', contentTypesXml);
+  zip.folder('_rels').file('.rels', rootRelsXml);
+  const wordFolder = zip.folder('word');
+  wordFolder.file('document.xml', documentXml);
+  wordFolder.file('styles.xml', stylesXml);
+  wordFolder.file('settings.xml', settingsXml);
+  wordFolder.folder('_rels').file('document.xml.rels', documentRelsXml);
+
+  const filename = `ORDER_Pivot_${new Date().toISOString().slice(0,10)}.docx`;
+  const oldText = orderDownloadBtn.textContent;
+  orderDownloadBtn.disabled = true;
+  orderDownloadBtn.textContent = '⏳ กำลังสร้าง Word...';
+
+  zip.generateAsync({type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      if (typeof window.workHistoryLog === 'function') {
+        window.workHistoryLog('download', 'orderTool', 'ดาวน์โหลด Word ข้อมูล Pivot');
+      }
+    })
+    .catch((e) => {
+      console.error('ORDER Word error:', e);
+      alert('สร้างไฟล์ Word ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    })
+    .finally(() => {
+      orderDownloadBtn.disabled = false;
+      orderDownloadBtn.textContent = oldText;
+    });
+}
+
+function printOrderPDF() {
+  if (!orderRows.length) {
+    alert('ยังไม่มีรายการ ORDER');
+    return;
+  }
+
+  if (!orderPivotRows.length) {
+    try { buildOrderPivot(); } catch (e) { console.error(e); }
+  }
+  if (!orderPivotRows.length) {
+    alert('ยังไม่มีข้อมูลสำหรับสร้าง PDF');
+    return;
+  }
+
+  if (typeof window.html2pdf !== 'function') {
+    // ยังโหลดไม่เสร็จ (js/lazy-lib.js) รอแล้วเรียกใหม่
+    window.loadLib('html2pdf').then(printOrderPDF, () => alert('โหลดไลบรารีสร้าง PDF ไม่สำเร็จ ลองรีเฟรชหน้าเว็บแล้วลองใหม่อีกครั้ง'));
+    return;
+  }
+
+  const sortedPivotRows = [...orderPivotRows].sort(compareOrderPivotRows);
+
+  function escHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  let previousGroup = null;
+  let itemsHtml = '';
+
+  sortedPivotRows.forEach((r) => {
+    const group = normalizeOrderGroupName(r?.groupName);
+    if (previousGroup !== null && group !== previousGroup) {
+      itemsHtml += '<div class="group-spacer" aria-hidden="true"></div>';
+    }
+    itemsHtml += `
+      <div class="order-item">
+        <span class="sku">${escHtml(r?.sku)}</span>
+        <span class="qty">${escHtml(formatPivotNumber(r?.qty ?? 0))}</span>
+      </div>`;
+    previousGroup = group;
+  });
+
+  // สร้างพื้นที่สำหรับ PDF โดยเฉพาะ ไม่เปิด Popup และไม่เรียก window.print()
+  const pdfRoot = document.createElement('div');
+  pdfRoot.id = '__orderPdfRoot';
+  pdfRoot.innerHTML = `
+    <div class="order-pdf-sheet">
+      <div class="print-head">
+        <strong>ใบรายการสินค้า (Order Picking)</strong>
+        <span>สร้าง PDF เมื่อ ${escHtml(new Date().toLocaleString('th-TH'))}</span>
+      </div>
+      <div class="print-grid">${itemsHtml}</div>
+    </div>`;
+
+  const pdfStyle = document.createElement('style');
+  pdfStyle.id = '__orderPdfStyle';
+  pdfStyle.textContent = `
+    #__orderPdfRoot {
+      position: fixed;
+      left: -100000px;
+      top: 0;
+      width: 210mm;
+      background: #fff;
+      color: #111;
+      z-index: -1;
+      font-family: Tahoma, "Noto Sans Thai", sans-serif;
+      font-size: 10pt;
+      line-height: 1.35;
+    }
+    #__orderPdfRoot .order-pdf-sheet {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 14mm;
+      background: #fff;
+    }
+    #__orderPdfRoot .print-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin: 0 0 4mm;
+      padding-bottom: 2mm;
+      border-bottom: 1px solid #bbb;
+      font-size: 9pt;
+    }
+    #__orderPdfRoot .print-head strong { font-size: 12pt; }
+    #__orderPdfRoot .print-grid {
+      column-count: 2;
+      column-gap: 10mm;
+      column-fill: auto;
+    }
+    #__orderPdfRoot .order-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 5mm;
+      align-items: baseline;
+      width: 100%;
+      min-height: 5.2mm;
+      padding: 0.7mm 0;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    #__orderPdfRoot .sku {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    #__orderPdfRoot .qty {
+      min-width: 14mm;
+      text-align: right;
+      white-space: nowrap;
+    }
+    #__orderPdfRoot .group-spacer {
+      height: 7mm;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  `;
+
+  document.head.appendChild(pdfStyle);
+  document.body.appendChild(pdfRoot);
+
+  // รอให้ฟอนต์/DOM พร้อมก่อนแปลงเป็น PDF
+  const filename = `ORDER_Pivot_${new Date().toISOString().slice(0,10)}.pdf`;
+  const options = {
+    margin: 0,
+    filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: true
+    },
+    pagebreak: {
+      mode: ['css', 'legacy']
+    }
+  };
+
+  orderDownloadBtn.disabled = true;
+  const oldText = orderDownloadBtn.textContent;
+  orderDownloadBtn.textContent = '⏳ กำลังสร้าง PDF...';
+
+  Promise.resolve(document.fonts?.ready)
+    .then(() => new Promise(resolve => setTimeout(resolve, 150)))
+    .then(() => html2pdf().set(options).from(pdfRoot).save())
+    .then(() => {
+      if (typeof window.workHistoryLog === 'function') {
+        window.workHistoryLog('download', 'orderTool', 'ดาวน์โหลด PDF ข้อมูล Pivot');
+      }
+    })
+    .catch((e) => {
+      console.error('ORDER PDF error:', e);
+      alert('สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    })
+    .finally(() => {
+      try { pdfRoot.remove(); } catch (_) {}
+      try { pdfStyle.remove(); } catch (_) {}
+      orderDownloadBtn.disabled = false;
+      orderDownloadBtn.textContent = oldText;
+    });
+}
+
+// จัดหน้าใบปริ้น: คืนค่าเป็นคอลัมน์ของรายการ Pivot และช่องว่างระหว่างกลุ่ม (ทีละ layout.cols คอลัมน์ = 1 หน้า)
+// ใช้ร่วมกันระหว่างการปริ้น, PDF ที่เก็บไว้, หน้า "ก่อนสั่ง" และ "ตรวจใบปริ้น" เพื่อให้ลำดับ/การแบ่งหน้าตรงกันเสมอ
+// ปกติ 2 คอลัมน์ Tahoma 10pt ตามไฟล์ Word ถ้ารายการเยอะจนเกิน 2 หน้า เปลี่ยนเป็น 3 คอลัมน์ (ตัวอักษร/บรรทัดขนาดเดิม)
+// ความกว้างเนื้อหา A4 = 210 - 19.05×2 = 171.9 มม. → 2×79.6 + 12.7 = 3×54.3 + 2×4.5
+// (3 คอลัมน์เว้นช่องแคบลง ให้ SKU ยาวสุดในคลังที่ 10pt เช่น 012785-เขียวมิ้นท์-เทาอ่อน-XL ไม่ล้น)
+const ORDER_SHEET_CONTENT_H = 246.2;
+const ORDER_SHEET_LAYOUT_2 = { cols: 2, colW: 79.6, gap: 12.7, qtyX: 68.8, rowH: 5.32, spacerH: 4.26 * 3, fontPt: 10 }; // เว้นระหว่างกลุ่ม 3 บรรทัดว่างตามไฟล์ Word
+const ORDER_SHEET_LAYOUT_3 = { cols: 3, colW: 54.3, gap: 4.5, qtyX: 53.3, rowH: 5.32, spacerH: 4.26 * 3, fontPt: 10 };
+const ORDER_SHEET_MAX_PAGES_2COL = 2;
+// ค่าเดิม (เลย์เอาต์ 2 คอลัมน์) เผื่อโค้ดอื่นยังอ้างอยู่
+const ORDER_SHEET_ROW_H = ORDER_SHEET_LAYOUT_2.rowH;
+const ORDER_SHEET_SPACER_H = ORDER_SHEET_LAYOUT_2.spacerH;
+
+function packOrderSheetColumns(sortedRows, L) {
+  const columns = [[]];
+  let used = 0;
+  let previousGroup = null;
+  const pushColumn = () => { columns.push([]); used = 0; };
+  sortedRows.forEach((r) => {
+    const group = normalizeOrderGroupName(r?.groupName);
+    if (previousGroup !== null && group !== previousGroup && used > 0) {
+      if (used + L.spacerH + L.rowH > ORDER_SHEET_CONTENT_H) pushColumn();
+      else { columns[columns.length - 1].push({ spacer: true }); used += L.spacerH; }
+    }
+    if (used + L.rowH > ORDER_SHEET_CONTENT_H) pushColumn();
+    columns[columns.length - 1].push({ row: r });
+    used += L.rowH;
+    previousGroup = group;
+  });
+  columns.layout = L;
+  return columns;
+}
+
+// คืนค่าคอลัมน์ + columns.layout (เลย์เอาต์ที่ใช้จริง) ผู้เรียกต้องจัดหน้าละ columns.layout.cols คอลัมน์
+function layoutOrderSheetColumns(rows = orderPivotRows) {
+  const sorted = [...rows].sort(compareOrderPivotRows);
+  const two = packOrderSheetColumns(sorted, ORDER_SHEET_LAYOUT_2);
+  if (Math.ceil(two.length / 2) <= ORDER_SHEET_MAX_PAGES_2COL) return two;
+  return packOrderSheetColumns(sorted, ORDER_SHEET_LAYOUT_3);
+}
+
+// จัดคอลัมน์เป็นหน้า: [[col, col(, col)], ...]
+function orderSheetPages(columns) {
+  const per = (columns.layout || ORDER_SHEET_LAYOUT_2).cols;
+  const pages = [];
+  for (let i = 0; i < columns.length; i += per) {
+    pages.push(Array.from({ length: per }, (_, k) => columns[i + k] || []));
+  }
+  return pages;
+}
+
+// เลย์เอาต์เดียวกับไฟล์ Word: A4, ขอบ 25.4/19.05 มม., Tahoma, ตัวเลขจำนวนชิดขวาที่ qtyX มม. จากขอบซ้ายของคอลัมน์
+// ไม่มีหัว/ท้ายกระดาษ (ตั้ง @page margin เป็น 0 เพื่อไม่ให้เบราว์เซอร์พิมพ์วันที่/ชื่อไฟล์/เลขหน้า แล้วจัดหน้าเอง)
+function orderSheetCss(scope, L = ORDER_SHEET_LAYOUT_2) {
+  const s = scope ? scope + ' ' : '';
+  return `
+    ${s}.page { width: 210mm; height: 296mm; padding: 25.4mm 19.05mm 24.4mm; display: grid; grid-template-columns: repeat(${L.cols}, ${L.colW}mm); column-gap: ${L.gap}mm; font-size: ${L.fontPt}pt; overflow: hidden; page-break-after: always; break-after: page; }
+    ${s}.page:last-child { page-break-after: auto; break-after: auto; }
+    ${s}.row { display: flex; justify-content: space-between; align-items: center; gap: 2mm; width: ${L.qtyX}mm; min-width: ${L.qtyX}mm; height: ${L.rowH}mm; line-height: 1; white-space: nowrap; }
+    ${s}.row span:first-child { overflow: hidden; text-overflow: clip; }
+    ${s}.row .qty { text-align: right; }
+    ${s}.spacer { height: ${L.spacerH}mm; }`;
+}
+
+function buildOrderSheetPagesHtml(rows = orderPivotRows) {
+  const esc = (v) => String(v ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const columns = layoutOrderSheetColumns(rows);
+  return orderSheetPages(columns).map(page => '<section class="page">' + page.map(col => '<div class="col">' + col.map(e => e.spacer
+    ? '<div class="spacer"></div>'
+    : `<div class="row"><span>${esc(e.row?.sku)}</span><span class="qty">${esc(formatPivotNumber(e.row?.qty ?? 0))}</span></div>`).join('') + '</div>').join('') + '</section>').join('');
+}
+
+function printOrderSheet() {
+  if (!orderRows.length) {
+    alert('ยังไม่มีรายการ ORDER');
+    return;
+  }
+  if (!orderPivotRows.length) {
+    try { buildOrderPivot(); } catch (e) { console.error(e); }
+  }
+  if (!orderPivotRows.length) {
+    alert('ยังไม่มีข้อมูลสำหรับปริ้น');
+    return;
+  }
+
+  const pagesHtml = buildOrderSheetPagesHtml();
+  const sheetLayout = layoutOrderSheetColumns().layout;
+
+  const title = `ORDER_Pivot_${new Date().toISOString().slice(0, 10)}`;
+  const html = `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${title}</title><style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; }
+    body { color: #000; font-family: Tahoma, "Noto Sans Thai", sans-serif; font-size: 10pt; }
+    ${orderSheetCss('', sheetLayout)}
+  </style></head><body>${pagesHtml}</body></html>`;
+
+  // เก็บรายการที่ปริ้นจริง + ไฟล์ PDF ไว้ในเว็บ (ใช้ต่อในหน้า "ตรวจใบปริ้น")
+  if (window.SavedPrints && typeof window.SavedPrints.saveFromPrint === 'function') {
+    try {
+      window.SavedPrints.saveFromPrint({
+        rows: [...orderPivotRows].sort(compareOrderPivotRows).map(r => ({ sku: r.sku, qty: r.qty, groupName: r.groupName, merchantNames: r.merchantNames || [] })),
+        pagesHtml,
+        css: orderSheetCss('#__pdfSnap', sheetLayout),
+        title
+      });
+    } catch (e) { console.error('save print error:', e); }
+  }
+
+  recordOrderPrint(); // กันออเดอร์ซ้ำ: บันทึก Tracking + SKU + จำนวน ของแถวที่ปริ้นนี้
+
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(frame);
+
+  const cleanup = () => { try { frame.remove(); } catch (_) {} };
+  const win = frame.contentWindow;
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.addEventListener('afterprint', cleanup);
+  setTimeout(() => {
+    try {
+      win.focus();
+      win.print();
+    } catch (e) {
+      console.error('ORDER print error:', e);
+      alert('เปิดหน้าต่างปริ้นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      cleanup();
+    }
+  }, 250);
+  setTimeout(cleanup, 10 * 60 * 1000);
+}
+
+orderDownloadBtn.onclick = printOrderSheet;
+
+orderClearBtn.onclick = () => {
+  orderBrandDeselected.clear();
+  orderTrackingBrandDeselected.clear();
+  orderWorkbook = null;
+  orderRows = [];
+  orderHeaders = [];
+  orderFilteredRows = [];
+  orderFiltersState = [];
+  orderPivotRows = [];
+  orderDupTracking = new Map();
+  orderDupSeq++;
+  renderOrderDup('');
+  orderInput.value = "";
+  document.getElementById("orderTool").classList.remove("has-file");
+
+  document.getElementById("orderFileName").textContent = "";
+  document.getElementById("orderFileCount").textContent = "0";
+  document.getElementById("orderRowCount").textContent = "0";
+  document.getElementById("orderStatus").textContent = "ยังไม่ได้เลือกไฟล์ ORDER";
+  document.getElementById("orderPreview").textContent = "ยังไม่มีข้อมูล";
+  document.getElementById("orderBar").style.width = "0%";
+  orderFilterSummary.textContent = "ยังไม่มีข้อมูล";
+  document.getElementById("orderTrackingCopy").style.display = "none";
+  document.getElementById("orderPivotWrap").style.display = "none";
+  document.getElementById("orderPivotPreview").innerHTML = "";
+  document.getElementById("orderSummaryExtra").style.display = "none";
+  document.getElementById("orderSummaryRows").textContent = "0";
+  document.getElementById("orderSummarySku").textContent = "0";
+  document.getElementById("orderSummaryQty").textContent = "0";
+  orderFiltersBox.innerHTML = '<div class="empty">กรุณาเลือกไฟล์ ORDER ก่อน</div>';
+  renderSelectedTrackingCopy();
+  renderOrderBrandPicker();
+
+  orderDownloadBtn.disabled = true;
+  orderPivotExcelDownloadBtn.disabled = true;
+  if (typeof resetBeforeOrderTable === "function") resetBeforeOrderTable();
+};
+
+function renderOrderPreview(rows) {
+  const box = document.getElementById("orderPreview");
+
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty">ไม่มีข้อมูล</div>';
+    return;
+  }
+
+  let h = "<table><thead><tr>";
+  rows[0].forEach(x => h += "<th>" + escapeHtml(x) + "</th>");
+  h += "</tr></thead><tbody>";
+
+  rows.slice(1).forEach(r => {
+    h += "<tr>";
+    rows[0].forEach((_, i) => {
+      h += "<td>" + escapeHtml(r[i] ?? "") + "</td>";
+    });
+    h += "</tr>";
+  });
+
+  h += "</tbody></table>";
+  box.innerHTML = h;
+}
+
+/* ===== Original inline script 6 ===== */
+function toggleOrderFilters(){
+  const panel=document.getElementById('orderFilterPanel');
+  if(!panel)return;
+  panel.classList.toggle('collapsed');
+  const b=document.getElementById('orderFilterToggle');
+  if(b)b.textContent=panel.classList.contains('collapsed')?'เปิดตัวกรอง ▼':'พับเก็บ ▲';
+}
+
+/* ===== Original inline script 7 ===== */
+(() => {
+  const $ = (s, r=document) => r.querySelector(s);
+
+  // Ambient particle layer
+  const canvas = document.createElement('canvas');
+  canvas.id = 'fxParticles';
+  document.body.prepend(canvas);
+  const ctx = canvas.getContext('2d');
+  let dots = [];
+  function resizeFX(){
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = innerWidth*dpr; canvas.height = innerHeight*dpr;
+    canvas.style.width = innerWidth+'px'; canvas.style.height = innerHeight+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const count = Math.min(75, Math.max(28, Math.floor(innerWidth/20)));
+    dots = Array.from({length:count},()=>({
+      x:Math.random()*innerWidth,y:Math.random()*innerHeight,
+      r:Math.random()*1.5+.4,vx:(Math.random()-.5)*.18,vy:(Math.random()-.5)*.18,
+      a:Math.random()*.45+.12
+    }));
+  }
+  function drawFX(){
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    for(const p of dots){
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=innerWidth;if(p.x>innerWidth)p.x=0;
+      if(p.y<0)p.y=innerHeight;if(p.y>innerHeight)p.y=0;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(56,217,255,${p.a})`;ctx.fill();
+    }
+    requestAnimationFrame(drawFX);
+  }
+  addEventListener('resize',resizeFX,{passive:true}); resizeFX(); drawFX();
+
+  // Header status + clock
+  const top = $('.top');
+  if(top && !$('.fx-system')){
+    const box=document.createElement('div');
+    box.className='fx-system';
+    box.innerHTML='<span class="fx-dot"></span><b>พร้อมใช้งาน</b><span class="fx-clock"></span>';
+    top.appendChild(box);
+  }
+  const clock=$('.fx-clock');
+  function tick(){
+    if(clock) clock.textContent=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  tick(); setInterval(tick,1000);
+
+  // Toast helper
+  const wrap=document.createElement('div'); wrap.className='fx-toast-wrap'; document.body.appendChild(wrap);
+  window.fxToast=(message,type='')=>{
+    const el=document.createElement('div'); el.className='fx-toast '+type; el.textContent=message;
+    wrap.appendChild(el); setTimeout(()=>el.remove(),3000);
+  };
+
+  // Smooth tab entrance + toast
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      setTimeout(()=>{
+        const target=document.getElementById(tab.dataset.tool);
+        if(target){target.classList.remove('fx-tab-enter');void target.offsetWidth;target.classList.add('fx-tab-enter');}
+      },10);
+      const name=(tab.textContent||'').trim();
+      window.fxToast('เปิด '+name,'success');
+    });
+  });
+
+  // Command palette: Ctrl/Cmd + K
+  const modal=document.createElement('div');
+  modal.className='fx-command';
+  modal.innerHTML=`
+    <div class="fx-command-box">
+      <div class="fx-command-head">
+        <input id="fxCommandInput" type="search" placeholder="🔎 ค้นหาคำสั่ง เช่น รับORDER, นำเข้าข้อมูล, ตรวจ Stock">
+      </div>
+      <div class="fx-command-list" id="fxCommandList"></div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const commands=[
+    ['🚀 นำเข้าข้อมูล','mergeTool'],
+    ['🔎 ตรวจ ORDER กับ Stock','compareTool'],
+    ['📥 รับORDER','orderTool'],
+    ['🛒 ก่อนสั่ง','beforeOrderTool'],
+    ['📋 สรุปงาน','summaryTool']
+  ];
+  const list=$('#fxCommandList',modal), input=$('#fxCommandInput',modal);
+  function renderCommands(q=''){
+    list.innerHTML='';
+    commands.filter(x=>x[0].toLowerCase().includes(q.toLowerCase())).forEach(([label,id])=>{
+      const b=document.createElement('button');b.className='fx-command-item';
+      b.innerHTML=`<span>${label}</span><span class="fx-key">ENTER</span>`;
+      b.onclick=()=>{const t=document.querySelector(`.tab[data-tool="${id}"]`);if(t)t.click();closePalette();};
+      list.appendChild(b);
+    });
+  }
+  function openPalette(){modal.classList.add('open');renderCommands();setTimeout(()=>input.focus(),30)}
+  function closePalette(){modal.classList.remove('open')}
+  input.addEventListener('input',()=>renderCommands(input.value));
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape')closePalette();
+    if(e.key==='Enter'){const first=list.querySelector('button');if(first)first.click();}
+  });
+  modal.addEventListener('click',e=>{if(e.target===modal)closePalette()});
+  document.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPalette();}
+    if(e.key==='Escape')closePalette();
+  });
+
+  // Removed the floating Ctrl+K command hint from the UI.
+})();
+
+/* ===== Original inline script 8 ===== */
+(() => {
+  'use strict';
+  // Everything in this block is namespaced with pd/fx and only adds UI.
+  const STORAGE='order_pro_activity_v1';
+  const q=(s,r=document)=>r.querySelector(s);
+  const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const now=()=>new Date();
+  const fmt=d=>d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  let logs=[];
+  try{logs=JSON.parse(localStorage.getItem(STORAGE)||'[]');if(!Array.isArray(logs))logs=[];}catch(_){logs=[];}
+  const save=()=>{try{localStorage.setItem(STORAGE,JSON.stringify(logs.slice(-40)));}catch(_){}};
+  function log(icon,text){
+    logs.push({icon,text,time:now().toISOString()});logs=logs.slice(-40);save();
+    renderLog();
+  }
+
+  const btn=document.createElement('button');
+  btn.id='proDashBtn';
+  btn.type='button';
+  btn.innerHTML='<span class="pd-led"></span> 📊 Dashboard';
+  document.body.appendChild(btn);
+
+  const overlay=document.createElement('div');
+  overlay.id='proDashOverlay';
+  overlay.innerHTML=`
+    <aside id="proDashPanel" aria-label="Dashboard">
+      <div class="pd-head">
+        <div><div class="pd-title">📊 ORDER Command Center</div><div class="pd-sub">ภาพรวมการทำงาน • ข้อมูลคำนวณจากหน้าเว็บปัจจุบัน</div></div>
+        <button class="pd-close" type="button" aria-label="ปิด">×</button>
+      </div>
+      <div class="pd-grid">
+        <div class="pd-card"><div class="pd-label">ตารางข้อมูล</div><div class="pd-value" id="pdTables">0</div></div>
+        <div class="pd-card"><div class="pd-label">แถวข้อมูล</div><div class="pd-value" id="pdRows">0</div></div>
+        <div class="pd-card"><div class="pd-label">SKU ไม่ซ้ำ</div><div class="pd-value" id="pdSku">—</div></div>
+        <div class="pd-card"><div class="pd-label">แท็บที่เปิด</div><div class="pd-value" id="pdTab">—</div></div>
+      </div>
+      <div class="pd-section">
+        <div class="pd-section-title">📈 จำนวนแถวตามแท็บ</div>
+        <div class="pd-bars" id="pdBars"></div>
+      </div>
+      <div class="pd-section">
+        <div class="pd-section-title">🕘 ประวัติการใช้งาน</div>
+        <div class="pd-log" id="pdLog"></div>
+        <div class="pd-actions">
+          <button class="pd-action" id="pdRefresh" type="button">↻ รีเฟรชข้อมูล</button>
+          <button class="pd-action" id="pdClear" type="button">ล้างประวัติ</button>
+        </div>
+      </div>
+    </aside>`;
+  document.body.appendChild(overlay);
+
+  const tabName=t=>{
+    const x=(t?.textContent||'').replace(/\s+/g,' ').trim();
+    return x || 'ไม่ทราบชื่อ';
+  };
+
+  function tableStats(root){
+    const tables=qa('table',root);
+    let rows=0, skuSet=new Set();
+    tables.forEach(t=>{
+      const trs=qa('tbody tr',t);
+      rows+=trs.length;
+      const heads=qa('thead th',t).map(x=>x.textContent.trim().toLowerCase());
+      const si=heads.findIndex(x=>/sku|รหัสสินค้า/.test(x));
+      if(si>=0) trs.forEach(tr=>{const cells=qa('td',tr);const v=(cells[si]?.textContent||'').trim();if(v)skuSet.add(v);});
+    });
+    return {tables:tables.length,rows,sku:skuSet.size};
+  }
+
+  function allTabStats(){
+    return qa('.tab[data-tool]').map(t=>{
+      const id=t.getAttribute('data-tool');
+      const root=document.getElementById(id);
+      const st=root?tableStats(root):{rows:0,tables:0,sku:0};
+      return {id,name:tabName(t),rows:st.rows};
+    });
+  }
+
+  function activeTab(){
+    const t=qa('.tab[data-tool]').find(x=>x.classList.contains('active') || x.getAttribute('aria-selected')==='true');
+    return t?tabName(t):'—';
+  }
+
+  function renderBars(){
+    const host=q('#pdBars'); if(!host)return;
+    const data=allTabStats(); const max=Math.max(1,...data.map(x=>x.rows));
+    host.innerHTML=data.map(x=>{
+      const h=Math.max(4,Math.round((x.rows/max)*105));
+      return `<div class="pd-bar-wrap" title="${esc(x.name)}: ${x.rows.toLocaleString()} แถว">
+        <div class="pd-bar-num">${x.rows.toLocaleString()}</div>
+        <div class="pd-bar" style="height:${h}px"></div>
+        <div class="pd-bar-label">${esc(x.name)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function refresh(){
+    const active=qa('.tab[data-tool]').find(t=>t.classList.contains('active') || t.getAttribute('aria-selected')==='true');
+    const root=active?document.getElementById(active.dataset.tool):document.body;
+    const st=tableStats(root||document.body);
+    q('#pdTables').textContent=st.tables.toLocaleString();
+    q('#pdRows').textContent=st.rows.toLocaleString();
+    q('#pdSku').textContent=st.sku?st.sku.toLocaleString():'—';
+    q('#pdTab').textContent=active?tabName(active):'—';
+    renderBars();renderLog();
+  }
+
+  function renderLog(){
+    const host=q('#pdLog');if(!host)return;
+    if(!logs.length){host.innerHTML='<div class="pd-log-row"><div class="pd-log-icon">💡</div><div class="pd-log-main"><div class="pd-log-text">ยังไม่มีประวัติการใช้งาน</div><div class="pd-log-time">กิจกรรมจะถูกบันทึกเมื่อเริ่มใช้งาน</div></div></div>';return;}
+    host.innerHTML=logs.slice().reverse().slice(0,15).map(x=>{
+      let d;try{d=new Date(x.time)}catch(_){d=now()}
+      return `<div class="pd-log-row"><div class="pd-log-icon">${esc(x.icon||'•')}</div><div class="pd-log-main"><div class="pd-log-text">${esc(x.text)}</div><div class="pd-log-time">${fmt(d)}</div></div></div>`;
+    }).join('');
+  }
+
+  function lockButtonPosition(){btn.style.setProperty('position','fixed','important');btn.style.setProperty('top','auto','important');btn.style.setProperty('left',window.innerWidth<=600?'12px':'16px','important');btn.style.setProperty('right','auto','important');btn.style.setProperty('bottom',window.innerWidth<=600?'72px':'72px','important');btn.style.setProperty('transform','none','important');}
+  function open(){lockButtonPosition();refresh();overlay.classList.add('open');lockButtonPosition();}
+  function close(){overlay.classList.remove('open');lockButtonPosition();}
+  window.addEventListener('resize',lockButtonPosition,{passive:true});
+  window.addEventListener('scroll',lockButtonPosition,{passive:true});
+
+  btn.addEventListener('click',open);
+  q('.pd-close',overlay).addEventListener('click',close);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open'))close();});
+
+  q('#pdRefresh',overlay).addEventListener('click',()=>{refresh();if(window.fxToast)window.fxToast('รีเฟรช Dashboard แล้ว','success');});
+  q('#pdClear',overlay).addEventListener('click',()=>{
+    logs=[];save();renderLog();
+    if(window.fxToast)window.fxToast('ล้างประวัติการใช้งานแล้ว','success');
+  });
+
+  // Observe tab changes and common user actions without replacing existing handlers.
+  qa('.tab[data-tool]').forEach(t=>{
+    t.addEventListener('click',()=>{
+      log('📂','เปิด '+tabName(t));
+      setTimeout(refresh,80);
+    },{passive:true});
+  });
+
+  document.addEventListener('change',e=>{
+    const el=e.target;
+    if(el && (el.matches('input[type=file]') || el.matches('select'))){
+      const name=el.files?.[0]?.name || el.getAttribute('aria-label') || 'ตัวเลือกข้อมูล';
+      log('📥','มีการเปลี่ยนข้อมูล: '+name);
+    }
+    setTimeout(refresh,100);
+  },{passive:true});
+
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('button');
+    if(!b || b===btn || b.closest('#proDashPanel'))return;
+    const text=(b.textContent||'').replace(/\s+/g,' ').trim();
+    if(!text)return;
+    if(/ดาวน์โหลด|download|export/i.test(text)) log('⬇️','กด '+text.slice(0,60));
+    else if(/รวมไฟล์|ตรวจ|รับorder|รับ order|สรุป/i.test(text)) log('⚡','กด '+text.slice(0,60));
+    setTimeout(refresh,120);
+  },{passive:true});
+
+  // Keep stats current without observing the Dashboard's own DOM.
+  // This avoids a MutationObserver -> refresh -> DOM change -> MutationObserver loop.
+  let pdTimer=null;
+  function startPdRefresh(){
+    if(pdTimer) clearInterval(pdTimer);
+    pdTimer=setInterval(()=>{if(overlay.classList.contains('open'))refresh();},1200);
+  }
+  startPdRefresh();
+  setTimeout(refresh,250);
+})();
+
+/* ===== Original inline script 9 ===== */
+/* ===== PRODUCTIVITY PACK — safe, isolated, no MutationObserver ===== */
+(function(){
+  'use strict';
+  const THEME_KEY='order_ui_theme_v1';
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  let lastSku='';
+  let lastSkuCell=null;
+
+  function toast(msg,type='success'){
+    if(window.fxToast){ window.fxToast(msg,type); return; }
+    let w=$('#ppToastWrap');
+    if(!w){w=document.createElement('div');w.id='ppToastWrap';w.style='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10030;display:flex;flex-direction:column;gap:7px;pointer-events:none';document.body.appendChild(w);}
+    const x=document.createElement('div');x.textContent=msg;x.style='padding:10px 15px;border-radius:10px;background:rgba(7,20,33,.96);color:#eaf7ff;border:1px solid rgba(56,217,255,.25);font:700 12px system-ui;box-shadow:0 12px 30px rgba(0,0,0,.35)';w.appendChild(x);setTimeout(()=>x.remove(),1800);
+  }
+  function copyText(text){
+    text=String(text||'').trim(); if(!text)return Promise.reject();
+    if(navigator.clipboard&&window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise((resolve,reject)=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');resolve()}catch(e){reject(e)}ta.remove();});
+  }
+  function themeName(t){return t==='light'?'☀️ Light':t==='midnight'?'🌌 Midnight':'🌙 Dark'}
+  function applyTheme(t){
+    t=['dark','midnight','light'].includes(t)?t:'dark';
+    document.documentElement.setAttribute('data-prod-theme',t);
+    localStorage.setItem(THEME_KEY,t);
+    const b=$('#ppThemeBtn'); if(b)b.textContent=t==='light'?'☀️':t==='midnight'?'🌌':'🌙';
+  }
+  function isTyping(e){const t=e.target;return t && (t.matches('input,textarea,select,[contenteditable="true"]') || t.isContentEditable);}
+
+  function findSkuColumns(table){
+    const head=table.tHead?.rows?.[0] || table.querySelector('thead tr');
+    if(!head)return [];
+    return Array.from(head.cells).map((c,i)=>({i,text:(c.textContent||'').trim()})).filter(x=>/\bsku\b|รหัสสินค้า|รหัส\s*sku/i.test(x.text));
+  }
+  function scanSkuButtons(){
+    $$('table').forEach(table=>{
+      if(table.closest('#proDashPanel') || table.closest('#beforeOrderTool'))return;
+      const cols=findSkuColumns(table); if(!cols.length)return;
+      const rows=$$('tbody tr',table);
+      rows.forEach(row=>cols.forEach(col=>{
+        const cell=row.cells[col.i]; if(!cell)return;
+        const raw=(cell.textContent||'').trim(); if(!raw||raw==='-')return;
+        cell.classList.add('pp-sku-copy-cell');
+        cell.title='คลิกเพื่อคัดลอก SKU';
+      }));
+    });
+  }
+
+  function injectUi(){
+    if(!$('#ppToolbar')){
+      const bar=document.createElement('div');bar.id='ppToolbar';bar.innerHTML='<button class="pp-float" id="ppThemeBtn" title="เปลี่ยน Theme">🌙</button><button class="pp-float" id="ppHelpBtn" title="แป้นพิมพ์ลัด">⌨️ ?</button>';
+      document.body.appendChild(bar);
+      const menu=document.createElement('div');menu.id='ppThemeMenu';menu.innerHTML='<button class="pp-theme-item" data-theme="dark">🌙 Dark</button><button class="pp-theme-item" data-theme="midnight">🌌 Midnight</button><button class="pp-theme-item" data-theme="light">☀️ Light</button>';document.body.appendChild(menu);
+      const ov=document.createElement('div');ov.id='ppShortcutsOverlay';ov.innerHTML='<div id="ppShortcutsModal"><div class="pp-short-head"><div class="pp-short-title">⌨️ Keyboard Shortcuts</div><button class="pp-short-close" type="button">×</button></div><div class="pp-short-row"><span>ค้นหา / Command</span><span class="pp-key">Ctrl + K</span></div><div class="pp-short-row"><span>คัดลอก SKU ที่เลือก</span><span class="pp-key">Ctrl + C</span></div><div class="pp-short-row"><span>ไปหน้า รวมไฟล์ ZIP</span><span class="pp-key">Alt + 1</span></div><div class="pp-short-row"><span>ไปหน้า ตรวจ ORDER กับ Stock</span><span class="pp-key">Alt + 2</span></div><div class="pp-short-row"><span>ไปหน้า รับORDER</span><span class="pp-key">Alt + 3</span></div><div class="pp-short-row"><span>ไปหน้า สรุปงาน</span><span class="pp-key">Alt + 4</span></div><div class="pp-short-row"><span>เปิดหน้าต่างคีย์ลัด</span><span class="pp-key">?</span></div><div class="pp-short-row"><span>ปิดหน้าต่าง / เมนู</span><span class="pp-key">Esc</span></div></div>';document.body.appendChild(ov);
+    }
+    applyTheme(localStorage.getItem(THEME_KEY)||'dark');
+  }
+
+  function openShortcuts(){$('#ppShortcutsOverlay')?.classList.add('open')}
+  function closeOverlays(){$('#ppShortcutsOverlay')?.classList.remove('open');$('#ppThemeMenu')?.classList.remove('open')}
+  function goTab(n){const tab=$(`.tab[data-tool="${n}"]`);if(tab){tab.click();toast('เปิด '+(tab.textContent||'แท็บ').trim(),'success')}}
+
+  document.addEventListener('click',e=>{
+    const cell=e.target.closest('table td');
+    if(cell){
+      const table=cell.closest('table'),cols=table?findSkuColumns(table):[];
+      const idx=cell.cellIndex;
+      if(cols.some(c=>c.i===idx)){
+        const v=(cell.textContent||'').trim();
+        if(v && v!=='-'){
+          lastSku=v;lastSkuCell=cell;$$('.pp-copy-active').forEach(x=>x.classList.remove('pp-copy-active'));cell.classList.add('pp-copy-active');
+          copyText(lastSku).then(()=>toast('คัดลอก SKU แล้ว: '+lastSku,'success')).catch(()=>toast('ไม่สามารถคัดลอก SKU ได้','error'));
+        }
+      }
+    }
+    const themeBtn=e.target.closest('#ppThemeBtn');
+    if(themeBtn){e.stopPropagation();$('#ppThemeMenu')?.classList.toggle('open');return;}
+    const themeItem=e.target.closest('.pp-theme-item');
+    if(themeItem){applyTheme(themeItem.dataset.theme);$('#ppThemeMenu')?.classList.remove('open');toast('เปลี่ยน Theme เป็น '+themeName(themeItem.dataset.theme),'success');return;}
+    if(e.target.closest('#ppHelpBtn')){openShortcuts();return;}
+    if(e.target.closest('.pp-short-close')||e.target=== $('#ppShortcutsOverlay')){closeOverlays();}
+  },true);
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){closeOverlays();return;}
+    if(isTyping(e))return;
+    if(e.key==='?' && !e.ctrlKey&&!e.altKey&&!e.metaKey){e.preventDefault();openShortcuts();return;}
+    if(e.altKey&&!e.ctrlKey&&!e.metaKey){
+      const map={'1':'mergeTool','2':'compareTool','3':'orderTool','4':'summaryTool'};
+      if(map[e.key]){e.preventDefault();goTab(map[e.key]);return;}
+    }
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='c' && lastSku && !window.getSelection()?.toString()){
+      e.preventDefault();copyText(lastSku).then(()=>toast('คัดลอก SKU แล้ว: '+lastSku,'success')).catch(()=>{});
+    }
+  },true);
+
+  // Do not replace the existing Ctrl+K command palette; only add the other shortcuts here.
+  injectUi();
+  scanSkuButtons();
+  setInterval(scanSkuButtons,1400);
+  document.addEventListener('click',e=>{if(!e.target.closest('#ppThemeMenu,#ppThemeBtn'))$('#ppThemeMenu')?.classList.remove('open')},{passive:true});
+})();
+
+/* Global click feedback: every click, anywhere on the page */
+(function initGlobalClickFeedback(){
+  let pressTarget = null;
+  let pressTimer = null;
+
+  function addRipple(x, y){
+    // คลื่นวงแหวน 3 ชั้นซ้อนกัน ขยายออกและจางหาย
+    [0, 110, 220].forEach((delay, i) => {
+      const ring = document.createElement('span');
+      ring.className = 'wave-ring';
+      ring.style.left = x + 'px';
+      ring.style.top = y + 'px';
+      ring.style.setProperty('--d', delay + 'ms');
+      ring.style.setProperty('--s', String(5 + i * 1.8));
+      document.body.appendChild(ring);
+      setTimeout(() => ring.remove(), 1400);
+    });
+  }
+
+  function addFlash(x, y){
+    const flash = document.createElement('span');
+    flash.className = 'global-click-flash';
+    flash.style.left = x + 'px';
+    flash.style.top = y + 'px';
+    document.body.appendChild(flash);
+    requestAnimationFrame(() => flash.classList.add('is-active'));
+    setTimeout(() => flash.remove(), 260);
+  }
+
+  function clearPressed(){
+    if (!pressTarget) return;
+    clearTimeout(pressTimer);
+    const el = pressTarget;
+    pressTimer = setTimeout(() => el.classList.remove('global-click-pressed'), 120);
+    pressTarget = null;
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    // Works for mouse, touch and pen, including clicks on buttons, inputs,
+    // tables, empty areas, overlays and scrollable regions.
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    // (เอาคลื่นวงแหวนและแสงวาบตอนคลิกออกแล้ว)
+
+    // (เอาเอฟเฟกต์ย่อขนาดองค์ประกอบที่ถูกกดออกแล้ว เหลือแค่คลื่นและแสงวาบ)
+  }, {passive:true});
+
+  document.addEventListener('pointerup', clearPressed, {passive:true});
+  document.addEventListener('pointercancel', clearPressed, {passive:true});
+  document.addEventListener('blur', clearPressed, {passive:true});
+})();
+
+
+/* ===== BEFORE ORDER TOOL : เลือกรายการจาก ORDER Pivot เพื่อสร้างไฟล์พร้อมสั่ง ===== */
+let beforeOrderSelectedRows = new Set();
+let beforeOrderSourceRows = null;
+
+// หน้านี้ใช้ข้อมูล Pivot จากหน้า รับORDER โดยตรง
+// จึงแสดงเพียง SKU Merchant + จำนวน ตามไฟล์ Excel Pivot ที่ผู้ใช้ต้องการ
+// beforeOrderRef = ใบปริ้นที่บันทึกไว้ที่ผู้ใช้เลือกใช้แทน Pivot ปัจจุบัน ({ id, rows })
+let beforeOrderRef = null;
+let beforeOrderPivotSeen = null;
+
+function getBeforeOrderRows() {
+  if (beforeOrderRef) return beforeOrderRef.rows;
+  if (Array.isArray(orderPivotRows) && orderPivotRows.length) {
+    return orderPivotRows;
+  }
+  return [];
+}
+
+// รายการใบปริ้นที่เคยปริ้น (แถวเดียวกับหน้าตรวจใบปริ้น) ให้เลือกมาใช้เป็นรายการก่อนสั่ง
+async function renderBeforeOrderRef() {
+  const box = document.getElementById('beforeOrderRef');
+  const list = document.getElementById('beforeOrderRefList');
+  const sp = window.SavedPrints;
+  if (!box || !list || !sp) return;
+  let prints = [];
+  try { prints = (await sp.list()).filter(r => Array.isArray(r.rows) && r.rows.length); } catch (e) { prints = []; }
+  box.hidden = prints.length === 0;
+  if (beforeOrderRef && !prints.some(p => p.id === beforeOrderRef.id)) {
+    beforeOrderRef = null;
+    renderBeforeOrderTable();
+    return;
+  }
+
+  const mk = (cls, text, title, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = cls; b.textContent = text;
+    if (title) b.title = title;
+    b.addEventListener('click', fn);
+    return b;
+  };
+  const activeId = beforeOrderRef ? beforeOrderRef.id : 'current';
+  list.textContent = '';
+  const frag = document.createDocumentFragment();
+  const addRow = (id, title, meta, rec) => {
+    const row = document.createElement('div');
+    row.className = 'saved-file' + (activeId === id ? ' is-current' : '');
+    const info = document.createElement('div');
+    info.className = 'saved-file-info';
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    const span = document.createElement('span');
+    span.textContent = meta;
+    info.append(strong, span);
+    const actions = document.createElement('div');
+    actions.className = 'saved-file-actions';
+    const use = mk('saved-file-open', activeId === id ? '✓ ใช้อยู่' : 'ใช้อ้างอิง', 'ใช้รายการนี้เป็นรายการก่อนสั่ง', () => {
+      beforeOrderRef = rec ? { id: rec.id, rows: rec.rows } : null;
+      renderBeforeOrderTable();
+    });
+    use.setAttribute('aria-pressed', String(activeId === id));
+    actions.appendChild(use);
+    if (rec) {
+      const pdf = mk('saved-file-alt', '📄 PDF', 'เปิด PDF ในแท็บใหม่', () => sp.openPdf(rec));
+      const dl = mk('saved-file-alt', '⬇', 'ดาวน์โหลด PDF', () => sp.downloadPdf(rec));
+      pdf.disabled = dl.disabled = !rec.pdf;
+      const del = mk('saved-file-del', 'ลบ', 'ลบใบปริ้นนี้ออกจากรายการ', async () => {
+        try { await sp.remove(rec.id); } catch (e) { /* ไม่กระทบ */ }
+      });
+      actions.append(pdf, dl, del);
+    }
+    row.append(info, actions);
+    frag.appendChild(row);
+  };
+  const cur = Array.isArray(orderPivotRows) ? orderPivotRows.length : 0;
+  if (cur > 0) addRow('current', 'รายการจากหน้า รับORDER ตอนนี้', `${cur.toLocaleString()} รายการ`, null);
+  prints.forEach(rec => addRow(rec.id, `ใบปริ้น ${sp.formatDate(rec.savedAt)}`,
+    `${rec.count.toLocaleString()} รายการ · ${rec.pdf ? 'PDF ' + sp.formatSize(rec.pdf.size) : 'กำลังสร้าง PDF...'}`, rec));
+  list.appendChild(frag);
+}
+
+document.addEventListener('savedprints:changed', () => renderBeforeOrderRef());
+document.addEventListener('DOMContentLoaded', () => setTimeout(renderBeforeOrderRef, 300));
+document.querySelectorAll('.tab[data-tool="beforeOrderTool"]').forEach(t => t.addEventListener('click', () => setTimeout(renderBeforeOrderRef, 0)));
+(function () {
+  const clr = document.getElementById('beforeOrderRefClear');
+  if (!clr) return;
+  clr.addEventListener('click', async () => {
+    if (!confirm('ลบใบปริ้นที่บันทึกไว้ทั้งหมด (รวมไฟล์ PDF)?')) return;
+    try { await window.SavedPrints.clear(); } catch (e) { /* ไม่กระทบ */ }
+  });
+})();
+
+function resetBeforeOrderTable() {
+  beforeOrderSelectedRows = new Set();
+  beforeOrderSourceRows = null;
+  beforeOrderRef = null;
+  beforeOrderPivotSeen = null;
+  setTimeout(renderBeforeOrderRef, 0);
+  const card = document.querySelector('#beforeOrderTool .before-order-card');
+  const count = document.getElementById('beforeOrderRowCount');
+  const selected = document.getElementById('beforeOrderSelectedCount');
+  const status = document.getElementById('beforeOrderStatus');
+  const create = document.getElementById('beforeOrderCreate');
+  const preview = document.getElementById('beforeOrderPreview');
+  if (count) count.textContent = '0';
+  if (selected) selected.textContent = '0';
+  if (create) create.disabled = true;
+  if (status) status.textContent = 'กรุณาเลือกไฟล์ที่หน้า 📥 รับORDER ก่อน';
+  if (preview) preview.innerHTML = '<div class="empty">ยังไม่มีข้อมูล Pivot จากหน้า รับORDER</div>';
+
+  // ถ้ายังไม่มี Pivot จากหน้า รับORDER ไม่ต้องแสดงหน้าก่อนสั่งว่าง ๆ
+  if (card) card.style.display = 'none';
+}
+
+function updateBeforeOrderSelectionUI() {
+  const rows = getBeforeOrderRows();
+  const selectedCount = rows.reduce((n, row) => n + (beforeOrderSelectedRows.has(row) ? 1 : 0), 0);
+  const selectedEl = document.getElementById('beforeOrderSelectedCount');
+  const createBtn = document.getElementById('beforeOrderCreate');
+  const status = document.getElementById('beforeOrderStatus');
+
+  if (selectedEl) selectedEl.textContent = selectedCount.toLocaleString();
+  if (createBtn) createBtn.disabled = selectedCount === 0;
+
+  if (status) {
+    if (!rows.length) {
+      status.textContent = 'ยังไม่มีข้อมูล Pivot จากหน้า 📥 รับORDER';
+    } else {
+      status.textContent =
+        `แสดง ${rows.length.toLocaleString()} รายการ | เลือกไว้ ${selectedCount.toLocaleString()} รายการ` +
+        (beforeOrderRef ? ' | ใช้รายการจากใบปริ้นที่บันทึกไว้' : ' | ใช้ข้อมูล Pivot จากหน้า รับORDER โดยตรง');
+    }
+  }
+
+  // ปุ่มเลือกทั้งหมด / ยกเลิกทั้งหมดให้กดได้ตลอด เพื่อให้ผู้ใช้สั่งซ้ำได้ทันที
+  // แม้สถานะปัจจุบันจะเลือกครบหรือยกเลิกครบแล้วก็ตาม
+  const selectAllBtn = document.getElementById('beforeOrderSelectAll');
+  const clearAllBtn = document.getElementById('beforeOrderClearAll');
+  if (selectAllBtn) selectAllBtn.disabled = rows.length === 0;
+  if (clearAllBtn) clearAllBtn.disabled = rows.length === 0;
+}
+
+function renderBeforeOrderTable() {
+  const box = document.getElementById('beforeOrderPreview');
+  const countEl = document.getElementById('beforeOrderRowCount');
+  if (!box || !countEl) return;
+
+  // Pivot ใหม่จากหน้า รับORDER (โหลดไฟล์/กรอง) ให้กลับมาใช้ Pivot ปัจจุบัน
+  if (beforeOrderRef && Array.isArray(orderPivotRows) && orderPivotRows.length && orderPivotRows !== beforeOrderPivotSeen && beforeOrderPivotSeen !== null) {
+    beforeOrderRef = null;
+  }
+  beforeOrderPivotSeen = orderPivotRows;
+  renderBeforeOrderRef();
+
+  const rows = getBeforeOrderRows();
+
+  // ถ้า Pivot เปลี่ยนจากการโหลดไฟล์/กรองข้อมูล ให้เลือกทุกแถวใหม่
+  if (beforeOrderSourceRows !== rows) {
+    beforeOrderSourceRows = rows;
+    beforeOrderSelectedRows = new Set(rows);
+  } else {
+    const current = new Set(rows);
+    beforeOrderSelectedRows = new Set(
+      [...beforeOrderSelectedRows].filter(row => current.has(row))
+    );
+  }
+
+  countEl.textContent = rows.length.toLocaleString();
+
+  const card = document.querySelector('#beforeOrderTool .before-order-card');
+
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty">ยังไม่มีข้อมูล Pivot จากหน้า 📥 รับORDER</div>';
+    if (card) card.style.display = 'none';
+    updateBeforeOrderSelectionUI();
+    return;
+  }
+
+  // มีข้อมูล Pivot แล้วจึงค่อยแสดงหน้าก่อนสั่ง
+  if (card) card.style.display = '';
+
+  // แบ่งหน้า/คอลัมน์ด้วยฟังก์ชันเดียวกับตอนปริ้น ORDER Pivot (layoutOrderSheetColumns) ให้ตรงกับกระดาษ A4 เป๊ะ:
+  // หน้าละ 2 คอลัมน์ เกินหน้าแรกค่อยขึ้นหน้าถัดไป (ไม่ใช่เลื่อนแนวนอนหาคอลัมน์ที่ 3-4-5 แบบเดิม)
+  // ต่างจากกระดาษตรงที่ยังกดติ๊กเลือก/แก้จำนวนได้ตามปกติ
+  const rowIndexOf = new Map(rows.map((r, i) => [r, i]));
+  const renderEntries = (entries) => entries.map((e) => {
+    if (e.spacer) return '<div class="before-order-spacer"></div>';
+    const row = e.row;
+    const rowIndex = rowIndexOf.get(row);
+    const checked = beforeOrderSelectedRows.has(row) ? ' checked' : '';
+    const sku = row?.sku ?? '';
+    const qtyValue = row?.qty ?? 0;
+    const qty = Number.isFinite(Number(qtyValue)) ? Number(qtyValue) : 0;
+    return `<div class="before-order-row" data-before-order-index="${rowIndex}">` +
+      `<span class="before-order-check-col"><input type="checkbox" class="before-order-row-check"${checked} aria-label="เลือกแถวที่ ${rowIndex + 1}"></span>` +
+      `<span class="before-order-sku" title="${escapeHtml(sku)}">${escapeHtml(sku)}</span>` +
+      `<span class="before-order-qty-cell"><input type="number" class="before-order-qty-input" value="${escapeHtml(String(qty))}" min="0" step="1" inputmode="numeric" aria-label="จำนวน ${escapeHtml(sku)}"></span>` +
+      '</div>';
+  }).join('');
+
+  const cols = layoutOrderSheetColumns(rows);
+  const pageCls = cols.layout.cols === 3 ? 'before-order-page is-3col' : 'before-order-page';
+  let h = '<div class="before-order-legend"><span class="before-order-check-col">เลือก</span><span>SKU Merchant</span><span>จำนวน</span></div>';
+  orderSheetPages(cols).forEach(page => {
+    h += `<div class="${pageCls}">` + page.map(col => '<div class="before-order-col">' + renderEntries(col) + '</div>').join('') + '</div>';
+  });
+  box.innerHTML = h;
+  updateBeforeOrderSelectionUI();
+}
+
+function createBeforeOrderExcel() {
+  const rows = getBeforeOrderRows();
+  const selectedRows = rows.filter(row => beforeOrderSelectedRows.has(row));
+
+  if (!selectedRows.length) {
+    alert('กรุณาเลือกอย่างน้อย 1 แถวก่อนยืนยัน');
+    return;
+  }
+  if (!window.XLSX) {
+    alert('ไม่พบไลบรารี Excel (XLSX)');
+    return;
+  }
+
+  // ยืนยันรายการแล้วสร้าง "ไฟล์ Excel Pivot" ในหน่วยความจำ
+  // โดยไม่ต้องดาวน์โหลดลงเครื่อง จากนั้นส่งไฟล์นั้นไปเป็น "ไฟล์ที่ 1 — ORDER"
+  // ของหน้า ตรวจ ORDER กับ Stock เพื่อทำขั้นตอนถัดไปทันที
+  const pivotData = [
+    ['SKU Merchant', 'จำนวน'],
+    ...selectedRows.map(row => [row?.sku ?? '', row?.qty ?? 0])
+  ];
+
+  // ส่งชื่อยี่ห้อของรายการที่เลือกไปด้วย (ใบปริ้นเก่าที่ไม่มี merchantNames ใช้ชื่อกลุ่มแทน)
+  // เพื่อให้ตัวเลือกยี่ห้อหน้าตรวจ Stock ใช้ได้ แม้รายการมาจากไฟล์ ORDER อื่นที่ไม่ได้เปิดอยู่
+  window.scanBrandMap = new Map(selectedRows.map(row => [
+    normalizeOrderSku(row?.sku),
+    (row?.merchantNames && row.merchantNames.length) ? row.merchantNames : (row?.groupName ? [String(row.groupName).toUpperCase()] : [])
+  ]));
+
+  const ws = XLSX.utils.aoa_to_sheet(pivotData);
+  ws['!cols'] = [
+    { wch: Math.min(Math.max(14, ...selectedRows.map(r => String(r?.sku ?? '').length + 2)), 45) },
+    { wch: Math.min(Math.max(10, ...selectedRows.map(r => String(r?.qty ?? '').length + 2)), 20) }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pivot');
+
+  // สร้างไฟล์ Excel ในหน่วยความจำเพื่อส่งต่อไปยัง File 1
+  const excelArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fileName =
+    `ORDER_Pivot_พร้อมสั่ง_${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_` +
+    `${pad(now.getHours())}-${pad(now.getMinutes())}.xlsx`;
+  const file = new File([excelArray], fileName, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+
+  // ถ้าต้องการ ให้ช่อง input จริงมีไฟล์เดียวกันด้วย (รองรับเบราว์เซอร์ที่อนุญาต)
+  const file1Input = document.getElementById('file1');
+  if (file1Input && typeof DataTransfer !== 'undefined') {
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      file1Input.files = dt.files;
+    } catch (e) {
+      // ไม่กระทบการทำงานหลัก เพราะระบบจะส่ง File เข้า loadOrderCompareFile โดยตรง
+    }
+  }
+
+  // ส่งไฟล์ที่ยืนยันเข้า "ไฟล์ที่ 1 — ORDER" ทันที
+  loadOrderCompareFile(file).then(() => {
+    const compareTool = document.getElementById('compareTool');
+    const compareTab = document.querySelector('.tab[data-tool="compareTool"]');
+    if (compareTool && compareTab) {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tool').forEach(x => x.classList.remove('active'));
+      compareTab.classList.add('active');
+      compareTool.classList.add('active');
+    }
+
+    const status = document.getElementById('beforeOrderStatus');
+    if (status) {
+      status.textContent = `✅ ยืนยันแล้ว ${selectedRows.length.toLocaleString()} รายการ | สร้าง Excel Pivot และนำไปไว้ที่ 📥 ไฟล์ที่ 1 — ORDER แล้ว`;
+    }
+
+    // บันทึกรายการที่ยืนยันพร้อมเวลาที่กด ไว้เปิดซ้ำได้ที่หน้า ตรวจ ORDER กับ Stock (js/saved-files.js)
+    if (window.SavedConfirms && typeof window.SavedConfirms.save === 'function') {
+      window.SavedConfirms.save({
+        file,
+        rows: selectedRows.map(row => ({ sku: row?.sku ?? '', qty: row?.qty ?? 0 })),
+        brandMap: [...window.scanBrandMap]
+      }).catch(e => console.warn('บันทึกรายการที่ยืนยันไม่สำเร็จ:', e));
+    }
+
+    if (typeof window.workHistoryLog === 'function') {
+      window.workHistoryLog(
+        'process',
+        'beforeOrderTool',
+        `ยืนยัน ${selectedRows.length.toLocaleString()} รายการ → สร้าง Excel Pivot และส่งเข้าไฟล์ที่ 1 — ORDER`,
+        fileName
+      );
+    }
+
+    // เลื่อนไปผลตรวจอัตโนมัติเฉพาะเมื่อกด "ยืนยันรายการพร้อมสั่ง"
+    // การพิมพ์/วางข้อความในช่อง ORDER จะไม่ดึงหน้าจอลงไปเอง
+    setTimeout(() => {
+      const preview = document.getElementById('compareWebPreview');
+      if (preview && preview.style.display !== 'none') {
+        preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 120);
+  }).catch(err => {
+    console.error(err);
+    alert('สร้างไฟล์พร้อมส่งต่อไม่สำเร็จ\n\n' + (err?.message || err));
+  });
+}
+
+// คลิกตรงไหนของแถวก็ได้เพื่อสลับการเลือก (ยกเว้นช่องจำนวน/checkbox เอง)
+document.addEventListener('click', event => {
+  const row = event.target.closest('#beforeOrderPreview .before-order-row[data-before-order-index]');
+  if (!row) return;
+  if (event.target.closest('.before-order-qty-input, .before-order-row-check, button, a, select, textarea')) return;
+
+  const index = Number(row.dataset.beforeOrderIndex);
+  const rows = getBeforeOrderRows();
+  const item = rows[index];
+  if (!item) return;
+
+  const check = row.querySelector('.before-order-row-check');
+  if (!check) return;
+  check.checked = !check.checked;
+  if (check.checked) beforeOrderSelectedRows.add(item);
+  else beforeOrderSelectedRows.delete(item);
+  updateBeforeOrderSelectionUI();
+});
+
+document.addEventListener('change', event => {
+  const check = event.target.closest('#beforeOrderPreview .before-order-row-check');
+  if (!check) return;
+
+  const tr = check.closest('.before-order-row');
+  const index = Number(tr?.dataset?.beforeOrderIndex);
+  const rows = getBeforeOrderRows();
+  const row = rows[index];
+  if (!row) return;
+
+  if (check.checked) beforeOrderSelectedRows.add(row);
+  else beforeOrderSelectedRows.delete(row);
+
+  updateBeforeOrderSelectionUI();
+});
+
+// ช่อง "จำนวน" ในหน้า ก่อนสั่ง แก้ไขได้โดยตรง
+// ค่าที่แก้จะถูกนำไปใช้ตอนกด "ยืนยัน" สร้าง Excel และส่งเข้าไฟล์ที่ 1
+// ใช้ input event เพื่อให้พิมพ์/ปรับตัวเลขได้ทันทีโดยไม่ต้องกดปุ่มบันทึกแยก
+// และใช้ change เป็นตัวช่วยกรณีเบราว์เซอร์ส่งค่าหลังออกจากช่อง
+function updateBeforeOrderQtyFromInput(input) {
+  const tr = input.closest('.before-order-row');
+  const index = Number(tr?.dataset?.beforeOrderIndex);
+  const rows = getBeforeOrderRows();
+  const row = rows[index];
+  if (!row) return;
+
+  let value = String(input.value ?? '').trim();
+  if (value === '') {
+    row.qty = 0;
+    return;
+  }
+
+  let number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    number = 0;
+    input.value = '0';
+  }
+  row.qty = number;
+}
+
+document.addEventListener('input', event => {
+  const input = event.target.closest('#beforeOrderPreview .before-order-qty-input');
+  if (!input) return;
+  updateBeforeOrderQtyFromInput(input);
+});
+
+document.addEventListener('change', event => {
+  const input = event.target.closest('#beforeOrderPreview .before-order-qty-input');
+  if (!input) return;
+  updateBeforeOrderQtyFromInput(input);
+});
+
+const beforeOrderSelectAllBtn = document.getElementById('beforeOrderSelectAll');
+if (beforeOrderSelectAllBtn) {
+  beforeOrderSelectAllBtn.onclick = () => {
+    getBeforeOrderRows().forEach(row => beforeOrderSelectedRows.add(row));
+    renderBeforeOrderTable();
+    if (typeof window.workHistoryLog === 'function') {
+      window.workHistoryLog('filter', 'beforeOrderTool', 'เลือกข้อมูล Pivot ทุกแถว');
+    }
+  };
+}
+
+const beforeOrderClearAllBtn = document.getElementById('beforeOrderClearAll');
+if (beforeOrderClearAllBtn) {
+  beforeOrderClearAllBtn.onclick = () => {
+    beforeOrderSelectedRows.clear();
+    renderBeforeOrderTable();
+    if (typeof window.workHistoryLog === 'function') {
+      window.workHistoryLog('filter', 'beforeOrderTool', 'ยกเลิกการเลือกข้อมูล Pivot ทุกแถว');
+    }
+  };
+}
+
+const beforeOrderCreateBtn = document.getElementById('beforeOrderCreate');
+if (beforeOrderCreateBtn) {
+  beforeOrderCreateBtn.onclick = createBeforeOrderExcel;
+}
+
+// เปิดแท็บ "ก่อนสั่ง" แล้วดึงข้อมูล Pivot ล่าสุดจากหน้า รับORDER ทันที
+const beforeOrderTab = document.querySelector('.tab[data-tool="beforeOrderTool"]');
+if (beforeOrderTab) {
+  beforeOrderTab.addEventListener('click', () => {
+    setTimeout(() => renderBeforeOrderTable(), 0);
+  });
+}
+
+renderBeforeOrderTable();
+
+
+/* ===== สวิตช์โหมดสี สว่าง / มืด (แถบด้านข้าง) ===== */
+(function initThemeSwitch(){
+  const KEY = 'order_ui_theme_v1';
+  const root = document.documentElement;
+  const buttons = [...document.querySelectorAll('.theme-opt')];
+  if (!buttons.length) return;
+
+  const current = () => (root.getAttribute('data-prod-theme') === 'light' ? 'light' : 'dark');
+  const sync = () => buttons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themeChoice === current())));
+  const setTheme = (t) => {
+    root.setAttribute('data-prod-theme', t);
+    try { localStorage.setItem(KEY, t); } catch (_) {}
+    sync();
+  };
+
+  buttons.forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeChoice === 'light' ? 'light' : 'dark')));
+  sync();
+
+  // คลิกขวาติดกัน 2 ครั้งเร็วๆ (ภายใน 500ms) ตรงไหนของหน้าเว็บก็ได้ = สลับโหมดสว่าง/มืด
+  // ปิดเมนูคลิกขวาของเบราว์เซอร์ทั้งเว็บไปด้วย ไม่งั้นเมนูจะเด้งกวนระหว่างคลิกขวาซ้อนกัน
+  let lastRightClickAt = 0;
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const now = Date.now();
+    if (now - lastRightClickAt < 500) {
+      setTheme(current() === 'light' ? 'dark' : 'light');
+      lastRightClickAt = 0; // เริ่มนับใหม่ กันคลิกขวาครั้งที่ 3 ติดกันสลับซ้ำอีกรอบ
+    } else {
+      lastRightClickAt = now;
+    }
+  });
+})();
+
+/* ===== เอฟเฟกต์เมาส์: คลื่นหมึกในปุ่ม/แท็บ/กล่องต่างๆ + แสงตามเมาส์ ===== */
+(function initPointerEffects(){
+  const reduce = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+  const INK_SELECTOR = 'button, .tab, .drop, .beta-drop, .upload-area, summary, .value-item, .order-brand-option, .compare-copy-option, .tracking-box, .quick-status-item, .beta-stat';
+
+  // 1) คลื่นหมึก (ripple) ขยายจากจุดที่กดภายในองค์ประกอบ
+  document.addEventListener('pointerdown', (e) => {
+    if (reduce.matches) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const target = e.target instanceof Element ? e.target : null;
+    const host = target ? target.closest(INK_SELECTOR) : null;
+    if (!host || host.disabled || host.getAttribute('aria-disabled') === 'true') return;
+
+    const rect = host.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) return;
+    const cs = getComputedStyle(host);
+    if (cs.position === 'static') host.style.position = 'relative';
+    if (cs.overflow === 'visible') host.style.setProperty('overflow', 'hidden', 'important');
+
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const radius = Math.hypot(Math.max(x, rect.width - x), Math.max(y, rect.height - y));
+    const ink = document.createElement('span');
+    ink.className = 'ink-wave';
+    ink.style.width = ink.style.height = (radius * 2) + 'px';
+    ink.style.left = (x - radius) + 'px';
+    ink.style.top = (y - radius) + 'px';
+    host.appendChild(ink);
+    setTimeout(() => ink.remove(), 800);
+  }, { passive: true });
+
+  // 2) แสงนุ่มๆ ตามเมาส์ (เฉพาะอุปกรณ์ที่มีเมาส์)
+  if (!window.matchMedia || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  const glow = document.createElement('div');
+  glow.id = 'fxCursorGlow';
+  glow.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(glow);
+
+  let tx = -1000, ty = -1000, cx = -1000, cy = -1000, raf = 0;
+  const loop = () => {
+    cx += (tx - cx) * 0.16; cy += (ty - cy) * 0.16;
+    glow.style.transform = `translate3d(${cx}px,${cy}px,0)`;
+    raf = (Math.abs(tx - cx) > 0.5 || Math.abs(ty - cy) > 0.5) ? requestAnimationFrame(loop) : 0;
+  };
+  document.addEventListener('pointermove', (e) => {
+    if (reduce.matches || e.pointerType === 'touch') return;
+    if (!glow.classList.contains('on')) { cx = tx = e.clientX; cy = ty = e.clientY; glow.classList.add('on'); }
+    tx = e.clientX; ty = e.clientY;
+    if (!raf) raf = requestAnimationFrame(loop);
+  }, { passive: true });
+  document.documentElement.addEventListener('mouseleave', () => glow.classList.remove('on'));
+})();
+/* ตัวเลือก (ยี่ห้อ/ตำแหน่ง) ทุกหน้า: กดที่ไหนก็ได้นอกกล่อง หรือกด Esc เพื่อพับเก็บ */
+(function () {
+  const SEL = 'details.order-brand-picker, details.compare-copy-picker';
+  function closeOthers(keep) {
+    document.querySelectorAll(SEL).forEach(d => { if (d.open && d !== keep) d.open = false; });
+  }
+  document.addEventListener('pointerdown', e => {
+    closeOthers(e.target.closest ? e.target.closest(SEL) : null);
+  }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOthers(null); });
+  document.addEventListener('focusin', e => {
+    const d = e.target.closest && e.target.closest(SEL);
+    if (!d) closeOthers(null);
+  });
+})();
+/* รีเซ็ตหน้า รับORDER และ ตรวจใบปริ้น ทุก 00:00 (ไฟล์ที่เคยใช้ที่บันทึกไว้ยังอยู่) */
+(function () {
+  const dayKey = () => { const d = new Date(); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); };
+  let day = dayKey();
+  setInterval(() => {
+    const now = dayKey();
+    if (now === day) return;
+    day = now;
+    ['orderClear', 'scanClear'].forEach(id => { const b = document.getElementById(id); if (b) b.click(); });
+    if (typeof window.fxToast === 'function') window.fxToast('ข้ามวันแล้ว รีเซ็ตหน้า รับORDER และ ตรวจใบปริ้นให้อัตโนมัติ', '');
+  }, 15000);
+})();
+/* เรียงลำดับตารางผลตรวจ (คลิกหัวคอลัมน์: น้อย→มาก, มาก→น้อย, กลับลำดับเดิม) */
+(function () {
+  const body = document.getElementById('compareWebPreviewBody');
+  if (!body) return;
+  const state = {}; // key = ชื่อตาราง -> { col, dir }
+  let scheduled = false;
+  const obs = new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(() => { scheduled = false; applyAll(); }, 0);
+  });
+
+  const keyOf = wrap => {
+    const holder = wrap.closest('[data-preview-table]');
+    return holder ? holder.getAttribute('data-preview-table') : 'other:' + Array.from(wrap.querySelectorAll('th')).map(t => t.textContent).join('|');
+  };
+  const num = s => { const t = String(s).replace(/,/g, '').trim(); return t !== '' && /^-?\d+(\.\d+)?$/.test(t) ? parseFloat(t) : null; };
+  const cmp = (a, b) => {
+    const x = num(a), y = num(b);
+    if (x !== null && y !== null) return x - y;
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  };
+
+  function apply(wrap) {
+    const table = wrap.querySelector('table');
+    if (!table) return;
+    const tb = table.tBodies[0];
+    const rows = Array.from(tb.rows);
+    rows.forEach((r, i) => { if (r.dataset.i === undefined) r.dataset.i = String(i); });
+    const st = state[keyOf(wrap)];
+    const ths = Array.from(table.tHead.rows[0].cells);
+    ths.forEach((th, i) => {
+      th.classList.add('sortable');
+      if (st && st.col === i) th.setAttribute('data-sort', st.dir > 0 ? 'asc' : 'desc'); else th.removeAttribute('data-sort');
+    });
+    rows.sort((a, b) => {
+      if (!st) return a.dataset.i - b.dataset.i;
+      const r = cmp(a.cells[st.col].textContent, b.cells[st.col].textContent) * st.dir;
+      return r || a.dataset.i - b.dataset.i;
+    });
+    // เรียงเฉพาะเมื่อลำดับต่างจากเดิม และหยุดสังเกตระหว่างเรียง กันวนซ้ำไม่รู้จบ
+    if (rows.every((r, i) => tb.rows[i] === r)) return;
+    obs.disconnect();
+    rows.forEach(r => tb.appendChild(r));
+    obs.observe(body, { childList: true, subtree: true });
+  }
+
+  function applyAll() { body.querySelectorAll('.compare-preview-table-wrap').forEach(apply); }
+
+  body.addEventListener('click', e => {
+    const th = e.target.closest && e.target.closest('.compare-preview-table thead th');
+    if (!th) return;
+    const wrap = th.closest('.compare-preview-table-wrap');
+    const key = keyOf(wrap);
+    const col = th.cellIndex;
+    const cur = state[key];
+    if (!cur || cur.col !== col) state[key] = { col, dir: 1 };
+    else if (cur.dir === 1) state[key] = { col, dir: -1 };
+    else delete state[key];
+    apply(wrap);
+  });
+
+  obs.observe(body, { childList: true, subtree: true });
+  applyAll();
+})();
+
+/* ช่องค้นหาสต็อกแบบซ่อน (ใช้ได้ทุกหน้า): กด Tab = เปิด/ปิด
+   พิมพ์รหัส SKU (บางส่วนก็ได้ หลายรหัสคั่นด้วยเว้นวรรค/,) เพื่อดูว่ามีของอยู่ตำแหน่งไหนบ้าง
+   ใช้ Stock ชุดเดียวกับหน้า ตรวจ ORDER กับ Stock (data1) ถ้ายังไม่มี ดึงจากฐานข้อมูล (op_stock) มาค้นเอง โดยไม่แตะหน้านั้น */
+(function stockPeek(){
+  const box=document.getElementById('stockPeek');
+  const input=document.getElementById('stockPeekInput');
+  const out=document.getElementById('stockPeekBody');
+  if(!box || !input || !out) return;
+
+  // แถวสต็อกแบบเดียวกันทุกแหล่ง: {sku, loc, qty, damaged}
+  // ใช้สต็อกล่าสุดจากฐานข้อมูลเป็นหลัก ดึงใหม่ทุกครั้งที่เปิดกล่อง (กันข้อมูลค้างหลังอัปโหลด ST ใหม่)
+  // ยกเว้นหน้า ตรวจ ORDER กับ Stock เลือก "ไฟล์" Stock เองไว้ ใช้ไฟล์นั้น (ตรงกับที่ตรวจอยู่)
+  let dbRows=null, dbLoading=null, dbAt=0;
+  function stockFromFile(){
+    return !!(data1 && data1.length && stockSkuCol && !/ฐานข้อมูล/.test(String(stockFileName||'')));
+  }
+  function peekRows(){
+    if(stockFromFile()){
+      return data1.map(row=>({sku:norm(row[stockSkuCol]), loc:stockPosCol ? norm(row[stockPosCol]) : '', qty:num(row[stockQtyCol]), damaged:isDamagedStockRow(row)}));
+    }
+    return dbRows;
+  }
+  function ensureDbRows(force){
+    if(dbLoading || stockFromFile()) return;
+    if(dbRows && !force) return;
+    if(!window.SunStock || typeof window.SunStock.fetchStock!=='function') return;
+    dbLoading=window.SunStock.fetchStock().then(rows=>{
+      dbAt=Date.now();
+      dbRows=rows.map(r=>{
+        const loc=norm(r.location);
+        const up=loc.toUpperCase();
+        return {sku:norm(r.sku), loc, qty:num(r.qty), damaged:COMPARE_DAMAGED_LOCATIONS.some(x=>up===x || up.startsWith(x+'-'))};
+      });
+    }).catch(e=>{ console.warn('ดึงสต็อกสำหรับช่องค้นหาไม่สำเร็จ:',e); }).finally(()=>{ dbLoading=null; if(!box.hidden) render(); });
+  }
+
+  const MAX_SKUS=60;
+  // ตำแหน่งที่กดเลือกไว้ (เก็บข้ามการค้นหา จะได้เลือกหลายรหัสแล้วโหลดใบย้ายทีเดียว): key "SKU@ตำแหน่ง" → {sku, loc, prefix, max, qty}
+  // ลัง H เบิกทั้งลังเสมอ (แก้จำนวนไม่ได้) และ SKU อื่นในลังเดียวกันติดไปในไฟล์ด้วย
+  const picks=new Map();
+  const bar=document.createElement('div');
+  bar.className='stock-peek-bar';
+  box.appendChild(bar);
+
+  function renderBar(){
+    if(!picks.size){ bar.hidden=true; bar.innerHTML=''; return; }
+    bar.hidden=false;
+    const total=[...picks.values()].reduce((s,p)=>s+p.qty,0);
+    bar.innerHTML=`<span>เลือก <b>${picks.size}</b> ตำแหน่ง · รวม <b>${formatPivotNumber(total)}</b> ชิ้น</span>`+
+      `<button type="button" class="stock-peek-clear" data-peek-act="clear">ล้าง</button>`+
+      `<button type="button" class="stock-peek-dl" data-peek-act="download">⬇ โหลดใบย้าย</button>`;
+  }
+
+  function downloadPicks(){
+    if(!picks.size) return;
+    const byFile=new Map();
+    const have=new Set();
+    const add=(sku,loc,prefix,qty)=>{
+      const k=normalizeOrderSku(sku)+'@'+loc.toUpperCase();
+      if(have.has(k) || qty<=0) return;
+      have.add(k);
+      const fileKey=moveFileKey({prefix,loc});
+      if(!byFile.has(fileKey)) byFile.set(fileKey,[]);
+      byFile.get(fileKey).push([sku,'',loc,qty,MOVE_TO_LOCATION,qty]);
+    };
+    picks.forEach(p=>add(p.sku,p.loc,p.prefix,p.qty));
+    // ลัง H: SKU อื่นในลังเดียวกันย้ายไปด้วยทั้งหมด
+    const rows=peekRows()||[];
+    picks.forEach(p=>{
+      if(p.prefix!==MOVE_FULL_BOX_PREFIX) return;
+      rows.forEach(r=>{
+        if(r.loc.toUpperCase()!==p.loc.toUpperCase()) return;
+        add(r.sku,p.loc,p.prefix,r.qty);
+      });
+    });
+    exportMoveFiles(byFile);
+  }
+
+  function render(){
+    const terms=[...new Set(String(input.value||'').split(/[\s,]+/).map(normalizeOrderSku).filter(Boolean))];
+    if(!terms.length){ out.innerHTML='<div class="stock-peek-empty">พิมพ์รหัส SKU เพื่อค้นหา</div>'; return; }
+    const rows=peekRows();
+    if(!rows){
+      ensureDbRows();
+      out.innerHTML='<div class="stock-peek-empty">'+(dbLoading ? '⏳ กำลังดึงสต็อกจากฐานข้อมูล...' : 'ยังไม่มีข้อมูล Stock (ดึงจากฐานข้อมูลไม่สำเร็จ ลองใหม่อีกครั้ง)')+'</div>';
+      return;
+    }
+    const bySku=new Map();
+    const hit=new Set(); // คำค้นที่เจอของจริง (ไม่นับตำแหน่งชำรุด)
+    const hitDamaged=new Set(); // คำค้นที่เจอแค่ในตำแหน่งชำรุด
+    rows.forEach(r=>{
+      const key=normalizeOrderSku(r.sku);
+      if(!key || r.qty<=0) return;
+      const matched=terms.filter(t=>key.includes(t));
+      if(!matched.length) return;
+      matched.forEach(t=>(r.damaged ? hitDamaged : hit).add(t));
+      if(!bySku.has(key)) bySku.set(key,{sku:r.sku,total:0,locs:[]});
+      const it=bySku.get(key);
+      if(!r.damaged) it.total+=r.qty;
+      it.locs.push({loc:r.loc||'-',qty:r.qty,damaged:r.damaged});
+    });
+    const list=[...bySku.values()].sort((a,b)=>a.sku.localeCompare(b.sku,undefined,{numeric:true}));
+    // รหัสที่ค้นแล้วไม่มีสต็อก ขึ้นไว้บนสุด ค้นทีละเยอะๆ จะได้เห็นทันทีว่าตัวไหนไม่มี
+    const missing=terms.filter(t=>!hit.has(t));
+    const missingHtml=missing.length
+      ? `<div class="stock-peek-missing"><div class="stock-peek-missing-head">❌ ไม่มีสต็อก ${missing.length.toLocaleString()} รหัส</div>`+
+        missing.map(t=>`<span class="stock-peek-miss">${esc(t)}${hitDamaged.has(t)?' <small>(มีแค่ตำแหน่งชำรุด)</small>':''}</span>`).join('')+`</div>`
+      : '';
+    // บอกว่าใช้สต็อกจากไหน ดึงเมื่อไหร่ จะได้รู้ว่าข้อมูลสดแค่ไหน
+    const srcHtml=`<div class="stock-peek-src">${stockFromFile()
+      ? 'สต็อกจากไฟล์ '+esc(stockFileName)+' (หน้าตรวจ ORDER กับ Stock)'
+      : 'สต็อกจากฐานข้อมูล ดึงเมื่อ '+(dbAt?new Date(dbAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'-')+(dbLoading?' · ⏳ กำลังดึงใหม่...':'')}</div>`;
+    if(!list.length){ out.innerHTML=srcHtml+missingHtml; return; }
+    out.innerHTML=srcHtml+missingHtml+list.slice(0,MAX_SKUS).map(it=>{
+      const locs=it.locs.sort((a,b)=>a.loc.localeCompare(b.loc,undefined,{numeric:true}))
+        .map(l=>{
+          if(l.damaged) return `<span class="stock-peek-loc is-damaged" title="ตำแหน่งชำรุด ไม่นับเป็นสต็อก">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></span>`;
+          const k=normalizeOrderSku(it.sku)+'@'+l.loc.toUpperCase();
+          const p=picks.get(k);
+          const prefix=(extractCompareLocationPrefixes(l.loc)[0]||'');
+          const isBox=prefix===MOVE_FULL_BOX_PREFIX;
+          const data=`data-peek-key="${encodeURIComponent(k)}" data-sku="${esc(it.sku)}" data-loc="${esc(l.loc)}" data-prefix="${esc(prefix)}" data-max="${l.qty}"`;
+          if(!p) return `<button type="button" class="stock-peek-loc" ${data} title="กดเพื่อเลือกเบิกตำแหน่งนี้">${esc(l.loc)} = <b>${formatPivotNumber(l.qty)}</b></button>`;
+          const qtyField=isBox
+            ? `<b title="ลัง H เบิกทั้งลัง">${formatPivotNumber(p.qty)}</b>`
+            : `<input type="number" class="stock-peek-qty" min="1" max="${l.qty}" step="1" value="${p.qty}" data-peek-key="${encodeURIComponent(k)}" title="จำนวนเบิก (มี ${l.qty})">`;
+          return `<span class="stock-peek-loc is-picked"><button type="button" class="stock-peek-unpick" ${data} title="กดเพื่อยกเลิก">${esc(l.loc)}</button> ${qtyField}<small>/${formatPivotNumber(l.qty)}</small></span>`;
+        }).join('');
+      return `<div class="stock-peek-row"><div class="stock-peek-sku"><b>${esc(it.sku)}</b><span>รวม ${formatPivotNumber(it.total)}</span></div><div class="stock-peek-locs">${locs}</div></div>`;
+    }).join('')+(list.length>MAX_SKUS?`<div class="stock-peek-empty">แสดง ${MAX_SKUS} จาก ${list.length.toLocaleString()} รหัส — พิมพ์ให้เจาะจงขึ้น</div>`:'');
+  }
+
+  // กดตำแหน่ง = เลือก (เริ่มที่จำนวนทั้งหมดในตำแหน่งนั้น) · กดชื่อตำแหน่งที่เลือกแล้ว = ยกเลิก
+  box.addEventListener('click',e=>{
+    const act=e.target.closest('[data-peek-act]');
+    if(act){
+      if(act.dataset.peekAct==='clear'){ picks.clear(); render(); renderBar(); }
+      else if(act.dataset.peekAct==='download') downloadPicks();
+      return;
+    }
+    const b=e.target.closest('.stock-peek-loc[data-peek-key], .stock-peek-unpick');
+    if(!b) return;
+    const k=decodeURIComponent(b.dataset.peekKey);
+    if(picks.has(k)) picks.delete(k);
+    else picks.set(k,{sku:b.dataset.sku, loc:b.dataset.loc, prefix:b.dataset.prefix, max:Number(b.dataset.max)||0, qty:Number(b.dataset.max)||0});
+    const keepScroll=out.scrollTop;
+    render(); renderBar();
+    out.scrollTop=keepScroll;
+  });
+  box.addEventListener('change',e=>{
+    const q=e.target.closest('.stock-peek-qty');
+    if(!q) return;
+    const p=picks.get(decodeURIComponent(q.dataset.peekKey));
+    if(!p) return;
+    p.qty=Math.min(p.max,Math.max(1,Math.floor(Number(q.value)||0)));
+    q.value=p.qty;
+    renderBar();
+  });
+
+  // หน้าต่างลอย: ลากแถบหัวเพื่อย้าย ลากมุมขวาล่างเพื่อย่อ/ขยาย (CSS resize) จำตำแหน่ง/ขนาดไว้ในเบราว์เซอร์
+  const GEO_KEY='stock_peek_geo_v1';
+  const drag=document.getElementById('stockPeekDrag');
+  const closeBtn=document.getElementById('stockPeekClose');
+  function saveGeo(){
+    if(box.hidden) return;
+    const r=box.getBoundingClientRect();
+    try{ localStorage.setItem(GEO_KEY,JSON.stringify({x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height)})); }catch(e){}
+  }
+  function place(x,y){
+    // ไม่ให้หลุดขอบจอ (ทั้งหน้าต่างอยู่ในจอ มุมย่อ/ขยายจะได้จับถึงเสมอ)
+    const r=box.getBoundingClientRect();
+    const nx=Math.min(Math.max(0,x),Math.max(0,window.innerWidth-r.width));
+    const ny=Math.min(Math.max(0,y),Math.max(0,window.innerHeight-r.height));
+    box.style.left=nx+'px'; box.style.top=ny+'px'; box.style.transform='none';
+  }
+  function applyGeo(){
+    let g=null;
+    try{ g=JSON.parse(localStorage.getItem(GEO_KEY)||'null'); }catch(e){ g=null; }
+    if(!g) return;
+    box.style.width=Math.min(g.w,window.innerWidth-16)+'px';
+    box.style.height=Math.min(g.h,window.innerHeight-16)+'px';
+    place(g.x,g.y);
+  }
+  if(drag){
+    drag.addEventListener('pointerdown',e=>{
+      if(e.button!==0 || e.target.closest('button')) return;
+      const r=box.getBoundingClientRect();
+      const dx=e.clientX-r.left, dy=e.clientY-r.top;
+      drag.setPointerCapture(e.pointerId);
+      box.classList.add('is-dragging');
+      const move=ev=>place(ev.clientX-dx,ev.clientY-dy);
+      const up=()=>{ drag.removeEventListener('pointermove',move); drag.removeEventListener('pointerup',up); drag.removeEventListener('pointercancel',up); box.classList.remove('is-dragging'); saveGeo(); };
+      drag.addEventListener('pointermove',move);
+      drag.addEventListener('pointerup',up);
+      drag.addEventListener('pointercancel',up);
+      e.preventDefault();
+    });
+  }
+  // ย่อ/ขยาย: ลากมุมขวาล่าง (◢) จำขนาดใหม่เมื่อปล่อยเมาส์
+  const grip=document.createElement('div');
+  grip.className='stock-peek-grip';
+  grip.title='ลากเพื่อย่อ/ขยาย';
+  box.appendChild(grip);
+  grip.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    const r=box.getBoundingClientRect();
+    // ล็อกตำแหน่งมุมซ้ายบนไว้ก่อน (เผื่อยังจัดกลางด้วย transform อยู่)
+    box.style.left=r.left+'px'; box.style.top=r.top+'px'; box.style.transform='none';
+    const sx=e.clientX, sy=e.clientY, sw=r.width, sh=r.height;
+    grip.setPointerCapture(e.pointerId);
+    const move=ev=>{
+      box.style.width=Math.min(window.innerWidth-r.left-4,Math.max(340,sw+ev.clientX-sx))+'px';
+      box.style.height=Math.min(window.innerHeight-r.top-4,Math.max(180,sh+ev.clientY-sy))+'px';
+    };
+    const up=()=>{ grip.removeEventListener('pointermove',move); grip.removeEventListener('pointerup',up); grip.removeEventListener('pointercancel',up); saveGeo(); };
+    grip.addEventListener('pointermove',move);
+    grip.addEventListener('pointerup',up);
+    grip.addEventListener('pointercancel',up);
+    e.preventDefault();
+  });
+  if(closeBtn) closeBtn.addEventListener('click',()=>close());
+
+  // เปิดทุกครั้ง ดึงสต็อกล่าสุดจากฐานข้อมูลใหม่ (ระหว่างดึงยังค้นด้วยข้อมูลเดิมได้ เสร็จแล้วผลอัปเดตเอง)
+  function open(){ box.hidden=false; applyGeo(); ensureDbRows(true); render(); renderBar(); input.focus(); input.select(); }
+  // ปิดแล้วเริ่มใหม่ทุกครั้ง: ล้างคำค้น ผลค้นหา และตำแหน่งที่เลือกไว้ เปิดครั้งหน้าจะเป็นช่องว่าง
+  function close(){
+    box.hidden=true;
+    if(box.contains(document.activeElement)) document.activeElement.blur();
+    input.value='';
+    box.classList.remove('is-multi');
+    if(bulkBtn) bulkBtn.setAttribute('aria-pressed','false');
+    picks.clear();
+    out.innerHTML='';
+    renderBar();
+  }
+  input.addEventListener('input',render);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ e.preventDefault(); close(); return; }
+    // ช่องปกติ 1 บรรทัด: Enter ไม่ขึ้นบรรทัดใหม่ (โหมดวางหลาย SKU ขึ้นบรรทัดได้)
+    if(e.key==='Enter' && !box.classList.contains('is-multi')) e.preventDefault();
+  });
+  // วางข้อความหลายบรรทัดลงช่อง 1 บรรทัด: ขยายเป็นโหมดหลาย SKU ให้เอง จะได้เห็นครบทุกรหัส
+  input.addEventListener('paste',()=>setTimeout(()=>{ if(/\n/.test(input.value) && !box.classList.contains('is-multi')) setMulti(true); },0));
+
+  // ปุ่มรายการ (ซ้ายของช่องค้นหา): สลับช่องเดียวกันระหว่าง 1 บรรทัด ↔ ขยายวางหลาย SKU
+  const bulkBtn=document.getElementById('stockPeekBulk');
+  function setMulti(on){
+    box.classList.toggle('is-multi',on);
+    if(bulkBtn) bulkBtn.setAttribute('aria-pressed',String(on));
+    if(!on) input.value=input.value.replace(/\s*\n\s*/g,' ').trim();
+    input.focus();
+  }
+  if(bulkBtn) bulkBtn.addEventListener('click',()=>{ setMulti(!box.classList.contains('is-multi')); render(); });
+
+  // ปุ่ม Tab (ไม่กด Shift/Ctrl/Alt ร่วม) = เปิด/ปิด
+  // ตอนกำลังพิมพ์ในช่องอื่นนอกกล่องนี้ (เช่น ช่องวาง ORDER) Tab ยังเลื่อนไปช่องถัดไปตามปกติ ไม่เปิดกล่องทับ
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Tab' || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const a=document.activeElement;
+    if(!box.hidden){ e.preventDefault(); close(); return; }
+    const typingElsewhere=a && !box.contains(a) && (a.tagName==='TEXTAREA' || a.tagName==='SELECT' || (a.tagName==='INPUT' && !/^(checkbox|radio|button|submit)$/i.test(a.type)) || a.isContentEditable);
+    if(typingElsewhere) return;
+    e.preventDefault();
+    open();
+  },true);
+})();

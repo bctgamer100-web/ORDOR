@@ -1,0 +1,8 @@
+{
+  "note": "cross = ตำแหน่ง (เริ่ม 0) ที่มีกากบาทจริงในรูป | baselineMissing/baselineFalse = ความผิดพลาดที่ยอมรับอยู่ตอนนี้ (ถ้าแย่ลงกว่านี้ = ทดสอบไม่ผ่าน)",
+  "cases": [
+    { "file": "fixtures/sheet-a.jpg", "rows": 44, "cross": [33, 36, 41, 42], "baselineMissing": [33], "baselineFalse": [20] },
+    { "file": "fixtures/sheet-b.jpg", "rows": 65, "cross": [6, 21, 23, 25, 30, 44, 45], "baselineMissing": [], "baselineFalse": [40, 51] },
+    { "file": "fixtures/sheet-c.jpg", "rows": 92, "cross": [35, 36, 60, 81, 90], "baselineMissing": [], "baselineFalse": [18, 87] }
+  ]
+}
