@@ -2374,12 +2374,10 @@ function getOrderBrandsInFile() {
   return st ? st.values.filter(v => v !== '') : [];
 }
 
-// คลิปบอร์ดเขียนได้เฉพาะตอนหน้าต่างนี้อยู่ข้างหน้า: เขียนไม่ได้ให้เก็บไว้ แล้วคัดลอกทันทีที่กลับมาที่หน้าต่าง/คลิก
-let orderClipPending = '';
+// คลิปบอร์ดเขียนได้เฉพาะตอนหน้าต่างนี้อยู่ข้างหน้า: เขียนไม่ได้ให้เก็บคิวไว้ แล้วคัดลอกต่อทันทีที่กลับมาที่หน้าต่าง/คลิก
 async function orderCopyText(text) {
   try {
     await navigator.clipboard.writeText(text);
-    orderClipPending = '';
     return true;
   } catch (e) {
     // สำรอง: ตอนที่มีการคลิก/กดแป้นอยู่ execCommand ยังเขียนได้ แม้เบราว์เซอร์ไม่ให้สิทธิ์ clipboard แบบใหม่
@@ -2393,22 +2391,72 @@ async function orderCopyText(text) {
       let ok = false;
       try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
       ta.remove();
-      if (ok) { orderClipPending = ''; return true; }
+      if (ok) return true;
     }
-    orderClipPending = text;
     return false;
   }
 }
+
+// คัดลอกหลายรายการต่อกัน (เว้นช่วงให้ประวัติคลิปบอร์ด Win+V เก็บแยกทีละรายการ) — ค้างไว้ในคิวถ้าหน้าต่างไม่ได้อยู่ข้างหน้า
+const ORDER_CLIP_GAP_MS = 800;
+let orderClipQueue = [];
+let orderClipBusy = false;
+async function flushOrderClipQueue() {
+  if (orderClipBusy || !orderClipQueue.length) return false;
+  orderClipBusy = true;
+  try {
+    while (orderClipQueue.length) {
+      if (!document.hasFocus() || !(await orderCopyText(orderClipQueue[0]))) return false;
+      orderClipQueue.shift();
+      if (orderClipQueue.length) await new Promise(r => setTimeout(r, ORDER_CLIP_GAP_MS));
+    }
+    return true;
+  } finally {
+    orderClipBusy = false;
+  }
+}
+async function orderCopyEntries(entries) {
+  orderClipQueue = entries.filter(Boolean);
+  return flushOrderClipQueue();
+}
 function flushOrderClipPending() {
-  if (!orderClipPending) return;
+  if (!orderClipQueue.length || orderClipBusy) return;
+  const n = orderClipQueue.length;
   setTimeout(async () => {
-    if (orderClipPending && await orderCopyText(orderClipPending) && typeof window.fxToast === 'function') {
-      window.fxToast('คัดลอก Tracking + SKU + จำนวน ของรอบออโต้ปริ้นลงคลิปบอร์ดแล้ว', 'success');
+    if (await flushOrderClipQueue() && typeof window.fxToast === 'function') {
+      window.fxToast(`คัดลอก Tracking / SKU+จำนวน ของรอบออโต้ปริ้นแล้ว ${n.toLocaleString()} รายการ (ดูได้ที่ Win+V)`, 'success');
     }
   }, 100);
 }
 window.addEventListener('focus', flushOrderClipPending);
 document.addEventListener('pointerdown', flushOrderClipPending, true);
+
+// รายการที่จะคัดลอก แยกตามยี่ห้อ (ลำดับเดียวกับ Pivot): [Tracking ยี่ห้อ 1 (ทีละไม่เกิน 100 เลข), SKU⇥จำนวน ยี่ห้อ 1, Tracking ยี่ห้อ 2, ...]
+// คืนตามลำดับที่ควรเห็นใน Win+V จากบนลงล่าง
+function buildOrderAutoClipEntries() {
+  const ti = getOrderTrackingIndex();
+  const skuIndex = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  const groupIndex = getOrderGroupIndex() >= 0 ? getOrderGroupIndex() : skuIndex;
+  const pivot = [...orderPivotRows].sort(compareOrderPivotRows);
+  const brands = [...new Set(pivot.map(r => r.groupName))];
+  const entries = [];
+  brands.forEach(brand => {
+    if (ti >= 0) {
+      const seen = new Set();
+      orderFilteredRows.forEach(row => {
+        if ((normalizeOrderGroupName(row?.[groupIndex]) || '(ว่าง)') !== brand) return;
+        const t = String(row?.[ti] ?? '').trim();
+        if (t) seen.add(t);
+      });
+      const list = [...seen];
+      for (let i = 0; i < list.length; i += 100) entries.push(list.slice(i, i + 100).join('\n'));
+    }
+    const skuLines = pivot.filter(r => r.groupName === brand)
+      .map(r => `${String(r.sku ?? '').replace(/[\t\r\n]+/g, ' ').trim()}\t${formatPivotNumber(r.qty ?? 0)}`);
+    if (skuLines.length) entries.push(skuLines.join('\n'));
+  });
+  return entries;
+}
 
 // brands = ชื่อ SKU Merchant ที่ให้ปริ้น · คืน { ok, msg, parcels, rows, copied }
 async function orderAutoPrint(brands) {
@@ -2436,8 +2484,10 @@ async function orderAutoPrint(brands) {
   const trackRows = buildOrderTrackRows(orderFilteredRows);
   const parcels = new Set(trackRows.map(r => r.tracking)).size;
   printOrderSheet();
-  const copied = await orderCopyText(trackRows.map(r => [r.tracking, r.sku, r.qty].join('\t')).join('\n'));
-  return { ok: true, msg: '', parcels, rows: orderFilteredRows.length, copied };
+  // เขียนกลับด้าน: รายการที่คัดลอกล่าสุดอยู่บนสุดของ Win+V → ยี่ห้อแรก (Tracking) จะอยู่บนสุด
+  const entries = buildOrderAutoClipEntries();
+  const copied = await orderCopyEntries(entries.slice().reverse());
+  return { ok: true, msg: '', parcels, rows: orderFilteredRows.length, copied, clips: entries.length };
 }
 window.orderAutoPrint = orderAutoPrint;
 window.getOrderBrandsInFile = getOrderBrandsInFile;

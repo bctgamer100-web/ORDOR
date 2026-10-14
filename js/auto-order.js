@@ -149,7 +149,9 @@
     try { r = await window.orderAutoPrint(s.brands); } catch (err) { r = { ok: false, msg: err && err.message || String(err) }; }
     if (!r.ok) { apInfoText('❌ ' + when + ' ' + r.msg); toast('ออโต้ปริ้นไม่สำเร็จ: ' + r.msg, ''); return; }
     if (!r.parcels) { apInfoText('✅ ' + when + ' ' + r.msg); return; }
-    const clip = r.copied ? 'คัดลอก Tracking/SKU/จำนวน แล้ว' : 'กลับมาที่หน้าต่างนี้แล้วจะคัดลอก Tracking/SKU/จำนวน ให้เอง';
+    const clip = r.copied
+      ? 'คัดลอก Tracking / SKU+จำนวน แล้ว ' + r.clips + ' รายการ (Win+V)'
+      : 'คลิกที่หน้าต่างนี้แล้วจะคัดลอก Tracking / SKU+จำนวน ' + r.clips + ' รายการให้เอง';
     apInfoText('✅ ' + when + ' ปริ้น ' + r.parcels.toLocaleString() + ' พัสดุ (' + r.rows.toLocaleString() + ' แถว) · ' + clip);
     toast('ออโต้ปริ้น ' + r.parcels.toLocaleString() + ' พัสดุแล้ว · ' + clip, 'success');
   }
