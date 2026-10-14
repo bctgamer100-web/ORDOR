@@ -44,10 +44,11 @@
     await window.loadOrderFile(file);
     setStatus('✅ โหลด "' + d.name + '" แล้ว');
     toast('โหลดไฟล์ "' + d.name + '" เข้าหน้า รับORDER อัตโนมัติแล้ว', 'success');
-    if (d.scheduled) await runAutoPrint(d);
+    // ออโต้ปริ้นเฉพาะไฟล์จากรอบตั้งเวลา (scheduled) หรือจากปุ่ม ⚡ (fromButton) — ลาก/เลือกไฟล์เองไม่ผ่านฟังก์ชันนี้
+    if (d.scheduled || d.fromButton) await runAutoPrint(d);
   }
 
-  /* ----- ออโต้ปริ้น: เฉพาะไฟล์จากรอบตั้งเวลา (ตั้งแยกตามเครื่อง เก็บใน localStorage) ----- */
+  /* ----- ออโต้ปริ้น: เฉพาะไฟล์จากรอบตั้งเวลา + ปุ่ม ⚡ โหลดจาก BigSeller (ตั้งแยกตามเครื่อง เก็บใน localStorage) ----- */
   const AP_KEY = 'order_auto_print_v1';          // { enabled, brands: [...] }
   const AP_KNOWN_KEY = 'order_known_brands_v1';  // ยี่ห้อที่เคยเห็นในไฟล์ (ไว้เลือกได้แม้ยังไม่ได้โหลดไฟล์)
   const AP_MAX_AGE = 30 * 60 * 1000;             // ไฟล์ที่ค้างรอนานกว่านี้ (เช่น เปิดหน้าทีหลัง) ไม่ปริ้นเอง
@@ -126,7 +127,7 @@
       cur.enabled = apChk.checked;
       apSave(cur);
       if (cur.enabled && !cur.brands.length) { apInfoText('เลือกยี่ห้อที่จะปริ้นก่อน'); if (apBrands) apBrands.open = true; }
-      else apInfoText(cur.enabled ? 'เปิดแล้ว: ไฟล์จากรอบตั้งเวลาจะปริ้นเอง' : '');
+      else apInfoText(cur.enabled ? 'เปิดแล้ว: ไฟล์จากรอบตั้งเวลา / ปุ่ม ⚡ จะปริ้นเอง' : '');
     });
   }
   if (apBrands) apBrands.addEventListener('toggle', function () { if (apBrands.open) apRenderList(); });
@@ -290,7 +291,7 @@
       if (d.type === 'error') { finish(); setStatus('❌ ' + d.error); return; }
       if (d.type === 'file' && d.b64 && d.name) {
         finish();
-        receive(d).catch(function (err) { setStatus('❌ โหลดไฟล์ไม่สำเร็จ: ' + (err && err.message || err)); });
+        receive(Object.assign({}, d, { fromButton: true })).catch(function (err) { setStatus('❌ โหลดไฟล์ไม่สำเร็จ: ' + (err && err.message || err)); });
       }
       return;
     }
