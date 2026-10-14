@@ -2398,7 +2398,7 @@ async function orderCopyText(text) {
 }
 
 // คัดลอกหลายรายการต่อกัน (เว้นช่วงให้ประวัติคลิปบอร์ด Win+V เก็บแยกทีละรายการ) — ค้างไว้ในคิวถ้าหน้าต่างไม่ได้อยู่ข้างหน้า
-const ORDER_CLIP_GAP_MS = 800;
+const ORDER_CLIP_GAP_MS = 500;
 let orderClipQueue = [];
 let orderClipBusy = false;
 async function flushOrderClipQueue() {
