@@ -2220,10 +2220,11 @@
       return res.data;
     },
     // ฐานข้อมูล Tracking + SKU + จำนวน กันออเดอร์ซ้ำ — ต้องรัน supabase/op_order_track.sql ก่อน
-    // trackCheck(trackings: ['TH1', ...], batch) เช็กอย่างเดียว คืนเลขที่เคยปริ้นจากไฟล์อื่น → [{ tracking, file_name, seen_at, items }]
+    // trackCheck(keys: [{ tracking, sku_key }], batch) เช็กอย่างเดียว คืนคู่ Tracking + SKU ที่เคยปริ้นจากไฟล์อื่น
+    // → [{ tracking, sku_key, sku, qty, file_name, seen_at }]
     // trackRecord(rows: [{ tracking, sku_key, sku, qty }], batch, fileName) บันทึกตอนกดปริ้น → จำนวนแถวที่เพิ่มใหม่
-    trackCheck: async function (trackings, batch) {
-      const res = await sb().rpc('op_track_check', { p_trackings: trackings, p_batch: batch });
+    trackCheck: async function (keys, batch) {
+      const res = await sb().rpc('op_track_check', { p_keys: keys, p_batch: batch });
       if (res.error) throw new Error(res.error.message);
       return res.data || [];
     },

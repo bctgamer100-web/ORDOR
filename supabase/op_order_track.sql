@@ -1,5 +1,5 @@
 -- ฐานข้อมูลเลข Tracking + SKU + จำนวน ของออเดอร์ที่เคยกด "ปริ้น ORDER (Pivot)" ในหน้า "รับORDER" ใช้ร่วมกันทุกเครื่อง
--- ใช้กันออเดอร์ซ้ำ: โหลดไฟล์ใหม่แล้วเลข Tracking ไหนเคยปริ้นไปแล้ว (จากไฟล์อื่น) หน้าเว็บจะแจ้งเตือน + ซ่อนแถวที่ซ้ำได้
+-- ใช้กันออเดอร์ซ้ำ: โหลดไฟล์ใหม่แล้วแถวไหน (Tracking + SKU) เคยปริ้นไปแล้ว (จากไฟล์อื่น) หน้าเว็บจะแจ้งเตือน + ซ่อนแถวที่ซ้ำได้
 -- เก็บ 90 วัน: แถวที่เก่ากว่านั้นถูกลบตอนมีการบันทึกครั้งถัดไป
 -- รันใน Supabase > SQL Editor ครั้งเดียว (รันซ้ำได้ ไม่เสียหาย)
 --
@@ -23,27 +23,30 @@ create index if not exists op_order_track_seen on public.op_order_track (seen_at
 alter table public.op_order_track enable row level security;
 revoke all on public.op_order_track from anon, authenticated;
 
--- เวอร์ชันแรกเช็ก+บันทึกในฟังก์ชันเดียว (ตอนโหลดไฟล์) — ตอนนี้แยกเป็น op_track_check (โหลดไฟล์) / op_track_record (กดปริ้น)
+-- เวอร์ชันก่อนๆ: เช็ก+บันทึกในฟังก์ชันเดียว / เช็กด้วยเลข Tracking อย่างเดียว — ตอนนี้เช็กด้วย Tracking + SKU
 drop function if exists public.op_track_check(jsonb, text, text);
+drop function if exists public.op_track_check(text[], text);
 
--- เช็กซ้ำตอนโหลดไฟล์ (ไม่บันทึกอะไร)
---   p_trackings = ["TH123", "TH456", ...] เลข Tracking ทั้งหมดในไฟล์ · p_batch = รหัสเนื้อหาไฟล์
--- คืนเลข Tracking ที่ "เคยปริ้นแล้วจากไฟล์อื่น" (คนละ batch) พร้อมไฟล์/เวลาที่ปริ้นครั้งแรก และรายการ SKU ที่บันทึกไว้ตอนนั้น
-create or replace function public.op_track_check(p_trackings text[], p_batch text)
-returns table (tracking text, file_name text, seen_at timestamptz, items text)
+-- เช็กซ้ำตอนโหลดไฟล์ (ไม่บันทึกอะไร) เทียบทีละคู่ Tracking + SKU
+-- (พัสดุเดียวมีหลายยี่ห้อได้: ปริ้นไปแค่บางยี่ห้อ SKU ที่เหลือในพัสดุนั้นต้องไม่ถูกนับว่าซ้ำ)
+--   p_keys  = [{ "tracking": "TH123", "sku_key": "ABC-1" }, ...] ทุกคู่ในไฟล์ · p_batch = รหัสเนื้อหาไฟล์
+-- คืนคู่ที่ "เคยปริ้นแล้วจากไฟล์อื่น" (คนละ batch) พร้อมจำนวน/ไฟล์/เวลาที่ปริ้นครั้งแรก
+create or replace function public.op_track_check(p_keys jsonb, p_batch text)
+returns table (tracking text, sku_key text, sku text, qty numeric, file_name text, seen_at timestamptz)
 language sql
 security definer
 set search_path = public
 stable
 as $$
-  select t.tracking, min(t.file_name), min(t.seen_at),
-         string_agg(t.sku || ' x' || t.qty::float8::text, ', ' order by t.sku)
+  select t.tracking, t.sku_key, t.sku, t.qty, t.file_name, t.seen_at
   from public.op_order_track t
-  where t.tracking = any (p_trackings)
-    and t.batch <> coalesce(p_batch, '')
+  join (select distinct btrim(x.tracking) as tracking, x.sku_key
+        from jsonb_to_recordset(case when jsonb_typeof(p_keys) = 'array' then p_keys else '[]'::jsonb end)
+             as x(tracking text, sku_key text)) k
+    on k.tracking = t.tracking and k.sku_key = t.sku_key
+  where t.batch <> coalesce(p_batch, '')
     and t.seen_at >= now() - interval '90 days'
-  group by t.tracking
-  order by min(t.seen_at), t.tracking;
+  order by t.seen_at, t.tracking, t.sku;
 $$;
 
 -- บันทึกตอนกดปริ้น ORDER: p_rows = [{ "tracking": "TH123", "sku_key": "ABC-1", "sku": "abc-1", "qty": 2 }, ...]
@@ -98,9 +101,9 @@ as $$
   limit 200;
 $$;
 
-revoke all on function public.op_track_check(text[], text) from public;
+revoke all on function public.op_track_check(jsonb, text) from public;
 revoke all on function public.op_track_record(jsonb, text, text) from public;
 revoke all on function public.op_track_find(text) from public;
-grant execute on function public.op_track_check(text[], text) to anon, authenticated;
+grant execute on function public.op_track_check(jsonb, text) to anon, authenticated;
 grant execute on function public.op_track_record(jsonb, text, text) to anon, authenticated;
 grant execute on function public.op_track_find(text) to anon, authenticated;

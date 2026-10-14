@@ -2256,9 +2256,9 @@ async function checkOrderDuplicates(fileName) {
   if (!window.SunStock || !window.SunStock.trackCheck) { renderOrderDup('เช็กออเดอร์ซ้ำไม่ได้: ยังโหลดระบบฐานข้อมูลไม่เสร็จ'); return; }
   renderOrderDup('⏳ กำลังเช็กออเดอร์ซ้ำกับฐานข้อมูล...');
   try {
-    const dups = await window.SunStock.trackCheck([...new Set(rows.map(r => r.tracking))], orderDupBatch);
+    const dups = await window.SunStock.trackCheck(rows.map(r => ({ tracking: r.tracking, sku_key: r.sku_key })), orderDupBatch);
     if (seq !== orderDupSeq) return;
-    orderDupTracking = new Map(dups.map(d => [String(d.tracking), d]));
+    orderDupTracking = new Map(dups.map(d => [orderDupKey(d.tracking, d.sku_key), d]));
     renderOrderDup();
     if (orderDupTracking.size && orderDupHide) applyOrderFilters();
   } catch (e) {
@@ -2270,8 +2270,21 @@ async function checkOrderDuplicates(fileName) {
   }
 }
 
-function isOrderRowDuplicate(row, trackingIndex) {
-  return trackingIndex >= 0 && orderDupTracking.has(String(row?.[trackingIndex] ?? '').trim());
+function orderDupKey(tracking, skuKey) {
+  return String(tracking ?? '').trim() + '\u0001' + skuKey;
+}
+
+// คอลัมน์ที่ใช้เทียบซ้ำ (Tracking + SKU) หรือ null ถ้าไม่มีอะไรต้องซ่อน — เรียกครั้งเดียวก่อนวนแถว
+function getOrderDupCols() {
+  if (!orderDupTracking.size) return null;
+  const ti = getOrderTrackingIndex();
+  const si = getOrderSkuIndex() >= 0 ? getOrderSkuIndex() : ORDER_PIVOT_SKU_INDEX;
+  return ti >= 0 ? { ti, si } : null;
+}
+
+// แถวนี้ (Tracking + SKU) เคยปริ้นแล้วจากไฟล์อื่น — SKU อื่นในพัสดุเดียวกันที่ยังไม่ปริ้นไม่นับ
+function isOrderRowDuplicate(row, cols) {
+  return !!cols && orderDupTracking.has(orderDupKey(row?.[cols.ti], normalizeOrderSku(row?.[cols.si])));
 }
 
 function renderOrderDup(note) {
@@ -2289,26 +2302,27 @@ function renderOrderDup(note) {
     box.textContent = '✅ ไม่มีออเดอร์ซ้ำ (เลข Tracking จะบันทึกลงฐานข้อมูลตอนกดปริ้น ORDER)';
     return;
   }
-  const trackingIndex = getOrderTrackingIndex();
-  const dupRows = orderRows.slice(1).filter(r => isOrderRowDuplicate(r, trackingIndex)).length;
+  const cols = getOrderDupCols();
+  const dupRows = orderRows.slice(1).filter(r => isOrderRowDuplicate(r, cols)).length;
+  const dupTrackings = [...new Set([...orderDupTracking.values()].map(d => String(d.tracking)))];
   const fmt = v => { try { return new Date(v).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } };
   const list = [...orderDupTracking.values()].map(d =>
-    `<tr><td>${esc(d.tracking)}</td><td>${esc(d.items || '')}</td><td>${esc(fmt(d.seen_at))}</td><td>${esc(d.file_name || '')}</td></tr>`
+    `<tr><td>${esc(d.tracking)}</td><td>${esc(d.sku)}</td><td>${esc(Number(d.qty).toLocaleString())}</td><td>${esc(fmt(d.seen_at))}</td><td>${esc(d.file_name || '')}</td></tr>`
   ).join('');
   box.hidden = false;
   box.className = 'order-dup is-warn';
   box.innerHTML =
     `<div class="order-dup-head">` +
-      `<strong>⚠️ ออเดอร์ซ้ำ ${orderDupTracking.size.toLocaleString()} พัสดุ (${dupRows.toLocaleString()} แถว) เคยปริ้นไปแล้วจากไฟล์ก่อนหน้า</strong>` +
+      `<strong>⚠️ ออเดอร์ซ้ำ ${dupRows.toLocaleString()} แถว (${dupTrackings.length.toLocaleString()} พัสดุ) เคยปริ้นไปแล้วจากไฟล์ก่อนหน้า</strong>` +
       `<label><input type="checkbox" id="orderDupHide"${orderDupHide ? ' checked' : ''}> ซ่อนแถวที่ซ้ำ (ไม่นับใน Pivot/ปริ้น)</label>` +
       `<button type="button" id="orderDupCopy">📋 คัดลอกเลขที่ซ้ำ</button>` +
     `</div>` +
     `<details><summary>ดูรายการ</summary><div class="order-dup-list"><table>` +
-      `<thead><tr><th>Tracking</th><th>SKU ที่ปริ้นไปแล้ว</th><th>ปริ้นเมื่อ</th><th>ไฟล์</th></tr></thead><tbody>${list}</tbody>` +
+      `<thead><tr><th>Tracking</th><th>SKU ที่ปริ้นไปแล้ว</th><th>จำนวน</th><th>ปริ้นเมื่อ</th><th>ไฟล์</th></tr></thead><tbody>${list}</tbody>` +
     `</table></div></details>`;
   box.querySelector('#orderDupHide').onchange = e => { orderDupHide = e.target.checked; applyOrderFilters(); };
   box.querySelector('#orderDupCopy').onclick = async e => {
-    const text = [...orderDupTracking.keys()].join('\n');
+    const text = dupTrackings.join('\n');
     try { await navigator.clipboard.writeText(text); e.target.textContent = '✅ คัดลอกแล้ว'; }
     catch (err) { prompt('คัดลอกเลข Tracking ที่ซ้ำ:', text.replace(/\n/g, ' ')); }
   };
@@ -2526,9 +2540,9 @@ function buildOrderFilters() {
 function applyOrderFilters() {
   if (!orderRows.length) return;
 
-  const dupTrackingIndex = orderDupHide && orderDupTracking.size ? getOrderTrackingIndex() : -1;
+  const dupCols = orderDupHide ? getOrderDupCols() : null;
   orderFilteredRows = orderRows.slice(1).filter(row => {
-    if (isOrderRowDuplicate(row, dupTrackingIndex)) return false;
+    if (isOrderRowDuplicate(row, dupCols)) return false;
     return orderFiltersState.every(state => {
       const value = String(row?.[state.colIndex] ?? "");
       return state.selected.has(value);
@@ -2540,7 +2554,7 @@ function applyOrderFilters() {
   orderFilterSummary.textContent =
     `แสดง ${orderFilteredRows.length.toLocaleString()} / ${Math.max(0, orderRows.length - 1).toLocaleString()} รายการ` +
     (orderFilteredRows.length > 1000 ? " | ตารางตัวอย่างแสดง 1,000 รายการแรก" : "") +
-    (dupTrackingIndex >= 0 ? " | ซ่อนออเดอร์ซ้ำแล้ว" : "");
+    (dupCols ? " | ซ่อนออเดอร์ซ้ำแล้ว" : "");
 
   buildOrderPivot();
   buildOrderSummary();
