@@ -3079,3 +3079,15 @@ html[data-prod-theme="light"] #stockPeek .stock-peek-missing-head{color:#b91c1c}
 #orderTool .order-dup-list{max-height:260px;overflow:auto;margin-top:6px}
 #orderTool .order-dup-list table{width:100%;border-collapse:collapse;font-size:13px}
 #orderTool .order-dup-list th,#orderTool .order-dup-list td{padding:4px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+
+/* ===== ออโต้ปริ้น (#orderAutoPrintBox ในแผง โหลดจาก BigSeller) ===== */
+#orderTool .order-autoprint{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:13px;margin-top:4px;padding-top:8px;border-top:1px dashed rgba(128,128,128,.35);width:100%}
+#orderTool .order-autoprint>label{display:flex;align-items:center;gap:6px;cursor:pointer}
+#orderTool .order-autoprint details{text-align:right}
+#orderTool .order-autoprint summary{cursor:pointer;color:var(--muted)}
+#orderTool .order-autoprint-actions{display:flex;gap:6px;justify-content:flex-end;margin:6px 0}
+#orderTool .order-autoprint-actions button{padding:3px 9px;border-radius:8px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer;font-size:12px}
+#orderTool .order-autoprint-list{display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-height:220px;overflow:auto;padding:6px 10px;border:1px solid var(--border);border-radius:8px;text-align:left;min-width:200px}
+#orderTool .order-autoprint-list label{display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+#orderTool .order-autoprint-list .muted{color:var(--muted);font-size:12px;white-space:normal}
+#orderTool #orderAutoPrintInfo{font-size:12px;opacity:.8;text-align:right}

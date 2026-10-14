@@ -2142,6 +2142,7 @@ async function loadOrderFile(file) {
   orderDupTracking = new Map(); // ผลเช็กซ้ำของไฟล์ก่อนห้ามติดมากับไฟล์ใหม่
   orderDupSeq++;
   orderDupReady = false;
+  orderDupPromise = null;
   orderDupInView = [];
   renderOrderDup('');
   try {
@@ -2198,7 +2199,7 @@ async function loadOrderFile(file) {
       document.getElementById("orderBar").style.width = "0%";
     }, 400);
 
-    checkOrderDuplicates(file.name); // ไม่ต้องรอ: ผลมาแล้วจะซ่อนแถวที่ซ้ำให้เอง
+    orderDupPromise = checkOrderDuplicates(file.name); // ไม่ต้องรอ: ผลมาแล้วจะซ่อนแถวที่ซ้ำให้เอง (ออโต้ปริ้นรอ promise นี้)
 
   } catch (err) {
     document.getElementById("orderBar").style.width = "0%";
@@ -2217,6 +2218,7 @@ let orderDupBatch = '';   // รหัสเนื้อหาไฟล์ที
 let orderDupFile = '';
 let orderDupReady = false; // เช็กกับฐานข้อมูลเสร็จแล้ว (กล่องเตือนวาดใหม่ตามตัวกรองทุกครั้ง)
 let orderDupInView = [];   // แถวที่ซ้ำ เฉพาะที่ผ่านตัวกรองที่เลือกอยู่ (ยี่ห้อ/SKU/...)
+let orderDupPromise = null; // การเช็กซ้ำของไฟล์ที่โหลดล่าสุด (ออโต้ปริ้นต้องรอให้เสร็จก่อน)
 
 // 1 แถวต่อ SKU ต่อพัสดุ (รวมจำนวนถ้ามีหลายแถว) จากแถวข้อมูลที่ส่งมา (ไม่รวมหัวตาราง)
 function buildOrderTrackRows(dataRows) {
@@ -2363,6 +2365,82 @@ async function recordOrderPrint() {
       : '❌ บันทึก Tracking ที่ปริ้นไม่สำเร็จ (ตรวจอินเทอร์เน็ตแล้วกดปริ้นใหม่): ' + msg;
   }
 }
+
+/* ===== ออโต้ปริ้น (เรียกจาก js/auto-order.js เมื่อไฟล์จากรอบตั้งเวลาเข้ามา) =====
+   รอเช็กซ้ำ → กรองเฉพาะยี่ห้อที่ตั้งไว้ + ซ่อนแถวที่เคยปริ้นแล้ว → ปริ้น (บันทึกลงฐานข้อมูลในตัว) → คัดลอก Tracking/SKU/จำนวน */
+function getOrderBrandsInFile() {
+  const gi = getOrderGroupIndex();
+  const st = orderFiltersState.find(s => s.colIndex === gi);
+  return st ? st.values.filter(v => v !== '') : [];
+}
+
+// คลิปบอร์ดเขียนได้เฉพาะตอนหน้าต่างนี้อยู่ข้างหน้า: เขียนไม่ได้ให้เก็บไว้ แล้วคัดลอกทันทีที่กลับมาที่หน้าต่าง/คลิก
+let orderClipPending = '';
+async function orderCopyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    orderClipPending = '';
+    return true;
+  } catch (e) {
+    // สำรอง: ตอนที่มีการคลิก/กดแป้นอยู่ execCommand ยังเขียนได้ แม้เบราว์เซอร์ไม่ให้สิทธิ์ clipboard แบบใหม่
+    if (navigator.userActivation && navigator.userActivation.isActive) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+      ta.remove();
+      if (ok) { orderClipPending = ''; return true; }
+    }
+    orderClipPending = text;
+    return false;
+  }
+}
+function flushOrderClipPending() {
+  if (!orderClipPending) return;
+  setTimeout(async () => {
+    if (orderClipPending && await orderCopyText(orderClipPending) && typeof window.fxToast === 'function') {
+      window.fxToast('คัดลอก Tracking + SKU + จำนวน ของรอบออโต้ปริ้นลงคลิปบอร์ดแล้ว', 'success');
+    }
+  }, 100);
+}
+window.addEventListener('focus', flushOrderClipPending);
+document.addEventListener('pointerdown', flushOrderClipPending, true);
+
+// brands = ชื่อ SKU Merchant ที่ให้ปริ้น · คืน { ok, msg, parcels, rows, copied }
+async function orderAutoPrint(brands) {
+  if (!orderRows.length) return { ok: false, msg: 'ยังไม่มีไฟล์ ORDER' };
+  if (orderDupPromise) await orderDupPromise;
+  if (!orderDupReady) return { ok: false, msg: 'เช็กออเดอร์ซ้ำไม่สำเร็จ จึงไม่ปริ้นอัตโนมัติ (กันปริ้นซ้ำ) — ดูข้อความในกล่องเช็กซ้ำ' };
+  const gi = getOrderGroupIndex();
+  const groupState = orderFiltersState.find(s => s.colIndex === gi);
+  if (!groupState) return { ok: false, msg: 'ไม่พบคอลัมน์ "ชื่อ SKU Merchant" ในไฟล์' };
+
+  const want = new Set(brands || []);
+  orderFiltersState.forEach(s => {
+    s.selected = new Set(s === groupState ? s.values.filter(v => want.has(v)) : s.values);
+    if (s.searchEl) s.searchEl.value = '';
+  });
+  orderDupHide = true;
+  orderBrandDeselected.clear();
+  orderTrackingBrandDeselected.clear();
+  applyOrderFilters();
+  orderFiltersState.forEach(s => { if (typeof s.renderValues === 'function') s.renderValues(); });
+  if (typeof renderOrderBrandPicker === 'function') renderOrderBrandPicker();
+
+  if (!orderFilteredRows.length) return { ok: true, msg: 'ไม่มีรายการใหม่ของยี่ห้อที่ตั้งไว้ จึงไม่ได้ปริ้น', parcels: 0, rows: 0 };
+
+  const trackRows = buildOrderTrackRows(orderFilteredRows);
+  const parcels = new Set(trackRows.map(r => r.tracking)).size;
+  printOrderSheet();
+  const copied = await orderCopyText(trackRows.map(r => [r.tracking, r.sku, r.qty].join('\t')).join('\n'));
+  return { ok: true, msg: '', parcels, rows: orderFilteredRows.length, copied };
+}
+window.orderAutoPrint = orderAutoPrint;
+window.getOrderBrandsInFile = getOrderBrandsInFile;
 
 function setupOrderColumns() {
   // ไม่ต้องตั้งค่าคอลัมน์จากหน้าเว็บอีกต่อไป
@@ -4035,6 +4113,7 @@ orderClearBtn.onclick = () => {
   orderDupTracking = new Map();
   orderDupSeq++;
   orderDupReady = false;
+  orderDupPromise = null;
   orderDupInView = [];
   renderOrderDup('');
   orderInput.value = "";

@@ -44,6 +44,113 @@
     await window.loadOrderFile(file);
     setStatus('✅ โหลด "' + d.name + '" แล้ว');
     toast('โหลดไฟล์ "' + d.name + '" เข้าหน้า รับORDER อัตโนมัติแล้ว', 'success');
+    if (d.scheduled) await runAutoPrint(d);
+  }
+
+  /* ----- ออโต้ปริ้น: เฉพาะไฟล์จากรอบตั้งเวลา (ตั้งแยกตามเครื่อง เก็บใน localStorage) ----- */
+  const AP_KEY = 'order_auto_print_v1';          // { enabled, brands: [...] }
+  const AP_KNOWN_KEY = 'order_known_brands_v1';  // ยี่ห้อที่เคยเห็นในไฟล์ (ไว้เลือกได้แม้ยังไม่ได้โหลดไฟล์)
+  const AP_MAX_AGE = 30 * 60 * 1000;             // ไฟล์ที่ค้างรอนานกว่านี้ (เช่น เปิดหน้าทีหลัง) ไม่ปริ้นเอง
+  const apChk = document.getElementById('orderAutoPrint');
+  const apBrands = document.getElementById('orderAutoPrintBrands');
+  const apList = document.getElementById('orderAutoPrintList');
+  const apCount = document.getElementById('orderAutoPrintCount');
+  const apInfo = document.getElementById('orderAutoPrintInfo');
+
+  function readJson(key, fallback) {
+    try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? fallback : v; } catch (e) { return fallback; }
+  }
+  function writeJson(key, v) {
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* ไม่กระทบ */ }
+  }
+  function apSettings() {
+    const s = readJson(AP_KEY, {});
+    return { enabled: !!s.enabled, brands: Array.isArray(s.brands) ? s.brands : [] };
+  }
+  function apSave(s) { writeJson(AP_KEY, s); apSummary(); }
+  function apInfoText(text) { if (apInfo) apInfo.textContent = text || ''; }
+
+  // ยี่ห้อที่เลือกได้ = เคยเห็น + ในไฟล์ที่เปิดอยู่ + ที่ตั้งไว้แล้ว
+  function apAllBrands() {
+    const inFile = typeof window.getOrderBrandsInFile === 'function' ? window.getOrderBrandsInFile() : [];
+    const known = readJson(AP_KNOWN_KEY, []);
+    const merged = Array.from(new Set([].concat(known, inFile, apSettings().brands))).filter(Boolean).sort(function (a, b) { return a.localeCompare(b, 'th'); });
+    if (merged.length !== known.length) writeJson(AP_KNOWN_KEY, merged);
+    return merged;
+  }
+  function apSummary() {
+    const s = apSettings();
+    if (apChk) apChk.checked = s.enabled;
+    if (apCount) apCount.textContent = s.brands.length ? s.brands.length + ' ยี่ห้อ' : 'ยังไม่ได้เลือก';
+  }
+  function apRenderList() {
+    if (!apList) return;
+    const s = apSettings();
+    const chosen = new Set(s.brands);
+    const all = apAllBrands();
+    apList.textContent = '';
+    if (!all.length) {
+      const p = document.createElement('span');
+      p.className = 'muted';
+      p.textContent = 'โหลดไฟล์ ORDER สักครั้งก่อน รายชื่อยี่ห้อจะขึ้นที่นี่';
+      apList.appendChild(p);
+      return;
+    }
+    all.forEach(function (b) {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = chosen.has(b);
+      cb.addEventListener('change', function () {
+        const cur = apSettings();
+        const set = new Set(cur.brands);
+        if (cb.checked) set.add(b); else set.delete(b);
+        cur.brands = Array.from(set);
+        apSave(cur);
+      });
+      label.append(cb, document.createTextNode(' ' + b));
+      apList.appendChild(label);
+    });
+  }
+  function apSetAll(on) {
+    const cur = apSettings();
+    cur.brands = on ? apAllBrands() : [];
+    apSave(cur);
+    apRenderList();
+  }
+
+  if (apChk) {
+    apSummary();
+    apChk.addEventListener('change', function () {
+      const cur = apSettings();
+      cur.enabled = apChk.checked;
+      apSave(cur);
+      if (cur.enabled && !cur.brands.length) { apInfoText('เลือกยี่ห้อที่จะปริ้นก่อน'); if (apBrands) apBrands.open = true; }
+      else apInfoText(cur.enabled ? 'เปิดแล้ว: ไฟล์จากรอบตั้งเวลาจะปริ้นเอง' : '');
+    });
+  }
+  if (apBrands) apBrands.addEventListener('toggle', function () { if (apBrands.open) apRenderList(); });
+  const apAll = document.getElementById('orderAutoPrintAll');
+  const apNone = document.getElementById('orderAutoPrintNone');
+  if (apAll) apAll.addEventListener('click', function () { apSetAll(true); });
+  if (apNone) apNone.addEventListener('click', function () { apSetAll(false); });
+
+  async function runAutoPrint(d) {
+    apAllBrands(); // จำยี่ห้อในไฟล์นี้ไว้ให้เลือกครั้งหน้า
+    const s = apSettings();
+    if (!s.enabled) return;
+    const when = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    if (d.at && Date.now() - d.at > AP_MAX_AGE) { apInfoText('⏭️ ' + when + ' ไม่ปริ้น: ไฟล์ค้างรอนานเกิน 30 นาที'); return; }
+    if (!s.brands.length) { apInfoText('⚠️ ' + when + ' ไม่ปริ้น: ยังไม่ได้เลือกยี่ห้อ'); return; }
+    if (typeof window.orderAutoPrint !== 'function') return;
+    apInfoText('⏳ กำลังเช็กซ้ำและปริ้นอัตโนมัติ...');
+    let r;
+    try { r = await window.orderAutoPrint(s.brands); } catch (err) { r = { ok: false, msg: err && err.message || String(err) }; }
+    if (!r.ok) { apInfoText('❌ ' + when + ' ' + r.msg); toast('ออโต้ปริ้นไม่สำเร็จ: ' + r.msg, ''); return; }
+    if (!r.parcels) { apInfoText('✅ ' + when + ' ' + r.msg); return; }
+    const clip = r.copied ? 'คัดลอก Tracking/SKU/จำนวน แล้ว' : 'กลับมาที่หน้าต่างนี้แล้วจะคัดลอก Tracking/SKU/จำนวน ให้เอง';
+    apInfoText('✅ ' + when + ' ปริ้น ' + r.parcels.toLocaleString() + ' พัสดุ (' + r.rows.toLocaleString() + ' แถว) · ' + clip);
+    toast('ออโต้ปริ้น ' + r.parcels.toLocaleString() + ' พัสดุแล้ว · ' + clip, 'success');
   }
 
   function finish() {

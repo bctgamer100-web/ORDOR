@@ -40,7 +40,7 @@
     window.postMessage({
       source: 'order-autoload',
       type: msg.type === 'orderFile' ? 'file' : 'error',
-      name: msg.name, b64: msg.b64, error: msg.error
+      name: msg.name, b64: msg.b64, error: msg.error, scheduled: !!msg.scheduled, at: msg.at || 0
     }, '*');
   });
   // หน้าเว็บโหลดเสร็จแล้ว (สคริปต์หน้าพร้อมรับข้อความ) ค่อยขอไฟล์ที่ค้างรออยู่

@@ -629,7 +629,8 @@ async function runScheduledOrder(modes) {
     for (const mode of (modes && modes.length ? modes : ['ord'])) {
       const rec = await exportViaTab(function () {}, mode === 'ordu' ? 'ordu' : 'ord');
       const f = await readDownload(rec);
-      const message = { type: 'orderFile', name: f.name, b64: bytesToB64(f.bytes), at: Date.now() };
+      // scheduled = มาจากรอบตั้งเวลา: หน้าเว็บใช้ตัดสินใจออโต้ปริ้น (ไฟล์ที่โหลดเอง/กดปุ่มไม่ปริ้นเอง)
+      const message = { type: 'orderFile', name: f.name, b64: bytesToB64(f.bytes), at: Date.now(), scheduled: true };
       if (!(await sendToOrderPages(message))) await chrome.storage.local.set({ orderPending: message });
       names.push(f.name);
     }
